@@ -20,10 +20,13 @@ Suggests:
     dplyr,
     flextable,
     ggplot2,
-		here,
+    ggraph,
+    here,
+    igraph,
     knitr,
     rmarkdown,
     tidyr
 VignetteBuilder: knitr
 Imports: 
     cli,
+    rlang

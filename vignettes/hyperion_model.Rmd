@@ -97,6 +97,13 @@ copy_model(
 # Check Model
 
 ```{r}
-get_model_summary("~/Documents/pharos/nonmem-examples/example99135vc_FOCEI_PropEst_Add0Dix/")
+example_tree <- get_model_lineage("test_data/models/nonmem/")
+
+example_tree
 ```
 
+```{r}
+example_tree |> plot_hyperion_tree()
+
+plot_hyperion_tree(example_tree)
+```

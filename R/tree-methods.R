@@ -180,7 +180,6 @@ print.hyperion_tree <- function(x, ...) {
 
     children <- tree_data$dependencies[tree_data$package == node_name][[1]]
     is_leaf <- length(children) == 0
-    is_intermediate <- !is_root && !is_leaf
 
     # Apply colors to node name
     tree_prefix <- gsub(node_name, "", line, fixed = TRUE) # Get tree characters

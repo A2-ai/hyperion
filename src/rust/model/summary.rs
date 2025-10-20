@@ -3,10 +3,18 @@ use crate::utils::find_output_file;
 use config::CommentType;
 use extendr_api::prelude::*;
 use fs_err as fs;
+use nonmem::output_files::ext::MinimizationResults;
 use std::path::Path;
 use nonmem::output_files::get_summary;
 use nonmem::output_files::lst::parse_lst;
 use nonmem::output_files::lst::{RunDetails, RunHeuristics};
+
+#[derive(Debug, IntoDataFrameRow)]
+pub struct MinimizationResultsRow {
+    pub ofv: Rfloat,
+    pub condition_number: Rfloat,
+    pub termination_status: Rint,
+}
 
 /// Row for RunDetails - one row per estimation method
 #[derive(Debug, IntoDataFrameRow)]
@@ -15,7 +23,6 @@ pub struct RunDetailsRow {
     pub number_data_records: i32,
     pub number_subjects: i32,
     pub number_obs: i32,
-    pub ofv: Rfloat,
     pub postprocess_time: f64,
     pub function_evaluations: i32,
     pub significant_digits: i32,
@@ -32,6 +39,23 @@ pub struct RunHeuristicsRow {
     pub value: bool,
 }
 
+pub fn build_run_minimization_results_df(minimizations: &Vec<MinimizationResults>) -> Result<Robj> {
+    let rows: Vec<MinimizationResultsRow> = minimizations
+        .iter()
+        .map(|min_result| MinimizationResultsRow {
+            ofv: min_result.ofv.map_or(Rfloat::na(), Rfloat::from),
+            condition_number: min_result.condition_number.map_or(Rfloat::na(), Rfloat::from),
+            termination_status: min_result.termination_code.map_or(Rint::na(), Rint::from),
+        })
+        .collect();
+
+    let df = rows
+        .into_dataframe()
+        .map_err(|e| Error::Other(format!("Failed to build minimization results df: {e}")))?;
+
+    Ok(df.into_robj())
+}
+
 /// Convert RunDetails to dataframe with one row per estimation method
 pub fn build_run_details_df(details: &RunDetails) -> Result<Robj> {
     let rows: Vec<RunDetailsRow> = details
@@ -43,12 +67,6 @@ pub fn build_run_details_df(details: &RunDetails) -> Result<Robj> {
             number_data_records: details.number_data_records as i32,
             number_subjects: details.number_subjects as i32,
             number_obs: details.number_obs as i32,
-            ofv: details
-                .ofv
-                .get(i)
-                .copied()
-                .flatten()
-                .map_or(Rfloat::na(), Rfloat::from),
             postprocess_time: details.postprocess_time,
             function_evaluations: details.function_evaluations as i32,
             significant_digits: details.significant_digits as i32,
@@ -123,6 +141,7 @@ pub fn get_model_summary(
             "TYPE1" => Some(CommentType::Type1),
             _ => None,
         });
+    
     if Path::new(&directory).is_file() {
         return Err(Error::Other("Please input path to model run output directory.".to_string()))
     };
@@ -130,11 +149,9 @@ pub fn get_model_summary(
     let summary = get_summary(directory, comment_type)
         .map_err(|e| Error::Other(format!("Failed to get summary: {e}")))?;
 
-    let run_details_df = build_run_details_df(&summary.lst.run_details)
-        .map_err(|e| Error::Other(format!("Failed to build run details: {e}")))?;
-
-    let run_heuristics_df = build_run_heuristics_df(&summary.lst.run_heuristics)
-        .map_err(|e| Error::Other(format!("Failed to build run heuristics: {e}")))?;
+    let run_details_df = build_run_details_df(&summary.lst.run_details)?;
+    let run_heuristics_df = build_run_heuristics_df(&summary.lst.run_heuristics)?;
+    let run_minimization_results_df = build_run_minimization_results_df(&summary.minimization_results)?;
 
     // Build parameter rows using the builder pattern (no optional columns for summary)
     let mut parameter_rows = Vec::new();
@@ -168,8 +185,10 @@ pub fn get_model_summary(
 
     // Return as named list
     let mut result = list!(
+        run_name = summary.run_name,
         run_details = run_details_df,
         run_heuristics = run_heuristics_df,
+        minimization_results = run_minimization_results_df,
         parameters = parameters_df
     )
     .into_robj();
@@ -184,7 +203,6 @@ pub fn get_model_summary(
 /// Parses lst file for run details and heuristics
 ///
 /// @param path path to model file, model output directory, lst file or metadata json file.
-/// @param path path to lst file
 ///
 /// @return list of data.frames of run details and run heuristics
 /// @export

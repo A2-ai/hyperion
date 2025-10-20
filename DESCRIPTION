@@ -19,14 +19,11 @@ Depends:
 Suggests: 
     dplyr,
     flextable,
-    ggplot2,
-    ggraph,
+		ggplot2,
     here,
-    igraph,
     knitr,
     rmarkdown,
     tidyr
 VignetteBuilder: knitr
 Imports: 
     cli,
-    rlang

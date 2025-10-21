@@ -1,8 +1,7 @@
 use extendr_api::prelude::*;
-use nonmem::{estimation::EstimationMethod, output_files::grd::GrdReader, Model};
+use nonmem::{estimation::EstimationMethod, output_files::grd::GrdReader};
 use config::CommentType;
-use fs_err as fs;
-use crate::utils::find_output_file;
+use crate::utils::{find_output_file, try_parse_model};
 
 fn create_grd_reader(only_method: Option<&str>, only_last: Option<bool>) -> Result<GrdReader> {
     let mut reader = GrdReader::default();
@@ -44,13 +43,10 @@ pub fn get_gradients(
     #[default = "TRUE"] only_last: Option<bool>,
 ) -> Result<Robj> {
     let grd_reader = create_grd_reader(only_method, only_last)?;
-    let path = find_output_file(path, "grd")?;
+    let grd_path = find_output_file(path, "grd")?;
     
-    let model = find_output_file(&path, "mod")
-        .and_then(|model_path| fs::read_to_string(model_path))
-        .and_then(|content| Model::parse(&content))
-        .ok();
-    
+    let mut model = try_parse_model(&path);
+
     let comment_type: Option<CommentType> =
         comment_type.and_then(|s| match s.trim().to_uppercase().as_ref() {
             "TYPE1" => Some(CommentType::Type1),
@@ -58,7 +54,7 @@ pub fn get_gradients(
         });
 
     let tables = grd_reader
-        .parse_file(path, model.as_mut(), comment_type)
+        .parse_file(grd_path, model.as_mut(), comment_type)
         .map_err(|e| Error::Other(e.to_string()))?;
 
     if tables.is_empty() {

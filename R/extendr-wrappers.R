@@ -47,7 +47,7 @@ read_ext_file <- function(path, line_prefixes = NULL, parameters_only = FALSE, o
 #' Gets gradients of pararmeters during modeling
 #'
 #' @param path path to model file, model output directory, grd file or metadata json file.
-#' @param path path to grd file
+#' @param comment_type character of control stream comment type. type1 currently supported.
 #' @param only_method character, filter for getting estimates from specified method only
 #' @param only_last boolean, for grabbing only last estimation method parameters
 #'
@@ -57,7 +57,7 @@ read_ext_file <- function(path, line_prefixes = NULL, parameters_only = FALSE, o
 #' @examples \dontrun{
 #' get_gradients("model/nonmem/run001/run001.grd")
 #' }
-get_gradients <- function(path, only_method = NULL, only_last = TRUE) .Call(wrap__get_gradients, path, only_method, only_last)
+get_gradients <- function(path, comment_type = NULL, only_method = NULL, only_last = TRUE) .Call(wrap__get_gradients, path, comment_type, only_method, only_last)
 
 #' Gets ETA shrinkage metrics from .shk file
 #'

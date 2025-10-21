@@ -1,7 +1,7 @@
 use extendr_api::prelude::*;
 use nonmem::{estimation::EstimationMethod, output_files::grd::GrdReader};
-
-use crate::utils::find_output_file;
+use config::CommentType;
+use crate::utils::{find_output_file, try_parse_model};
 
 fn create_grd_reader(only_method: Option<&str>, only_last: Option<bool>) -> Result<GrdReader> {
     let mut reader = GrdReader::default();
@@ -25,7 +25,7 @@ fn create_grd_reader(only_method: Option<&str>, only_last: Option<bool>) -> Resu
 /// Gets gradients of pararmeters during modeling
 ///
 /// @param path path to model file, model output directory, grd file or metadata json file.
-/// @param path path to grd file
+/// @param comment_type character of control stream comment type. type1 currently supported.
 /// @param only_method character, filter for getting estimates from specified method only
 /// @param only_last boolean, for grabbing only last estimation method parameters
 ///
@@ -38,14 +38,23 @@ fn create_grd_reader(only_method: Option<&str>, only_last: Option<bool>) -> Resu
 #[extendr]
 pub fn get_gradients(
     path: &str,
+    #[default = "NULL"] comment_type: Option<String>,
     #[default = "NULL"] only_method: Option<&str>,
     #[default = "TRUE"] only_last: Option<bool>,
 ) -> Result<Robj> {
     let grd_reader = create_grd_reader(only_method, only_last)?;
-    let path = find_output_file(path, "grd")?;
+    let grd_path = find_output_file(path, "grd")?;
+    
+    let mut model = try_parse_model(&path);
+
+    let comment_type: Option<CommentType> =
+        comment_type.and_then(|s| match s.trim().to_uppercase().as_ref() {
+            "TYPE1" => Some(CommentType::Type1),
+            _ => None,
+        });
 
     let tables = grd_reader
-        .parse_file(path)
+        .parse_file(grd_path, model.as_mut(), comment_type)
         .map_err(|e| Error::Other(e.to_string()))?;
 
     if tables.is_empty() {

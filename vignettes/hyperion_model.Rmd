@@ -48,6 +48,7 @@ get_model_summary(normalizePath("~/Documents/voodoo-conjurer-testing/ANALYSES/ru
 
 ```{r}
 read_model("test_data/models/onecmt/run002")
+devtools::load_all()
 
 get_model_summary("test_data/models/onecmt/run002", comment_type = "type1")
 ```
@@ -102,8 +103,3 @@ example_tree <- get_model_lineage("test_data/models/nonmem/")
 example_tree
 ```
 
-```{r}
-example_tree |> plot_hyperion_tree()
-
-plot_hyperion_tree(example_tree)
-```

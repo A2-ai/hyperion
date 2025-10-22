@@ -1,5 +1,7 @@
 use extendr_api::prelude::*;
 use std::path::{Path, PathBuf};
+use nonmem::Model;
+use fs_err as fs;
 
 /// Finds the correct output file path with the specified extension
 ///
@@ -9,16 +11,16 @@ use std::path::{Path, PathBuf};
 /// # Examples:
 /// ```
 /// // Directory input
-/// find_output_file("models/run001", "ext") → "models/run001/run001.ext"
+/// find_output_file("models/run001", "ext") -> "models/run001/run001.ext"
 ///
 /// // .mod file input
-/// find_output_file("models/run001.mod", "ext") → "models/run001/run001.ext"
+/// find_output_file("models/run001.mod", "ext") -> "models/run001/run001.ext"
 ///
 /// // Already correct path
-/// find_output_file("models/run001/run001.ext", "ext") → "models/run001/run001.ext"
+/// find_output_file("models/run001/run001.ext", "ext") -> "models/run001/run001.ext"
 ///
 /// // Different extension
-/// find_output_file("models/run001", "grd") → "models/run001/run001.grd"
+/// find_output_file("models/run001", "grd") -> "models/run001/run001.grd"
 /// ```
 ///
 /// # Arguments:
@@ -89,12 +91,29 @@ pub fn find_output_file(input_path: impl AsRef<Path>, extension: &str) -> Result
     }
 }
 
+/// Gives Some(Model) if model path is found
+pub fn try_parse_model(path: &str) -> Option<Model> {
+    let path_buf = std::path::Path::new(path);
+
+    // If input is a file, use its parent directory for finding mod file
+    let search_path = if path_buf.is_file() {
+        path_buf.parent()?.to_str()?
+    } else {
+        path
+    };
+
+    let model_path = find_output_file(search_path, "mod").ok()?;
+    let content = fs::read_to_string(model_path).ok()?;
+    Model::parse(&content).ok()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::fs;
     use tempfile::TempDir;
-
+    use insta::glob;
+    
     #[test]
     fn test_find_output_file_directory_input() {
         let temp_dir = TempDir::new().unwrap();
@@ -157,5 +176,35 @@ mod tests {
 
         let result = find_output_file(&run_dir, "ext");
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_try_parse_model_success() {
+        // Use real test data instead of creating temporary files
+        let test_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test_data");
+        glob!(test_dir, "**/*.mod", |path| {
+            let result = try_parse_model(path.to_str().unwrap());
+            assert!(result.is_some(), "Expected Some(Model) when valid mod file exists in test data");
+        })
+    }
+    
+    #[test]
+    fn test_try_parse_model_success_for_output_file() {
+        let test_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test_data");
+        glob!(test_dir, "**/*.grd", |path| {
+            let result = try_parse_model(path.to_str().unwrap());
+            assert!(result.is_some(), "Expected Some(Model) when valid mod file exists in test data");
+        })   
+    }
+
+    #[test]
+    fn test_try_parse_model_no_mod_file() {
+        let temp_dir = TempDir::new().unwrap();
+        let run_dir = temp_dir.path().join("run001");
+        fs::create_dir(&run_dir).unwrap();
+
+        // Don't create a mod file - should return None
+        let result = try_parse_model(run_dir.to_str().unwrap());
+        assert!(result.is_none(), "Expected None when mod file doesn't exist");
     }
 }

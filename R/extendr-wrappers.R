@@ -15,6 +15,8 @@ set_panic_message <- function() invisible(.Call(wrap__set_panic_message))
 #' Gets parameter estimates from model run
 #'
 #' @param path path to model file, model output directory, ext file or metadata json file.
+#' @param hide_off_diagonal_params boolean, if TRUE will not display the unfixed off-diagonal
+#' estimated parameters
 #' @param only_method character, filter for getting estimates from specified method only
 #' @param only_last boolean, for grabbing only last estimation method parameters
 #' @param columns character vector of columns to include in resulting dataframe. Default: c("kind", "name", "value", "stderr", "fixed").
@@ -26,7 +28,7 @@ set_panic_message <- function() invisible(.Call(wrap__set_panic_message))
 #' @examples \dontrun{
 #' get_parameter_estimates("model/nonmem/run001/run001.ext")
 #' }
-get_parameter_estimates <- function(path, only_method = NULL, only_last = TRUE, columns = c("kind", "name", "value", "stderr", "shrinkage", "fixed")) .Call(wrap__get_parameter_estimates_wrap, path, only_method, only_last, columns)
+get_parameter_estimates <- function(path, hide_off_diagonal_params = FALSE, only_method = NULL, only_last = TRUE, columns = c("kind", "name", "value", "stderr", "shrinkage", "fixed")) .Call(wrap__get_parameter_estimates_wrap, path, hide_off_diagonal_params, only_method, only_last, columns)
 
 #' Reads ext file
 #'
@@ -133,9 +135,11 @@ copy_model <- function(from, to, overwrite = FALSE, ext_file = NULL, update = 'n
 #' Gets model run summary
 #'
 #' @param directory path to model run output directory containing .ext, .lst files
+#' @param hide_off_diagonal_params boolean, if TRUE will not display the unfixed off-diagonal
+#' estimated parameters
 #' @param comment_type string of control stream comments types. Type1 or NULL
 #' @param columns character vector of columns to include in resulting dataframe. Default: c("name", "value", "stderr", "rse", "shrinkage", "kind").
-#' Available columns: "kind", "name", "value", "stderr", "rse", "shrinkage", "fixed", "table_idx", "method"
+#' Available columns: "kind", "name", "value", "stderr", "rse", "shrinkage", "fixed", "table_idx", "method", random_effect
 #'
 #' @return list of data.frames of run details, run heuristics, and parameter estimates
 #' @export
@@ -143,7 +147,7 @@ copy_model <- function(from, to, overwrite = FALSE, ext_file = NULL, update = 'n
 #' @examples \dontrun{
 #' get_model_summary("model/nonmem/run001")
 #' }
-get_model_summary <- function(directory, comment_type = NULL, columns = c("name", "value", "stderr", "rse", "shrinkage", "kind")) .Call(wrap__get_model_summary, directory, comment_type, columns)
+get_model_summary <- function(directory, hide_off_diagonal_params = FALSE, comment_type = NULL, columns = c("name", "random_effect", "value", "stderr", "rse", "shrinkage", "kind")) .Call(wrap__get_model_summary, directory, hide_off_diagonal_params, comment_type, columns)
 
 #' Parses lst file for run details and heuristics
 #'

@@ -41,6 +41,8 @@ fn create_ext_reader(
 /// Gets parameter estimates from model run
 ///
 /// @param path path to model file, model output directory, ext file or metadata json file.
+/// @param hide_off_diagonal_params boolean, if TRUE will not display the unfixed off-diagonal
+/// estimated parameters
 /// @param only_method character, filter for getting estimates from specified method only
 /// @param only_last boolean, for grabbing only last estimation method parameters
 /// @param columns character vector of columns to include in resulting dataframe. Default: c("kind", "name", "value", "stderr", "fixed").
@@ -55,6 +57,7 @@ fn create_ext_reader(
 #[extendr(r_name = "get_parameter_estimates")]
 pub fn get_parameter_estimates_wrap(
     path: &str,
+    #[default = "FALSE"] hide_off_diagonal_params: bool,
     #[default = "NULL"] only_method: Option<&str>,
     #[default = "TRUE"] only_last: Option<bool>,
     #[default = r#"c("kind", "name", "value", "stderr", "shrinkage", "fixed")"#] columns: Vec<String>,
@@ -71,7 +74,7 @@ pub fn get_parameter_estimates_wrap(
 
     let path = find_output_file(path, "ext")?;
 
-    let tables = get_parameter_estimates(path, &ext_reader, Some(shk_data))
+    let tables = get_parameter_estimates(path, &ext_reader, Some(shk_data), hide_off_diagonal_params)
         .map_err(|e| Error::Other(e.to_string()))?;
 
     // Build rows using the builder pattern
@@ -103,6 +106,7 @@ pub fn get_parameter_estimates_wrap(
                     ParameterRowBuilder::new(OMEGA, p.name.clone(), p.estimate)
                         .with_stderr_rse(p.stderr, p.rse, p.fixed)
                         .with_shrinkage(p.shrinkage, p.fixed)
+                        .with_random_effect(p.random_effect.clone())
                         .with_table_idx(table_idx)
                         .with_method(method.clone())
                         .build()
@@ -112,6 +116,7 @@ pub fn get_parameter_estimates_wrap(
                     ParameterRowBuilder::new(SIGMA, p.name.clone(), p.estimate)
                         .with_stderr_rse(p.stderr, p.rse, p.fixed)
                         .with_shrinkage(p.shrinkage, p.fixed)
+                        .with_random_effect(p.random_effect.clone())
                         .with_table_idx(table_idx)
                         .with_method(method.clone())
                         .build()

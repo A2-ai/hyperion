@@ -1,7 +1,7 @@
 pub mod check;
 pub mod copy;
-pub mod summary;
 pub mod lineage;
+pub mod summary;
 
 use extendr_api::deserializer::from_robj;
 use extendr_api::prelude::*;
@@ -27,7 +27,7 @@ pub fn read_model(path: &str) -> Result<Robj> {
     // Read in mod file and parse into Model
     let path = find_output_file(path, "mod")?;
 
-    let content = fs::read_to_string(path).map_err(|e| Error::Other(format!("{e}")))?;
+    let content = fs::read_to_string(&path).map_err(|e| Error::Other(format!("{e}")))?;
 
     let model = Model::parse(&content)
         .map_err(|e| Error::Other(format!("Failed to read model file: {e}")))?;
@@ -41,13 +41,17 @@ pub fn read_model(path: &str) -> Result<Robj> {
     // Save tokens and token_ranges for attributes
     let saved_tokens = model_list.dollar("tokens").ok();
     let saved_token_ranges = model_list.dollar("token_ranges").ok();
-
     // Rebuild list excluding tokens and token_ranges
     let mut new_pairs: Vec<(&str, Robj)> = Vec::new();
     for (name, value) in model_list.iter() {
         if name != "tokens" && name != "token_ranges" {
             new_pairs.push((name, value));
         }
+    }
+
+    // Add filename to model object
+    if let Some(n) = path.file_stem().and_then(|name| name.to_str()) {
+        new_pairs.push(("filename", n.into_robj()));
     }
 
     // Convert to Robj only at the end
@@ -130,7 +134,7 @@ extendr_module! {
     use summary;
     use check;
     use lineage;
-    
+
     fn read_model;
     fn check_dataset;
 }

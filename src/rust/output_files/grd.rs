@@ -1,13 +1,18 @@
+use crate::utils::{find_output_file, get_comment_type, try_parse_model};
 use extendr_api::prelude::*;
 use nonmem::{estimation::EstimationMethod, output_files::grd::GrdReader};
-use config::CommentType;
-use crate::utils::{find_output_file, try_parse_model};
 
 fn create_grd_reader(only_method: Option<&str>, only_last: Option<bool>) -> Result<GrdReader> {
     let mut reader = GrdReader::default();
 
     if let Some(method_str) = only_method {
-        let method = method_str
+        // Handle common aliases
+        let normalized_method = match method_str.to_lowercase().as_str() {
+            "importance" => "imp",
+            "focei" => "foce",
+            _ => method_str,
+        };
+        let method = normalized_method
             .parse::<EstimationMethod>()
             .map_err(|_| Error::Other(format!("Invalid estimation method: {}", method_str)))?;
         reader = reader.only_method(method);
@@ -25,8 +30,8 @@ fn create_grd_reader(only_method: Option<&str>, only_last: Option<bool>) -> Resu
 /// Gets gradients of pararmeters during modeling
 ///
 /// @param path path to model file, model output directory, grd file or metadata json file.
-/// @param comment_type character of control stream comment type. type1 currently supported.
-/// @param only_method character, filter for getting estimates from specified method only
+/// @param only_method character, filter for getting estimates from specified method only.
+/// Available methods are Fo, Foce, Saems, Bayes, Imp, ImpMap, Its, Nuts
 /// @param only_last boolean, for grabbing only last estimation method parameters
 ///
 /// @return data.frame of gradients
@@ -38,20 +43,16 @@ fn create_grd_reader(only_method: Option<&str>, only_last: Option<bool>) -> Resu
 #[extendr]
 pub fn get_gradients(
     path: &str,
-    #[default = "NULL"] comment_type: Option<String>,
     #[default = "NULL"] only_method: Option<&str>,
     #[default = "TRUE"] only_last: Option<bool>,
 ) -> Result<Robj> {
     let grd_reader = create_grd_reader(only_method, only_last)?;
     let grd_path = find_output_file(path, "grd")?;
-    
+
     let mut model = try_parse_model(&path);
 
-    let comment_type: Option<CommentType> =
-        comment_type.and_then(|s| match s.trim().to_uppercase().as_ref() {
-            "TYPE1" => Some(CommentType::Type1),
-            _ => None,
-        });
+    // Load config and extract comment type
+    let comment_type = get_comment_type();
 
     let tables = grd_reader
         .parse_file(grd_path, model.as_mut(), comment_type)

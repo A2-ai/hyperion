@@ -17,7 +17,8 @@ set_panic_message <- function() invisible(.Call(wrap__set_panic_message))
 #' @param path path to model file, model output directory, ext file or metadata json file.
 #' @param hide_off_diagonal_params boolean, if TRUE will not display the unfixed off-diagonal
 #' estimated parameters
-#' @param only_method character, filter for getting estimates from specified method only
+#' @param only_method character, filter for getting estimates from specified method only.
+#' Available methods are Fo, Foce, Saems, Bayes, Imp, ImpMap, Its, Nuts
 #' @param only_last boolean, for grabbing only last estimation method parameters
 #' @param columns character vector of columns to include in resulting dataframe. Default: c("kind", "name", "value", "stderr", "fixed").
 #' Available columns: "kind", "name", "value", "stderr", "rse", "shrinkage", "fixed", "table_idx", "method"
@@ -49,8 +50,8 @@ read_ext_file <- function(path, line_prefixes = NULL, parameters_only = FALSE, o
 #' Gets gradients of pararmeters during modeling
 #'
 #' @param path path to model file, model output directory, grd file or metadata json file.
-#' @param comment_type character of control stream comment type. type1 currently supported.
-#' @param only_method character, filter for getting estimates from specified method only
+#' @param only_method character, filter for getting estimates from specified method only.
+#' Available methods are Fo, Foce, Saems, Bayes, Imp, ImpMap, Its, Nuts
 #' @param only_last boolean, for grabbing only last estimation method parameters
 #'
 #' @return data.frame of gradients
@@ -59,7 +60,7 @@ read_ext_file <- function(path, line_prefixes = NULL, parameters_only = FALSE, o
 #' @examples \dontrun{
 #' get_gradients("model/nonmem/run001/run001.grd")
 #' }
-get_gradients <- function(path, comment_type = NULL, only_method = NULL, only_last = TRUE) .Call(wrap__get_gradients, path, comment_type, only_method, only_last)
+get_gradients <- function(path, only_method = NULL, only_last = TRUE) .Call(wrap__get_gradients, path, only_method, only_last)
 
 #' Gets ETA shrinkage metrics from .shk file
 #'
@@ -117,10 +118,14 @@ check_dataset <- function(model, model_dir) .Call(wrap__check_dataset, model, mo
 #' @param to path to model file to write to
 #' @param overwrite boolean, wheter to overwrite existing model. Default FALSE
 #' @param ext_file path to ext file to use for parameter estimates
-#' @param update todo
-#' @param jitter todo
-#' @param jitter_excluded todo
-#' @param seed todo
+#' @param update character or character vector specifying which parameters to update from ext file.
+#' Options: "all", "none", "theta", "omega", "sigma". Examples: "all" or c("theta", "omega")
+#' @param jitter numeric value or named numeric vector for parameter jittering using uniform distribution.
+#' Each parameter value is multiplied by a random factor between (1 - jitter%) and (1 + jitter%) with boundary enforcement.
+#' Examples: 0.1 (10% jitter on all params) or c("theta" = 0.05, "omega" = 0.1)
+#' @param jitter_excluded character or character vector of parameter names to exclude from jittering.
+#' Examples: "THETA1" or c("THETA1", "OMEGA(1,1)")
+#' @param seed integer for random number generator seed to ensure reproducible jittering
 #' @param description Description of model in metadata file
 #' @param no_metadata boolean, if true, does not create metadatafile, default FALSE
 #'
@@ -137,17 +142,16 @@ copy_model <- function(from, to, overwrite = FALSE, ext_file = NULL, update = 'n
 #' @param directory path to model run output directory containing .ext, .lst files
 #' @param hide_off_diagonal_params boolean, if TRUE will not display the unfixed off-diagonal
 #' estimated parameters
-#' @param comment_type string of control stream comments types. Type1 or NULL
 #' @param columns character vector of columns to include in resulting dataframe. Default: c("name", "value", "stderr", "rse", "shrinkage", "kind").
 #' Available columns: "kind", "name", "value", "stderr", "rse", "shrinkage", "fixed", "table_idx", "method", random_effect
 #'
-#' @return list of data.frames of run details, run heuristics, and parameter estimates
+#' @return hyperion_model S3 object
 #' @export
 #'
 #' @examples \dontrun{
 #' get_model_summary("model/nonmem/run001")
 #' }
-get_model_summary <- function(directory, hide_off_diagonal_params = FALSE, comment_type = NULL, columns = c("name", "random_effect", "value", "stderr", "rse", "shrinkage", "kind")) .Call(wrap__get_model_summary, directory, hide_off_diagonal_params, comment_type, columns)
+get_model_summary <- function(directory, hide_off_diagonal_params = FALSE, columns = c("name", "random_effect", "value", "stderr", "rse", "shrinkage", "kind")) .Call(wrap__get_model_summary, directory, hide_off_diagonal_params, columns)
 
 #' Parses lst file for run details and heuristics
 #'
@@ -164,7 +168,7 @@ get_run_info <- function(path) .Call(wrap__get_run_info, path)
 #' Checks mod file for nmtran errors
 #'
 #' @param model_path path to nonmem model file
-#' @param config_path path to pharos.toml config file
+#' @param config_path path to pharos.toml config file, attempts to find automatically.
 #'
 #' @return NULL
 #' @export
@@ -172,13 +176,13 @@ get_run_info <- function(path) .Call(wrap__get_run_info, path)
 #' @examples \dontrun{
 #' check_model("model/nonmem/1001.mod")
 #' }
-check_model <- function(model_path, config_path) .Call(wrap__check_model_wrap, model_path, config_path)
+check_model <- function(model_path, config_path = NULL) .Call(wrap__check_model_wrap, model_path, config_path)
 
 #' Get's model lineage
 #'
 #' @param model_dir path to directory containing all models
 #'
-#' @return lineage tree //todo what is this?
+#' @return hyperion_tree S3 object
 #' @export
 #'
 #' @examples \dontrun{
@@ -198,6 +202,18 @@ get_model_lineage <- function(model_dir) .Call(wrap__get_model_lineage, model_di
 #' init("model/nonmem/submission-log/pharos.toml")
 #' }
 init <- function(config_path) .Call(wrap__init, config_path)
+
+#' Gets the pharos.toml configuration as an R object
+#'
+#' @return pharos config as nested list structure
+#' @export
+#'
+#' @examples \dontrun{
+#' config <- get_pharos_config()
+#' config$nonmem$summary$high_correlation_threshold
+#' config$nonmem$summary$high_condition_threshold
+#' }
+get_pharos_config <- function() .Call(wrap__get_pharos_config)
 
 
 # nolint end

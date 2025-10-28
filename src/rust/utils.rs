@@ -1,7 +1,8 @@
+use config::{CommentType, Config, find_config_dir};
 use extendr_api::prelude::*;
-use std::path::{Path, PathBuf};
-use nonmem::Model;
 use fs_err as fs;
+use nonmem::Model;
+use std::path::{Path, PathBuf};
 
 /// Finds the correct output file path with the specified extension
 ///
@@ -107,13 +108,75 @@ pub fn try_parse_model(path: &str) -> Option<Model> {
     Model::parse(&content).ok()
 }
 
+/// Gets the comment type from pharos.toml configuration
+///
+/// @return Option<CommentType> from pharos config, None if not found or config doesn't exist
+pub fn get_comment_type() -> Option<CommentType> {
+    find_config_dir()
+        .ok()
+        .flatten()
+        .map(|dir| dir.join("pharos.toml"))
+        .and_then(|path| Config::load(path).ok())
+        .and_then(|config| config.nonmem.as_ref().and_then(|n| n.comments.r#type))
+}
+
+/// Gets the pharos.toml configuration as an R object
+///
+/// @return pharos config as nested list structure
+/// @export
+///
+/// @examples \dontrun{
+/// config <- get_pharos_config()
+/// config$nonmem$summary$high_correlation_threshold
+/// config$nonmem$summary$high_condition_threshold
+/// }
+#[extendr]
+pub fn get_pharos_config() -> Result<Robj> {
+    let config_path = find_config_dir()
+        .map_err(|e| Error::Other(format!("Failed to find config dir: {e}")))?
+        .ok_or_else(|| Error::Other("Could not find pharos config directory".to_string()))?
+        .join("pharos.toml");
+
+    let config = Config::load(config_path)
+        .map_err(|e| Error::Other(format!("Failed to load config: {e}")))?;
+
+    // Extract the values we need and build R-compatible structure manually
+    let correlation_threshold = config
+        .nonmem
+        .as_ref()
+        .map(|n| n.summary.high_correlation_threshold)
+        .unwrap_or(0.95);
+
+    let condition_threshold = config
+        .nonmem
+        .as_ref()
+        .map(|n| n.summary.high_condition_threshold as f64)
+        .unwrap_or(1000.0);
+
+    // Build nested list structure: config$nonmem$summary$...
+    let summary_list = list!(
+        high_correlation_threshold = correlation_threshold,
+        high_condition_threshold = condition_threshold
+    );
+
+    let nonmem_list = list!(summary = summary_list);
+
+    let result = list!(nonmem = nonmem_list);
+
+    Ok(result.into_robj())
+}
+
+extendr_module! {
+    mod utils;
+    fn get_pharos_config;
+}
 #[cfg(test)]
 mod tests {
     use super::*;
+    use insta::glob;
     use std::fs;
     use tempfile::TempDir;
-    use insta::glob;
-    
+
     #[test]
     fn test_find_output_file_directory_input() {
         let temp_dir = TempDir::new().unwrap();
@@ -184,17 +247,23 @@ mod tests {
         let test_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test_data");
         glob!(test_dir, "**/*.mod", |path| {
             let result = try_parse_model(path.to_str().unwrap());
-            assert!(result.is_some(), "Expected Some(Model) when valid mod file exists in test data");
+            assert!(
+                result.is_some(),
+                "Expected Some(Model) when valid mod file exists in test data"
+            );
         })
     }
-    
+
     #[test]
     fn test_try_parse_model_success_for_output_file() {
         let test_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test_data");
         glob!(test_dir, "**/*.grd", |path| {
             let result = try_parse_model(path.to_str().unwrap());
-            assert!(result.is_some(), "Expected Some(Model) when valid mod file exists in test data");
-        })   
+            assert!(
+                result.is_some(),
+                "Expected Some(Model) when valid mod file exists in test data"
+            );
+        })
     }
 
     #[test]
@@ -205,6 +274,9 @@ mod tests {
 
         // Don't create a mod file - should return None
         let result = try_parse_model(run_dir.to_str().unwrap());
-        assert!(result.is_none(), "Expected None when mod file doesn't exist");
+        assert!(
+            result.is_none(),
+            "Expected None when mod file doesn't exist"
+        );
     }
 }

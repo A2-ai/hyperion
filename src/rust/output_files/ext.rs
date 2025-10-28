@@ -25,8 +25,15 @@ fn create_ext_reader(
 
     // Add estimation method filter
     if let Some(method) = only_method {
-        let m: estimation::EstimationMethod =
-            method.parse().map_err(|e: String| Error::Other(e))?;
+        // Handle common aliases
+        let normalized_method = match method.to_lowercase().as_str() {
+            "importance" => "imp",
+            "focei" => "foce",
+            _ => method,
+        };
+        let m: estimation::EstimationMethod = normalized_method
+            .parse()
+            .map_err(|e: String| Error::Other(e))?;
         reader = reader.only_method(m);
     }
 
@@ -43,7 +50,8 @@ fn create_ext_reader(
 /// @param path path to model file, model output directory, ext file or metadata json file.
 /// @param hide_off_diagonal_params boolean, if TRUE will not display the unfixed off-diagonal
 /// estimated parameters
-/// @param only_method character, filter for getting estimates from specified method only
+/// @param only_method character, filter for getting estimates from specified method only.
+/// Available methods are Fo, Foce, Saems, Bayes, Imp, ImpMap, Its, Nuts
 /// @param only_last boolean, for grabbing only last estimation method parameters
 /// @param columns character vector of columns to include in resulting dataframe. Default: c("kind", "name", "value", "stderr", "fixed").
 /// Available columns: "kind", "name", "value", "stderr", "rse", "shrinkage", "fixed", "table_idx", "method"
@@ -60,12 +68,14 @@ pub fn get_parameter_estimates_wrap(
     #[default = "FALSE"] hide_off_diagonal_params: bool,
     #[default = "NULL"] only_method: Option<&str>,
     #[default = "TRUE"] only_last: Option<bool>,
-    #[default = r#"c("kind", "name", "value", "stderr", "shrinkage", "fixed")"#] columns: Vec<String>,
+    #[default = r#"c("kind", "name", "value", "stderr", "shrinkage", "fixed")"#] columns: Vec<
+        String,
+    >,
 ) -> Result<Robj> {
     let ext_reader = create_ext_reader(None, None, only_method, only_last)?;
-    
+
     let shk_data = match find_output_file(path, "shk") {
-        Ok(p) =>  match ShkReader::default().parse_file(p) {
+        Ok(p) => match ShkReader::default().parse_file(p) {
             Ok(s) => s,
             Err(_) => Vec::new(),
         },
@@ -74,8 +84,9 @@ pub fn get_parameter_estimates_wrap(
 
     let path = find_output_file(path, "ext")?;
 
-    let tables = get_parameter_estimates(path, &ext_reader, Some(shk_data), hide_off_diagonal_params)
-        .map_err(|e| Error::Other(e.to_string()))?;
+    let tables =
+        get_parameter_estimates(path, &ext_reader, Some(shk_data), hide_off_diagonal_params)
+            .map_err(|e| Error::Other(e.to_string()))?;
 
     // Build rows using the builder pattern
     let rows: Vec<ParameterRow> = tables
@@ -103,23 +114,23 @@ pub fn get_parameter_estimates_wrap(
 
             // Add omega parameters
             all_params.extend(tp.random_effects.iter().filter(|r| r.is_omega()).map(|p| {
-                    ParameterRowBuilder::new(OMEGA, p.name.clone(), p.estimate)
-                        .with_stderr_rse(p.stderr, p.rse, p.fixed)
-                        .with_shrinkage(p.shrinkage, p.fixed)
-                        .with_random_effect(p.random_effect.clone())
-                        .with_table_idx(table_idx)
-                        .with_method(method.clone())
-                        .build()
+                ParameterRowBuilder::new(OMEGA, p.name.clone(), p.estimate)
+                    .with_stderr_rse(p.stderr, p.rse, p.fixed)
+                    .with_shrinkage(p.shrinkage, p.fixed)
+                    .with_random_effect(p.random_effect.clone())
+                    .with_table_idx(table_idx)
+                    .with_method(method.clone())
+                    .build()
             }));
             // Add sigma parameters
             all_params.extend(tp.random_effects.iter().filter(|r| r.is_sigma()).map(|p| {
-                    ParameterRowBuilder::new(SIGMA, p.name.clone(), p.estimate)
-                        .with_stderr_rse(p.stderr, p.rse, p.fixed)
-                        .with_shrinkage(p.shrinkage, p.fixed)
-                        .with_random_effect(p.random_effect.clone())
-                        .with_table_idx(table_idx)
-                        .with_method(method.clone())
-                        .build()
+                ParameterRowBuilder::new(SIGMA, p.name.clone(), p.estimate)
+                    .with_stderr_rse(p.stderr, p.rse, p.fixed)
+                    .with_shrinkage(p.shrinkage, p.fixed)
+                    .with_random_effect(p.random_effect.clone())
+                    .with_table_idx(table_idx)
+                    .with_method(method.clone())
+                    .build()
             }));
 
             all_params.into_iter()

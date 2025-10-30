@@ -1,11 +1,12 @@
+use extendr_api::{Robj, prelude::*};
 use std::fs;
 use std::path::Path;
 //use rayon::prelude::*;
 
-use crate::output_files::{OMEGA, ParameterRow, ParameterRowBuilder, ParameterTable, SIGMA, THETA, get_parameter_names};
+use crate::output_files::{OMEGA, ParameterRow, ParameterRowBuilder, ParameterTable, SIGMA, THETA};
 use crate::utils::{find_output_file, get_comment_type};
-use extendr_api::{Robj, prelude::*};
 use nonmem::output_files::ext::{EstimationTable, ExtReader, get_parameter_estimates};
+use nonmem::output_files::get_parameter_names;
 use nonmem::output_files::shk::ShkReader;
 use nonmem::{Model, estimation};
 

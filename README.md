@@ -30,6 +30,15 @@ create a `pharos.toml` configuration file
 
 ``` r
 library(hyperion)
+#> 
+#> 
+#> ── pharos configuration ────────────────────────────────────────────────────────
+#> ✔ pharos.toml found: /data/user-homes/matthews/Packages/hyperion/pharos.toml
+#> ── hyperion options ────────────────────────────────────────────────────────────
+#> ✔ hyperion.significant_number_display : 4
+#> ── hyperion nonmem object options ──────────────────────────────────────────────
+#> ✔ hyperion.nonmem_model.show_included_columns : FALSE
+#> ✔ hyperion.nonmem_summary.rse_threshold : 30
 
 if (!file.exists("pharos.toml")) {
   hyperion::init(".")
@@ -89,8 +98,6 @@ read_model("vignettes/test_data/models/onecmt/run002.mod")
 
 **Ignore:** @
 
-**Included Columns:** ID, TIME, EVID, AMT, CMT, DV, MDV, WT, SEX
-
 ## Theta Parameters
 
 <table class="table table-striped">
@@ -114,12 +121,7 @@ Initial
 Lower
 </th>
 
-<th style="text-align:right;">
-
-Upper
-</th>
-
-<th style="text-align:right;">
+<th style="text-align:left;">
 
 Fixed
 </th>
@@ -152,14 +154,9 @@ THETA1
 0
 </td>
 
-<td style="text-align:right;">
+<td style="text-align:left;">
 
-NA
-</td>
-
-<td style="text-align:right;">
-
-no
+No
 </td>
 
 <td style="text-align:left;">
@@ -186,14 +183,9 @@ THETA2
 0
 </td>
 
-<td style="text-align:right;">
+<td style="text-align:left;">
 
-NA
-</td>
-
-<td style="text-align:right;">
-
-no
+No
 </td>
 
 <td style="text-align:left;">
@@ -220,14 +212,9 @@ THETA3
 0
 </td>
 
-<td style="text-align:right;">
+<td style="text-align:left;">
 
-NA
-</td>
-
-<td style="text-align:right;">
-
-no
+No
 </td>
 
 <td style="text-align:left;">
@@ -259,24 +246,9 @@ Parameter
 Initial
 </th>
 
-<th style="text-align:right;">
-
-Lower
-</th>
-
-<th style="text-align:right;">
-
-Upper
-</th>
-
-<th style="text-align:right;">
-
-Fixed
-</th>
-
 <th style="text-align:left;">
 
-Parametrization
+Fixed
 </th>
 
 <th style="text-align:left;">
@@ -302,23 +274,9 @@ OMEGA(1,1)
 0.131
 </td>
 
-<td style="text-align:right;">
-
-NA
-</td>
-
-<td style="text-align:right;">
-
-NA
-</td>
-
-<td style="text-align:right;">
-
-no
-</td>
-
 <td style="text-align:left;">
 
+No
 </td>
 
 <td style="text-align:left;">
@@ -340,23 +298,9 @@ OMEGA(2,2)
 0.136
 </td>
 
-<td style="text-align:right;">
-
-NA
-</td>
-
-<td style="text-align:right;">
-
-NA
-</td>
-
-<td style="text-align:right;">
-
-no
-</td>
-
 <td style="text-align:left;">
 
+No
 </td>
 
 <td style="text-align:left;">
@@ -378,23 +322,9 @@ OMEGA(3,3)
 0.100
 </td>
 
-<td style="text-align:right;">
-
-NA
-</td>
-
-<td style="text-align:right;">
-
-NA
-</td>
-
-<td style="text-align:right;">
-
-no
-</td>
-
 <td style="text-align:left;">
 
+No
 </td>
 
 <td style="text-align:left;">
@@ -426,24 +356,9 @@ Parameter
 Initial
 </th>
 
-<th style="text-align:right;">
-
-Lower
-</th>
-
-<th style="text-align:right;">
-
-Upper
-</th>
-
-<th style="text-align:right;">
-
-Fixed
-</th>
-
 <th style="text-align:left;">
 
-Parametrization
+Fixed
 </th>
 
 <th style="text-align:left;">
@@ -469,23 +384,9 @@ SIGMA(1,1)
 0.0364
 </td>
 
-<td style="text-align:right;">
-
-NA
-</td>
-
-<td style="text-align:right;">
-
-NA
-</td>
-
-<td style="text-align:right;">
-
-no
-</td>
-
 <td style="text-align:left;">
 
+No
 </td>
 
 <td style="text-align:left;">
@@ -507,23 +408,9 @@ SIGMA(2,2)
 0.0100
 </td>
 
-<td style="text-align:right;">
-
-NA
-</td>
-
-<td style="text-align:right;">
-
-NA
-</td>
-
-<td style="text-align:right;">
-
-no
-</td>
-
 <td style="text-align:left;">
 
+No
 </td>
 
 <td style="text-align:left;">
@@ -556,12 +443,12 @@ get_model_summary("vignettes/test_data/models/onecmt/run002")
 
 **Records:** 240 \| **Observations:** 210 \| **Subjects:** 30
 
-**Final OFV:** -103.468
+**Final OFV:** -103.5
 
 ## Estimation Methods
 
 - **First Order Conditional Estimation with Interaction**
-  - Condition Number: 29.6
+  - Condition Number: 29.63
 
 ## Heuristic Checks
 
@@ -618,7 +505,7 @@ TVCL
 
 <td style="text-align:right;">
 
-1.2468
+1.247
 </td>
 
 <td style="text-align:right;">
@@ -628,7 +515,7 @@ TVCL
 
 <td style="text-align:right;">
 
-10.333
+10.330
 </td>
 
 </tr>
@@ -642,12 +529,12 @@ TVV
 
 <td style="text-align:right;">
 
-40.8482
+40.850
 </td>
 
 <td style="text-align:right;">
 
-3.0272
+3.0270
 </td>
 
 <td style="text-align:right;">
@@ -666,7 +553,7 @@ TVKA
 
 <td style="text-align:right;">
 
-1.2439
+1.244
 </td>
 
 <td style="text-align:right;">
@@ -698,7 +585,7 @@ TVKA
 Parameter
 </th>
 
-<th style="text-align:right;">
+<th style="text-align:left;">
 
 Random Effect
 </th>
@@ -736,7 +623,7 @@ Shrinkage (%)
 OM1 (TVCL)
 </td>
 
-<td style="text-align:right;">
+<td style="text-align:left;">
 
 ETA1
 </td>
@@ -748,17 +635,17 @@ ETA1
 
 <td style="text-align:right;">
 
-0.0602
+0.06019
 </td>
 
 <td style="text-align:right;">
 
-46.149
+46.15
 </td>
 
 <td style="text-align:right;">
 
-18.06
+18.060
 </td>
 
 </tr>
@@ -770,7 +657,7 @@ ETA1
 OM2 (TVV)
 </td>
 
-<td style="text-align:right;">
+<td style="text-align:left;">
 
 ETA2
 </td>
@@ -782,17 +669,17 @@ ETA2
 
 <td style="text-align:right;">
 
-0.0397
+0.03971
 </td>
 
 <td style="text-align:right;">
 
-29.128
+29.13
 </td>
 
 <td style="text-align:right;">
 
-4.99
+4.986
 </td>
 
 </tr>
@@ -804,7 +691,7 @@ ETA2
 OM3 (TVKA)
 </td>
 
-<td style="text-align:right;">
+<td style="text-align:left;">
 
 ETA3
 </td>
@@ -816,17 +703,17 @@ ETA3
 
 <td style="text-align:right;">
 
-0.0614
+0.06144
 </td>
 
 <td style="text-align:right;">
 
-53.705
+53.71
 </td>
 
 <td style="text-align:right;">
 
-27.19
+27.190
 </td>
 
 </tr>
@@ -848,7 +735,7 @@ ETA3
 Parameter
 </th>
 
-<th style="text-align:right;">
+<th style="text-align:left;">
 
 Random Effect
 </th>
@@ -886,24 +773,24 @@ Shrinkage (%)
 SIGMA(1,1)
 </td>
 
-<td style="text-align:right;">
+<td style="text-align:left;">
 
 EPS1
 </td>
 
 <td style="text-align:right;">
 
-0.0372
+0.037230
 </td>
 
 <td style="text-align:right;">
 
-0.0116
+0.01160
 </td>
 
 <td style="text-align:right;">
 
-31.155
+31.16
 </td>
 
 <td style="text-align:right;">
@@ -920,24 +807,24 @@ EPS1
 SIGMA(2,2)
 </td>
 
-<td style="text-align:right;">
+<td style="text-align:left;">
 
 EPS2
 </td>
 
 <td style="text-align:right;">
 
-0.0066
+0.006607
 </td>
 
 <td style="text-align:right;">
 
-0.0279
+0.02792
 </td>
 
 <td style="text-align:right;">
 
-422.579
+422.60
 </td>
 
 <td style="text-align:right;">
@@ -985,18 +872,18 @@ get_model_lineage("vignettes/test_data/models/onecmt")
 ℹ️ **Models:** 6
 
 - <strong style="color:blue">run001</strong>
-  - <span style="color:green">run004</span> <span style="color:gray">-
-    Updating run001 to run004 with jittered params …</span>
   - <span style="color:orange">run002</span> <span style="color:gray">-
     Adding COV step, unfixing eps(2)</span>
+    - <span style="color:orange">run003</span>
+      <span style="color:gray">- Jittering initial estimates</span>
+      - <span style="color:green">run003b1</span>
+        <span style="color:gray">- Updating run003 to 003b1 with
+        jittered params</span>
     - <span style="color:green">run002b001</span>
       <span style="color:gray">- Jittering initial sigma estimates,
       using theta/…</span>
     - <span style="color:green">run002a</span>
       <span style="color:gray">- Some description about what makes
       run002a diffe…</span>
-    - <span style="color:orange">run003</span>
-      <span style="color:gray">- Jittering initial estimates</span>
-      - <span style="color:green">run003b1</span>
-        <span style="color:gray">- Updating run003 to 003b1 with
-        jittered params</span>
+  - <span style="color:green">run004</span> <span style="color:gray">-
+    Updating run001 to run004 with jittered params …</span>

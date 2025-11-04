@@ -139,7 +139,7 @@ format_hyperion_number <- function(x, digits = NULL) {
 #'
 #' @param data Data frame to format
 #' @param digits Number of significant digits (uses global option if NULL)
-#' @return Data frame with numeric columns formatted as characters
+#' @return Data frame with numeric columns formatted
 #' @keywords internal
 #' @noRd
 format_display_data <- function(data, digits = NULL) {
@@ -273,7 +273,7 @@ print_data_table_console <- function(formatted_data, title) {
       } else if (col_name == "Correlation") {
         # Correlation values in red for warning
         padded_cell <- cli::col_red(padded_cell)
-      } else if (col_name == "Fixed" && cell_data == "yes") {
+      } else if (col_name == "Fixed" && cell_data == "Yes") {
         # Fixed parameters in red
         padded_cell <- cli::col_red(padded_cell)
       } else if (
@@ -298,7 +298,7 @@ print_data_table_console <- function(formatted_data, title) {
 #' Handles knit/markdown presentation for any pre-formatted data frame.
 #' NO number formatting - data should already be formatted by format_display_data().
 #'
-#' @param formatted_data Data frame with all numbers pre-formatted as characters
+#' @param formatted_data Data frame
 #' @param title Table title to display
 #' @return Character vector of HTML table output
 #' @keywords internal
@@ -318,19 +318,20 @@ print_data_table_knit <- function(formatted_data, title) {
   # Data should already be fully formatted by format_display_data()
   display_data <- formatted_data
 
+  # Determine alignment: numeric columns right, text columns left
+  alignment <- sapply(names(display_data), function(col_name) {
+    if (is.numeric(display_data[[col_name]])) "r" else "l"
+  })
+
   # Create kable output with NO digits parameter - data is pre-formatted
-  if (requireNamespace("knitr", quietly = TRUE)) {
-    table_output <- knitr::kable(
-      display_data,
-      format = "html",
-      align = c("l", rep("r", ncol(display_data) - 1)),
-      table.attr = 'class="table table-striped"'
-    )
-    output <- c(output, as.character(table_output), "")
-  } else {
-    # Fallback to simple markdown table
-    output <- c(output, knitr::kable(display_data, format = "markdown"), "")
-  }
+  table_output <- knitr::kable(
+    display_data,
+    format = "html",
+    align = alignment,
+    table.attr = 'class="table table-striped"',
+    row.names = FALSE
+  )
+  output <- c(output, as.character(table_output), "")
 
   return(output)
 }

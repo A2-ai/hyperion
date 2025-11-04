@@ -166,7 +166,7 @@ get_parameters <- function(path, hide_off_diagonal_params = FALSE, only_method =
 #' }
 read_ext_file <- function(path, line_prefixes = NULL, parameters_only = FALSE, only_method = NULL, only_last = TRUE) .Call(wrap__read_ext_file, path, line_prefixes, parameters_only, only_method, only_last)
 
-#' Gets all final estimates from a batch of ext files
+#' Gets all final estimates from an ext file or vector of ext files
 #'
 #' @param paths path to directory containing ext files (including subdirectories), single ext file, or vector of ext file paths
 #' @param parameters_only bool if true removes ITERATION and OBJ column, default false
@@ -177,11 +177,11 @@ read_ext_file <- function(path, line_prefixes = NULL, parameters_only = FALSE, o
 #' @export
 #'
 #' @examples \dontrun{
-#' get_final_estimates_batch("model/nonmem/")
-#' get_final_estimates_batch("bootstrap/")  # Searches subdirectories recursively
-#' get_final_estimates_batch(c("run001.ext", "run002.ext", "run003.ext"))
+#' get_final_estimates("model/nonmem/")
+#' get_final_estimates("bootstrap/")  # Searches subdirectories recursively
+#' get_final_estimates(c("run001.ext", "run002.ext", "run003.ext"))
 #' }
-get_final_estimates_batch <- function(paths, parameters_only = TRUE, only_method = NULL, only_last = TRUE) .Call(wrap__get_final_estimates_batch, paths, parameters_only, only_method, only_last)
+get_final_estimates <- function(paths, parameters_only = TRUE, only_method = NULL, only_last = TRUE) .Call(wrap__get_final_estimates, paths, parameters_only, only_method, only_last)
 
 #' Gets gradients of pararmeters during modeling
 #'

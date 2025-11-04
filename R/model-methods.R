@@ -152,15 +152,15 @@ print_theta_parameters <- function(x, digits = NULL) {
       Upper = sapply(x$theta_parameters, function(p) p$upper_bound %||% NA),
       Fixed = sapply(
         x$theta_parameters,
-        function(p) ifelse(p$is_fixed %||% FALSE, "yes", "no")
+        function(p) ifelse(p$is_fixed %||% FALSE, "Yes", "No")
       ),
       Comment = sapply(x$theta_parameters, function(p) p$comment %||% ""),
       stringsAsFactors = FALSE
     )
 
     # Use unified formatting and printing
-    formatted_data <- format_display_data(param_data, digits)
-    print_data_table_console(formatted_data, "Theta Parameters")
+    formatted_result <- format_display_data(param_data, digits)
+    print_data_table_console(formatted_result, "Theta Parameters")
   }
 }
 
@@ -180,8 +180,8 @@ print_omega_parameters <- function(x, digits = NULL) {
     )
 
     # Use unified formatting and printing
-    formatted_data <- format_display_data(all_omega_data, digits)
-    print_data_table_console(formatted_data, "Omega Parameters")
+    formatted_result <- format_display_data(all_omega_data, digits)
+    print_data_table_console(formatted_result, "Omega Parameters")
   }
 }
 
@@ -201,8 +201,8 @@ print_sigma_parameters <- function(x, digits = NULL) {
     )
 
     # Use unified formatting and printing
-    formatted_data <- format_display_data(all_sigma_data, digits)
-    print_data_table_console(formatted_data, "Sigma Parameters")
+    formatted_result <- format_display_data(all_sigma_data, digits)
+    print_data_table_console(formatted_result, "Sigma Parameters")
   }
 }
 
@@ -261,7 +261,7 @@ create_blocksame_data <- function(param_names, prev_values, current_block) {
       Upper = sapply(prev_values$parameters, function(p) p$upper_bound %||% NA),
       Fixed = sapply(
         prev_values$parameters,
-        function(p) ifelse(p$is_fixed %||% FALSE, "yes", "no")
+        function(p) ifelse(p$is_fixed %||% FALSE, "Yes", "No")
       ),
       Parametrization = rep(prev_values$parametrization, length(param_names)),
       Comment = rep(current_block$comment %||% "", length(param_names)),
@@ -388,7 +388,7 @@ process_parameter_blocks <- function(blocks, param_type, name_generator) {
         Upper = sapply(block$parameters, function(p) p$upper_bound %||% NA),
         Fixed = sapply(
           block$parameters,
-          function(p) ifelse(p$is_fixed %||% FALSE, "yes", "no")
+          function(p) ifelse(p$is_fixed %||% FALSE, "Yes", "No")
         ),
         Parametrization = rep(
           block$parametrization %||% "",
@@ -607,7 +607,7 @@ knit_print_theta_parameters <- function(x) {
       Upper = sapply(x$theta_parameters, function(p) p$upper_bound %||% NA),
       Fixed = sapply(
         x$theta_parameters,
-        function(p) ifelse(p$is_fixed %||% FALSE, "yes", "no")
+        function(p) ifelse(p$is_fixed %||% FALSE, "Yes", "No")
       ),
       Comment = sapply(x$theta_parameters, function(p) p$comment %||% ""),
       stringsAsFactors = FALSE

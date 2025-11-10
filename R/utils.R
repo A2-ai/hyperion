@@ -148,21 +148,7 @@ print_data_table_console <- function(formatted_data, title) {
       padded_cell <- sprintf("%-*s", col_widths[j], cell_data)
 
       # Apply color styling based on column and content (using display names now)
-      if (col_name == "Parameter" && grepl("^(THETA|OMEGA|SIGMA)", cell_data)) {
-        # Parameter names in blue
-        padded_cell <- cli::col_blue(padded_cell)
-      } else if (
-        col_name == "Random Effect" && grepl("^(ETA|EPS)", cell_data)
-      ) {
-        # Random effect names (ETA1, EPS1, etc.) in cyan
-        padded_cell <- cli::col_cyan(padded_cell)
-      } else if (col_name == "Parameter 1" || col_name == "Parameter 2") {
-        # Correlation parameter names in blue
-        padded_cell <- cli::col_blue(padded_cell)
-      } else if (col_name == "Estimate" && grepl("^[0-9]", cell_data)) {
-        # Estimates in green
-        padded_cell <- cli::col_green(padded_cell)
-      } else if (col_name == "Correlation") {
+      if (col_name == "Correlation") {
         # Correlation values in red for warning
         padded_cell <- cli::col_red(padded_cell)
       } else if (col_name == "Fixed" && cell_data == "Yes") {
@@ -172,9 +158,17 @@ print_data_table_console <- function(formatted_data, title) {
         col_name == "RSE (%)" &&
           !is.na(suppressWarnings(as.numeric(cell_data))) &&
           suppressWarnings(as.numeric(cell_data)) >
-            getOption("hyperion.nonmem_summary.rse_threshold", 30)
+            getOption("hyperion.nonmem_summary.rse_threshold")
       ) {
         # RSE% above threshold in red (configurable via options)
+        padded_cell <- cli::col_red(padded_cell)
+      } else if (
+        col_name == "Shrinkage (%)" &&
+          !is.na(suppressWarnings(as.numeric(cell_data))) &&
+          suppressWarnings(as.numeric(cell_data)) >
+            getOption("hyperion.nonmem_summary.shrinkage_threshold")
+      ) {
+        # Shrinkage% above threshold in red (configurable via options)
         padded_cell <- cli::col_red(padded_cell)
       }
 
@@ -209,6 +203,55 @@ print_data_table_knit <- function(formatted_data, title) {
   # Data should already be fully formatted by format_display_data()
   display_data <- formatted_data
 
+  # Apply HTML styling for coloring (same logic as console output)
+  for (i in seq_len(nrow(display_data))) {
+    for (j in seq_len(ncol(display_data))) {
+      cell_data <- as.character(display_data[i, j])
+      col_name <- names(display_data)[j]
+
+      # Apply HTML color styling based on column and content
+      if (col_name == "Correlation") {
+        # Correlation values in red for warning
+        display_data[i, j] <- paste0(
+          '<span style="color: #DD0000;">',
+          cell_data,
+          '</span>'
+        )
+      } else if (col_name == "Fixed" && cell_data == "Yes") {
+        # Fixed parameters in red
+        display_data[i, j] <- paste0(
+          '<span style="color: #DD0000;">',
+          cell_data,
+          '</span>'
+        )
+      } else if (
+        col_name == "RSE (%)" &&
+          !is.na(suppressWarnings(as.numeric(cell_data))) &&
+          suppressWarnings(as.numeric(cell_data)) >
+            getOption("hyperion.nonmem_summary.rse_threshold")
+      ) {
+        # RSE% above threshold in red (configurable via options)
+        display_data[i, j] <- paste0(
+          '<span style="color: #DD0000;">',
+          cell_data,
+          '</span>'
+        )
+      } else if (
+        col_name == "Shrinkage (%)" &&
+          !is.na(suppressWarnings(as.numeric(cell_data))) &&
+          suppressWarnings(as.numeric(cell_data)) >
+            getOption("hyperion.nonmem_summary.shrinkage_threshold")
+      ) {
+        # Shrinkage% above threshold in red (configurable via options)
+        display_data[i, j] <- paste0(
+          '<span style="color: #DD0000;">',
+          cell_data,
+          '</span>'
+        )
+      }
+    }
+  }
+
   # Determine alignment: numeric columns right, text columns left
   alignment <- sapply(names(display_data), function(col_name) {
     if (is.numeric(display_data[[col_name]])) "r" else "l"
@@ -220,7 +263,8 @@ print_data_table_knit <- function(formatted_data, title) {
     format = "html",
     align = alignment,
     table.attr = 'class="table table-striped"',
-    row.names = FALSE
+    row.names = FALSE,
+    escape = FALSE
   )
   output <- c(output, as.character(table_output), "")
 
@@ -245,7 +289,8 @@ hyperion_options_message <- function() {
   # List of hyperion nonmem object options to check
   hyperion_nonmem_options <- c(
     "hyperion.nonmem_model.show_included_columns",
-    "hyperion.nonmem_summary.rse_threshold"
+    "hyperion.nonmem_summary.rse_threshold",
+    "hyperion.nonmem_summary.shrinkage_threshold"
   )
 
   # Process general options

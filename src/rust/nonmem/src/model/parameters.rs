@@ -3,17 +3,18 @@ use fs_err as fs;
 use std::ffi::OsStr;
 use std::path::Path;
 
-use crate::{
-    OMEGA, ParameterRow, ParameterRowBuilder, ParameterTable, SIGMA, THETA, find_output_file,
-    get_comment_type,
+// pharos nonmem crate
+use nonmem::{
+    Model,
+    output_files::{ext::get_parameter_estimates, get_model_parameter_names, shk::ShkReader},
 };
-use crate::model::robj_to_model;
 
-use nonmem::Model;
-use nonmem::output_files::ext::get_parameter_estimates;
-use nonmem::output_files::get_parameter_names;
-use crate::output_files::ext::create_ext_reader;
-use nonmem::output_files::shk::ShkReader;
+use crate::{
+    model::robj_to_model,
+    output_files::ext::create_ext_reader,
+    output_files::{OMEGA, ParameterRow, ParameterRowBuilder, ParameterTable, SIGMA, THETA},
+    utils::{find_output_file, get_comment_type},
+};
 
 /// Gets parameter estimates from model run
 ///
@@ -65,7 +66,8 @@ pub fn get_parameters(
         .map_err(|e| Error::Other(format!("Failed to read model file: {e}")))?;
 
     let comment_type = get_comment_type();
-    let parameter_names = get_parameter_names(&mut model, comment_type);
+    let parameter_names = get_model_parameter_names(&mut model, comment_type)
+        .map_err(|e| Error::Other(format!("Failed to get model parameter names: {e}")))?;
 
     let tables = get_parameter_estimates(
         ext_path,
@@ -142,22 +144,23 @@ pub fn get_parameters(
 /// param_names <- get_model_parameter_names(model)
 /// omega_names <- param_names[grepl("^OMEGA", names(param_names))]
 /// }
-#[extendr]
-pub fn get_model_parameter_names(model: Robj) -> Result<Robj> {
+#[extendr(r_name = "get_model_parameter_names")]
+pub fn get_model_parameter_names_wrap(model: Robj) -> Result<Robj> {
     let mut model = robj_to_model(&model)?;
 
     let comment_type = get_comment_type();
-    let parameter_names = get_parameter_names(&mut model, comment_type);
+    let parameter_names = get_model_parameter_names(&mut model, comment_type)
+        .map_err(|e| Error::Other(format!("Failed to get model parameter names: {e}")))?;
 
     // Convert BTreeMap to named character vector
     let keys: Vec<String> = parameter_names.keys().cloned().collect();
-    let values: Vec<String> = parameter_names.values()
+    let values: Vec<String> = parameter_names
+        .values()
         .map(|opt_name| opt_name.as_ref().unwrap_or(&String::new()).clone())
         .collect();
 
     // Create named character vector
-    let result = List::from_names_and_values(keys, values)
-        .into_robj();
+    let result = List::from_names_and_values(keys, values).into_robj();
 
     Ok(result)
 }
@@ -166,5 +169,5 @@ extendr_module! {
     mod parameters;
 
     fn get_parameters;
-    fn get_model_parameter_names;
+    fn get_model_parameter_names_wrap;
 }

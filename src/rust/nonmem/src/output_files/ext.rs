@@ -2,9 +2,11 @@ use extendr_api::{Robj, prelude::*};
 use std::ffi::OsStr;
 use std::path::Path;
 
-use crate::utils::find_output_file;
-use nonmem::output_files::ext::{EstimationTable, ExtReader};
+//pharos nonmem crate
 use nonmem::estimation;
+use nonmem::output_files::ext::{EstimationTable, ExtReader};
+
+use crate::utils::find_output_file;
 
 /// Extract .ext files from path (single file or directory)
 /// Returns Vec<(PathBuf, String)> where String is the model name (file stem)
@@ -381,7 +383,7 @@ pub fn get_final_estimates(
 
 extendr_module! {
     mod ext;
-    
+
     fn read_ext_file;
     fn get_final_estimates;
 }

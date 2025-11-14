@@ -84,7 +84,7 @@ fn raw_shk_tables_to_dataframe(tables: Vec<RawShkTable>) -> Result<Robj> {
     // Extract columns
     let type_nums: Vec<i32> = flat_data.iter().map(|(_, iter, _, _)| *iter).collect();
     let subpops: Vec<i32> = flat_data.iter().map(|(_, _, iter, _)| *iter).collect();
-    let methods: Vec<String> = flat_data
+    let _methods: Vec<String> = flat_data
         .iter()
         .map(|(method, _, _, _)| method.clone())
         .collect();
@@ -93,7 +93,6 @@ fn raw_shk_tables_to_dataframe(tables: Vec<RawShkTable>) -> Result<Robj> {
     let mut pairs = vec![
         ("type", type_nums.into_robj()),
         ("subpop", subpops.into_robj()),
-        ("method", methods.into_robj()),
     ];
 
     // Add parameter columns dynamically

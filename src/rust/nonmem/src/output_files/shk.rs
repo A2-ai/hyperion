@@ -1,7 +1,8 @@
 use extendr_api::prelude::*;
 
 //pharos nonmem crate
-use nonmem::output_files::shk::ShkReader;
+use nonmem::estimation::EstimationMethod;
+use nonmem::output_files::shk::{RawShkTable, ShkReader};
 
 use crate::utils::find_output_file;
 
@@ -31,6 +32,117 @@ pub struct EpsShkRow {
     pub n_individuals: Rint,
 }
 
+/// Helper function to build ExtReader
+pub fn create_shk_reader(only_method: Option<&str>, only_last: Option<bool>) -> Result<ShkReader> {
+    let mut reader = ShkReader::default();
+    // Add estimation method filter
+    if let Some(method) = only_method {
+        // Handle common aliases
+        let normalized_method = match method.to_lowercase().as_str() {
+            "importance" => "imp",
+            "focei" => "foce",
+            _ => method,
+        };
+        let m: EstimationMethod = normalized_method
+            .parse()
+            .map_err(|e: String| Error::Other(e))?;
+        reader = reader.only_method(m);
+    }
+
+    let only_last = only_last.unwrap_or(true);
+    // Take all tables or only last
+    if !only_last {
+        reader = reader.keep_all_tables();
+    }
+    Ok(reader)
+}
+
+/// Helper function to convert EstimationTable vector to R dataframe
+fn raw_shk_tables_to_dataframe(tables: Vec<RawShkTable>) -> Result<Robj> {
+    if tables.is_empty() {
+        return Err(Error::Other("No tables found in ext file".to_string()));
+    }
+
+    // Get parameter names from the first table
+    let param_names = tables[0].parameters.clone();
+
+    let flat_data: Vec<(String, i32, i32, Vec<f64>)> = tables
+        .into_iter()
+        .flat_map(|table| {
+            let method_name = table.method.unwrap().to_string();
+            table.rows.into_iter().map(move |row| {
+                (
+                    method_name.clone(),
+                    row.type_num as i32,
+                    row.subpop as i32,
+                    row.values,
+                )
+            })
+        })
+        .collect();
+
+    // Extract columns
+    let type_nums: Vec<i32> = flat_data.iter().map(|(_, iter, _, _)| *iter).collect();
+    let subpops: Vec<i32> = flat_data.iter().map(|(_, _, iter, _)| *iter).collect();
+    let methods: Vec<String> = flat_data
+        .iter()
+        .map(|(method, _, _, _)| method.clone())
+        .collect();
+
+    // Build column pairs
+    let mut pairs = vec![
+        ("type", type_nums.into_robj()),
+        ("subpop", subpops.into_robj()),
+        ("method", methods.into_robj()),
+    ];
+
+    // Add parameter columns dynamically
+    for (param_idx, param_name) in param_names.iter().enumerate() {
+        let values: Vec<f64> = flat_data
+            .iter()
+            .map(|(_, _, _, row_vals)| row_vals.get(param_idx).copied().unwrap_or(f64::NAN))
+            .collect();
+        pairs.push((param_name.as_str(), values.into_robj()));
+    }
+
+    let list = List::from_pairs(pairs);
+
+    // Post-process: fix parameter values for fixed parameters and NaNs
+    //let fixed_list = fix_parameter_values(list, &)?;
+
+    let df = data_frame!(list);
+
+    Ok(df)
+}
+
+/// Reads shk file
+///
+/// @param path path to model file, model output directory, shk file or metadata json file.
+/// @param only_method character, filter for getting estimates from specified method only
+/// @param only_last boolean, for grabbing only last estimation method parameters
+///
+/// @return data.frame of shk file
+/// @export
+///
+/// @examples \dontrun{
+/// read_shk_file("model/nonmem/run001/run001.shk")
+/// }
+#[extendr]
+pub fn read_shk_file(
+    path: &str,
+    #[default = "NULL"] only_method: Option<&str>,
+    #[default = "TRUE"] only_last: Option<bool>,
+) -> Result<Robj> {
+    let shk_reader = create_shk_reader(only_method, only_last)?;
+    let path = find_output_file(path, "ext")?;
+
+    let tables = shk_reader
+        .parse_file(path)
+        .map_err(|e| Error::Other(format!("Failed to read shk file: {e}")))?;
+
+    raw_shk_tables_to_dataframe(tables)
+}
+
 /// Gets ETA shrinkage metrics from .shk file
 ///
 /// @param path path to model file, model output directory, shk file or metadata json file.
@@ -43,11 +155,11 @@ pub struct EpsShkRow {
 /// }
 #[extendr]
 pub fn get_eta_shrinkage(path: &str) -> Result<Robj> {
-    let shk_reader = ShkReader;
+    let shk_reader = ShkReader::default();
     let path = find_output_file(path, "shk")?;
 
     let tables = shk_reader
-        .parse_file(path)
+        .parse_file_semantic(path)
         .map_err(|e| Error::Other(e.to_string()))?;
 
     if tables.is_empty() {
@@ -167,11 +279,11 @@ pub fn get_eta_shrinkage(path: &str) -> Result<Robj> {
 /// }
 #[extendr]
 pub fn get_eps_shrinkage(path: &str) -> Result<Robj> {
-    let shk_reader = ShkReader;
+    let shk_reader = ShkReader::default();
     let path = find_output_file(path, "shk")?;
 
     let tables = shk_reader
-        .parse_file(path)
+        .parse_file_semantic(path)
         .map_err(|e| Error::Other(e.to_string()))?;
 
     if tables.is_empty() {
@@ -245,6 +357,8 @@ pub fn get_eps_shrinkage(path: &str) -> Result<Robj> {
 
 extendr_module! {
     mod shk;
+
     fn get_eta_shrinkage;
     fn get_eps_shrinkage;
+    fn read_shk_file;
 }

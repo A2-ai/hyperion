@@ -1,4 +1,4 @@
-use extendr_api::{Robj, prelude::*};
+use extendr_api::prelude::*;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 

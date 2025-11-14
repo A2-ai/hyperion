@@ -60,7 +60,7 @@ pub fn create_shk_reader(only_method: Option<&str>, only_last: Option<bool>) -> 
 /// Helper function to convert EstimationTable vector to R dataframe
 fn raw_shk_tables_to_dataframe(tables: Vec<RawShkTable>) -> Result<Robj> {
     if tables.is_empty() {
-        return Err(Error::Other("No tables found in ext file".to_string()));
+        return Err(Error::Other("No tables found in shk file".to_string()));
     }
 
     // Get parameter names from the first table
@@ -134,7 +134,7 @@ pub fn read_shk_file(
     #[default = "TRUE"] only_last: Option<bool>,
 ) -> Result<Robj> {
     let shk_reader = create_shk_reader(only_method, only_last)?;
-    let path = find_output_file(path, "ext")?;
+    let path = find_output_file(path, "shk")?;
 
     let tables = shk_reader
         .parse_file(path)

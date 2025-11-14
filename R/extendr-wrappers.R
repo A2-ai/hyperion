@@ -235,6 +235,20 @@ get_eta_shrinkage <- function(path) .Call(wrap__get_eta_shrinkage, path)
 #' }
 get_eps_shrinkage <- function(path) .Call(wrap__get_eps_shrinkage, path)
 
+#' Reads shk file
+#'
+#' @param path path to model file, model output directory, shk file or metadata json file.
+#' @param only_method character, filter for getting estimates from specified method only
+#' @param only_last boolean, for grabbing only last estimation method parameters
+#'
+#' @return data.frame of shk file
+#' @export
+#'
+#' @examples \dontrun{
+#' read_shk_file("model/nonmem/run001/run001.shk")
+#' }
+read_shk_file <- function(path, only_method = NULL, only_last = TRUE) .Call(wrap__read_shk_file, path, only_method, only_last)
+
 #' Gets the pharos.toml configuration as an R object
 #'
 #' @return pharos config as nested list structure

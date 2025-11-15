@@ -40,3 +40,17 @@ get_eta_shrinkage("test_data/shk/itsimp.shk")
 ```{r}
 get_eps_shrinkage("test_data/shk/itsimp.shk")
 ```
+
+## Raw shk file extraction
+
+```{r}
+read_shk_file("test_data/shk/itsimp.shk")
+```
+
+```{r}
+read_shk_file("test_data/shk/itsimp.shk", only_last = FALSE)
+```
+
+```{r}
+read_shk_file("test_data/shk/itsimp.shk", only_method = "its")
+```

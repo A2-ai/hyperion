@@ -47,13 +47,18 @@ pub fn create_shk_reader(only_method: Option<&str>, only_last: Option<bool>) -> 
             .parse()
             .map_err(|e: String| Error::Other(e))?;
         reader = reader.only_method(m);
+        return Ok(reader);
     }
 
-    let only_last = only_last.unwrap_or(true);
-    // Take all tables or only last
-    if !only_last {
-        reader = reader.keep_all_tables();
+    if let Some(last) = only_last
+        && last
+    {
+        reader = reader.only_last();
+        return Ok(reader);
     }
+
+    // If only_method and only_last not provided keep all
+    reader = reader.keep_all_tables();
     Ok(reader)
 }
 

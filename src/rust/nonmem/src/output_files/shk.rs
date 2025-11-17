@@ -89,7 +89,7 @@ fn raw_shk_tables_to_dataframe(tables: Vec<RawShkTable>) -> Result<Robj> {
     // Extract columns
     let type_nums: Vec<i32> = flat_data.iter().map(|(_, iter, _, _)| *iter).collect();
     let subpops: Vec<i32> = flat_data.iter().map(|(_, _, iter, _)| *iter).collect();
-    let _methods: Vec<String> = flat_data
+    let methods: Vec<String> = flat_data
         .iter()
         .map(|(method, _, _, _)| method.clone())
         .collect();
@@ -108,6 +108,7 @@ fn raw_shk_tables_to_dataframe(tables: Vec<RawShkTable>) -> Result<Robj> {
             .collect();
         pairs.push((param_name.as_str(), values.into_robj()));
     }
+    pairs.push(("methods", methods.into_robj()));
 
     let list = List::from_pairs(pairs);
 

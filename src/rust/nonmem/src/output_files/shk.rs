@@ -108,7 +108,7 @@ fn raw_shk_tables_to_dataframe(tables: Vec<RawShkTable>) -> Result<Robj> {
             .collect();
         pairs.push((param_name.as_str(), values.into_robj()));
     }
-    pairs.push(("methods", methods.into_robj()));
+    pairs.push(("method", methods.into_robj()));
 
     let list = List::from_pairs(pairs);
 

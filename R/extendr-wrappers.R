@@ -10,10 +10,6 @@
 #' @useDynLib hyperion, .registration = TRUE
 NULL
 
-set_panic_message <- function() invisible(.Call(wrap__set_panic_message))
-
-find_pharos_config_file <- function() .Call(wrap__find_pharos_config_file)
-
 #' Initializes pharos
 #'
 #' @param config_path path to where pharos.toml is saved (should be colocated to where pharos is
@@ -26,6 +22,10 @@ find_pharos_config_file <- function() .Call(wrap__find_pharos_config_file)
 #' init("model/nonmem/submission-log/pharos.toml")
 #' }
 init <- function(config_path) .Call(wrap__init, config_path)
+
+set_panic_message <- function() invisible(.Call(wrap__set_panic_message))
+
+find_pharos_config_file <- function() .Call(wrap__find_pharos_config_file)
 
 #' Gets model object
 #'
@@ -163,6 +163,58 @@ get_parameters <- function(path, hide_off_diagonal_params = FALSE, only_method =
 #' }
 get_model_parameter_names <- function(model) .Call(wrap__get_model_parameter_names_wrap, model)
 
+#' Creates a metadata file for a NONMEM model
+#'
+#' This function creates a metadata file that stores information about a NONMEM model,
+#' including its description, tags, and lineage information. The metadata is stored
+#' in a structured format that can be used for model tracking and documentation.
+#'
+#' @param model_path Path to the NONMEM model file (required)
+#' @param description Optional description of the model and its purpose
+#' @param tags Character vector of tags to categorize or label the model
+#' @param based_on Character vector of model names/paths that this model is based on
+#'
+#' @return Returns invisibly after creating the metadata file
+#' @export
+#'
+#' @examples
+#' \dontrun{
+#' # Create basic metadata for a model
+#' create_metadata_file("run001.mod", description = "Base population PK model")
+#'
+#' # Create metadata with tags and lineage
+#' create_metadata_file(
+#'   "run002.mod",
+#'   description = "PK model with covariate effects",
+#'   tags = c("population", "pk", "covariates"),
+#'   based_on = c("run001.mod")
+#' )
+#'
+#' # Overwrite existing metadata
+#' create_metadata_file(
+#'   "run001.mod",
+#'   description = "Updated base model",
+#'   overwrite = TRUE
+#' )
+#' }
+set_metadata_file <- function(model_path, description = NULL, tags = NULL, based_on = NULL) .Call(wrap__set_metadata_file, model_path, description, tags, based_on)
+
+#' Updates a metadatafile
+#'
+#' @param model_path path to model file or metadata file to update
+#' @param description Optional description to add to metadata
+#' @param tags Optional character vector of tags to add to tags field
+#' @param based_on character vector of models to add to based_on field
+#'
+#' @return Invisibly after updaing
+#' @export
+#'
+#' @examples \dontrun{
+#' update_metadata_file("model/nonmem/run001.mod", tags = "key model")
+#' update_metadata_file("model/nonmem/run004.mod", tags = "key model", based_on = "1002")
+#' }
+update_metadata_file <- function(model_path, description = NULL, tags = NULL, based_on = NULL) .Call(wrap__append_to_metadata_file, model_path, description, tags, based_on)
+
 #' Reads ext file
 #'
 #' @param path path to model file, model output directory, ext file or metadata json file.
@@ -257,7 +309,7 @@ get_pharos_config <- function() .Call(wrap__get_pharos_config)
 #' @param overwrite Whether to overwrite existing output files (default: FALSE)
 #' @param dry_run Whether to perform a dry run without actually submitting the job (default: FALSE)
 #' @param run_in_output_dir Whether to run the job in the output directory (default: FALSE)
-#' @param num_cpu Number of CPUs to allocate for the job (default: 1)
+#' @param ncpu Number of CPUs to allocate for the job (default: 1)
 #' @param partition SLURM partition to submit the job to (default: NULL, uses cluster default)
 #' @param clean_level Level of cleanup to perform after job completion (default: 1)
 #' @param parafile Path to parameter file for parallel runs (default: NULL)
@@ -278,7 +330,7 @@ get_pharos_config <- function() .Call(wrap__get_pharos_config)
 #' # Submit to specific partition with account
 #' submit_model_to_slurm("model.mod", partition = "gpu", account = "myproject")
 #' }
-submit_model_to_slurm <- function(model, overwrite = FALSE, dry_run = FALSE, run_in_output_dir = FALSE, num_cpu = 1, partition = NULL, clean_level = 1, parafile = NULL, template = NULL, account = NULL) .Call(wrap__submit_model_to_slurm, model, overwrite, dry_run, run_in_output_dir, num_cpu, partition, clean_level, parafile, template, account)
+submit_model_to_slurm <- function(model, overwrite = FALSE, dry_run = FALSE, run_in_output_dir = FALSE, ncpu = 1, partition = NULL, clean_level = 1, parafile = NULL, template = NULL, account = NULL) .Call(wrap__submit_model_to_slurm, model, overwrite, dry_run, run_in_output_dir, ncpu, partition, clean_level, parafile, template, account)
 
 #' Submits a NONMEM model to SGE for execution
 #'

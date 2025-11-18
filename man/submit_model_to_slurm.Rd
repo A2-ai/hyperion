@@ -9,7 +9,7 @@ submit_model_to_slurm(
   overwrite = FALSE,
   dry_run = FALSE,
   run_in_output_dir = FALSE,
-  num_cpu = 1,
+  ncpu = 1,
   partition = NULL,
   clean_level = 1,
   parafile = NULL,
@@ -26,7 +26,7 @@ submit_model_to_slurm(
 
 \item{run_in_output_dir}{Whether to run the job in the output directory (default: FALSE)}
 
-\item{num_cpu}{Number of CPUs to allocate for the job (default: 1)}
+\item{ncpu}{Number of CPUs to allocate for the job (default: 1)}
 
 \item{partition}{SLURM partition to submit the job to (default: NULL, uses cluster default)}
 

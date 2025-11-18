@@ -1,10 +1,13 @@
 use extendr_api::prelude::*;
 use fs_err as fs;
+use hyperion_core::ResultExt;
 use std::io::Write;
 use std::path::Path;
 
 // pharos config crate
 use config::{CONFIG_FILENAME, Config};
+
+use hyperion_core::extendr_err;
 
 /// Initializes pharos
 ///
@@ -30,25 +33,24 @@ fn init(config_path: &str) -> Result<()> {
     };
 
     if config_path.exists() {
-        return Err(Error::Other("nonmem config file already exists".into()));
+        return Err(extendr_err!("pharos config file already exists"));
     }
 
     // Create parent directories if they don't exist
     if let Some(parent) = config_path.parent() {
-        fs::create_dir_all(parent).map_err(|e| Error::Other(format!("{e}")))?;
+        fs::create_dir_all(parent).map_to_extendr_err("")?;
     }
 
-    let mut config_file =
-        fs::File::create(&config_path).map_err(|e| Error::Other(format!("{e}")))?;
+    let mut config_file = fs::File::create(&config_path).map_to_extendr_err("")?;
 
-    let nonmem_config = Config::new_nonmem()
-        .map_err(|e| Error::Other(format!("Failed to create nonmem config: {e}")))?;
+    let nonmem_config =
+        Config::new_nonmem().map_to_extendr_err("Failed to create pharos config")?;
 
-    let config = toml::to_string_pretty(&nonmem_config).map_err(|e| Error::Other(e.to_string()))?;
+    let config = toml::to_string_pretty(&nonmem_config).map_to_extendr_err("")?;
 
     config_file
         .write_all(config.as_bytes())
-        .map_err(|x| Error::Other(x.to_string()))?;
+        .map_to_extendr_err("")?;
 
     Ok(())
 }

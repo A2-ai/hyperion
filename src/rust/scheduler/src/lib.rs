@@ -9,6 +9,7 @@ use scheduler::{
     slurm::SubmitOptions as SlurmSubmitOptions,
 };
 
+use hyperion_core::{ResultExt, extendr_err};
 use hyperion_nonmem::utils::load_nonmem_config;
 
 /// Helper function to process Robj model input and expand patterns
@@ -21,8 +22,7 @@ use hyperion_nonmem::utils::load_nonmem_config;
 /// Returns a Vec<PathBuf> with all expanded model paths
 fn process_model_robj(model: Robj) -> Result<Vec<PathBuf>> {
     let expand = |pattern: &str| {
-        expand_model_pattern(pattern)
-            .map_err(|e| Error::Other(format!("model pattern '{}': {e}", pattern)))
+        expand_model_pattern(pattern).map_to_extendr_err(&format!("model pattern '{pattern}'"))
     };
 
     if let Some(s) = model.as_str() {
@@ -41,15 +41,15 @@ fn process_model_robj(model: Robj) -> Result<Vec<PathBuf>> {
                 acc.extend(expand(pattern)?);
                 Ok(acc)
             } else {
-                Err(Error::Other(format!(
+                Err(extendr_err!(
                     "All list elements must be strings, found: {:?}",
                     item.rtype()
-                )))
+                ))
             }
         })
     } else {
-        Err(Error::Other(
-            "model must be a single string, character vector, or list of strings".to_string(),
+        Err(extendr_err!(
+            "model must be a single string, character vector, or list of strings"
         ))
     }
 }
@@ -64,7 +64,7 @@ fn process_model_robj(model: Robj) -> Result<Vec<PathBuf>> {
 /// @param overwrite Whether to overwrite existing output files (default: FALSE)
 /// @param dry_run Whether to perform a dry run without actually submitting the job (default: FALSE)
 /// @param run_in_output_dir Whether to run the job in the output directory (default: FALSE)
-/// @param num_cpu Number of CPUs to allocate for the job (default: 1)
+/// @param ncpu Number of CPUs to allocate for the job (default: 1)
 /// @param partition SLURM partition to submit the job to (default: NULL, uses cluster default)
 /// @param clean_level Level of cleanup to perform after job completion (default: 1)
 /// @param parafile Path to parameter file for parallel runs (default: NULL)
@@ -91,7 +91,7 @@ pub fn submit_model_to_slurm(
     #[default = "FALSE"] overwrite: bool,
     #[default = "FALSE"] dry_run: bool,
     #[default = "FALSE"] run_in_output_dir: bool,
-    #[default = "1"] num_cpu: Option<u8>,
+    #[default = "1"] ncpu: Option<u8>,
     #[default = "NULL"] partition: Option<String>,
     #[default = "1"] clean_level: Option<u8>,
     #[default = "NULL"] parafile: Option<String>,
@@ -113,14 +113,14 @@ pub fn submit_model_to_slurm(
 
     let scheduler = SchedulerType::new_slurm(submit_options);
     let (config_path, nonmem_config) = load_nonmem_config(None)?;
-    let parallel = num_cpu.map_or(false, |n| n > 1);
+    let parallel = ncpu.map_or(false, |n| n > 1);
 
     let run_options = RunOptions {
         run_in_output_dir,
         overwrite,
         clean_level,
         parallel,
-        num_mpi_cpus: num_cpu,
+        num_mpi_cpus: ncpu,
         parafile: parafile.map(PathBuf::from),
         ..RunOptions::default() // nonmem_version: (),
                                 // output_dir: (),
@@ -129,8 +129,8 @@ pub fn submit_model_to_slurm(
                                 // mpi_timeout: (),
     };
 
-    let pharos_exe_path = which("pharos")
-        .map_err(|e| Error::Other(format!("Failed to locate pharos executable: {e}")))?;
+    let pharos_exe_path =
+        which("pharos").map_to_extendr_err("Failed to locate pharos executable")?;
 
     let res = scheduler
         .submit(
@@ -142,7 +142,7 @@ pub fn submit_model_to_slurm(
             nonmem_config,
             pharos_exe_path,
         )
-        .map_err(|e| Error::Other(format!("Failed to submit job to slurm: {e}")))?;
+        .map_to_extendr_err("Failed to submit job to slurm")?;
 
     for (p, job_id) in res {
         println!("Model {p:?} -> job ID {job_id}");
@@ -216,8 +216,8 @@ pub fn submit_model_to_sge(
                                 // mpi_timeout: (),
     };
 
-    let pharos_exe_path = which("pharos")
-        .map_err(|e| Error::Other(format!("Failed to locate pharos executable: {e}")))?;
+    let pharos_exe_path =
+        which("pharos").map_to_extendr_err("Failed to locate pharos executable")?;
 
     let res = scheduler
         .submit(
@@ -229,7 +229,7 @@ pub fn submit_model_to_sge(
             nonmem_config,
             pharos_exe_path,
         )
-        .map_err(|e| Error::Other(format!("Failed to submit job to sge: {e}")))?;
+        .map_to_extendr_err("Failed to submit job to sge")?;
 
     for (p, job_id) in res {
         println!("Model {p:?} submitted: job id {job_id}");

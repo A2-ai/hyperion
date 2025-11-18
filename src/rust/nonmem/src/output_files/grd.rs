@@ -4,6 +4,7 @@ use extendr_api::prelude::*;
 use nonmem::{estimation::EstimationMethod, output_files::grd::GrdReader};
 
 use crate::utils::{find_output_file, get_comment_type, try_parse_model};
+use hyperion_core::{ResultExt, extendr_err};
 
 fn create_grd_reader(only_method: Option<&str>, only_last: Option<bool>) -> Result<GrdReader> {
     let mut reader = GrdReader::default();
@@ -17,7 +18,7 @@ fn create_grd_reader(only_method: Option<&str>, only_last: Option<bool>) -> Resu
         };
         let method = normalized_method
             .parse::<EstimationMethod>()
-            .map_err(|_| Error::Other(format!("Invalid estimation method: {}", method_str)))?;
+            .map_to_extendr_err("Invalid estimation method: {method_str}")?;
         reader = reader.only_method(method);
     } else if let Some(last) = only_last {
         if last {
@@ -59,10 +60,10 @@ pub fn get_gradients(
 
     let tables = grd_reader
         .parse_file(grd_path, model.as_mut(), comment_type)
-        .map_err(|e| Error::Other(e.to_string()))?;
+        .map_to_extendr_err("")?;
 
     if tables.is_empty() {
-        return Err(Error::Other("No tables found in grd file".to_string()));
+        return Err(extendr_err!("No tables found in grd file"));
     }
 
     // Get gradient parameter names from the first table (skip ITERATION column)

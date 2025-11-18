@@ -4,6 +4,7 @@ use extendr_api::prelude::*;
 use nonmem::output_files::shk::ShkReader;
 
 use crate::utils::find_output_file;
+use hyperion_core::{ResultExt, extendr_err};
 
 #[derive(Debug, IntoDataFrameRow)]
 pub struct EtaShkRow {
@@ -31,6 +32,14 @@ pub struct EpsShkRow {
     pub n_individuals: Rint,
 }
 
+/// Helper function to extract float values from optional vectors with proper NA handling
+fn extract_rfloat_value(vec_opt: &Option<Vec<f64>>, idx: usize) -> Rfloat {
+    vec_opt
+        .as_ref()
+        .and_then(|v| v.get(idx))
+        .map_or(Rfloat::na(), |&x| Rfloat::from(x))
+}
+
 /// Gets ETA shrinkage metrics from .shk file
 ///
 /// @param path path to model file, model output directory, shk file or metadata json file.
@@ -46,12 +55,10 @@ pub fn get_eta_shrinkage(path: &str) -> Result<Robj> {
     let shk_reader = ShkReader;
     let path = find_output_file(path, "shk")?;
 
-    let tables = shk_reader
-        .parse_file(path)
-        .map_err(|e| Error::Other(e.to_string()))?;
+    let tables = shk_reader.parse_file(path).map_to_extendr_err("")?;
 
     if tables.is_empty() {
-        return Err(Error::Other("No tables found in shk file".to_string()));
+        return Err(extendr_err!("No tables found in shk file"));
     }
 
     let mut eta_rows = Vec::new();
@@ -92,46 +99,14 @@ pub fn get_eta_shrinkage(path: &str) -> Result<Robj> {
                     method: method_name.clone(),
                     subpop,
                     eta_number: (eta_idx + 1) as i32,
-                    etabar: table
-                        .etabar
-                        .as_ref()
-                        .and_then(|v| v.get(eta_idx))
-                        .map_or(Rfloat::na(), |&x| Rfloat::from(x)),
-                    etabar_se: table
-                        .etabar_se
-                        .as_ref()
-                        .and_then(|v| v.get(eta_idx))
-                        .map_or(Rfloat::na(), |&x| Rfloat::from(x)),
-                    etabar_pval: table
-                        .etabar_pval
-                        .as_ref()
-                        .and_then(|v| v.get(eta_idx))
-                        .map_or(Rfloat::na(), |&x| Rfloat::from(x)),
-                    shrinkage_sd: table
-                        .eta_shrinkage_sd
-                        .as_ref()
-                        .and_then(|v| v.get(eta_idx))
-                        .map_or(Rfloat::na(), |&x| Rfloat::from(x)),
-                    shrinkage_vr: table
-                        .eta_shrinkage_vr
-                        .as_ref()
-                        .and_then(|v| v.get(eta_idx))
-                        .map_or(Rfloat::na(), |&x| Rfloat::from(x)),
-                    rel_info: table
-                        .relative_information
-                        .as_ref()
-                        .and_then(|v| v.get(eta_idx))
-                        .map_or(Rfloat::na(), |&x| Rfloat::from(x)),
-                    ebv_shrinkage_sd: table
-                        .ebv_shrinkage_sd
-                        .as_ref()
-                        .and_then(|v| v.get(eta_idx))
-                        .map_or(Rfloat::na(), |&x| Rfloat::from(x)),
-                    ebv_shrinkage_vr: table
-                        .ebv_shrinkage_vr
-                        .as_ref()
-                        .and_then(|v| v.get(eta_idx))
-                        .map_or(Rfloat::na(), |&x| Rfloat::from(x)),
+                    etabar: extract_rfloat_value(&table.etabar, eta_idx),
+                    etabar_se: extract_rfloat_value(&table.etabar_se, eta_idx),
+                    etabar_pval: extract_rfloat_value(&table.etabar_pval, eta_idx),
+                    shrinkage_sd: extract_rfloat_value(&table.eta_shrinkage_sd, eta_idx),
+                    shrinkage_vr: extract_rfloat_value(&table.eta_shrinkage_vr, eta_idx),
+                    rel_info: extract_rfloat_value(&table.relative_information, eta_idx),
+                    ebv_shrinkage_sd: extract_rfloat_value(&table.ebv_shrinkage_sd, eta_idx),
+                    ebv_shrinkage_vr: extract_rfloat_value(&table.ebv_shrinkage_vr, eta_idx),
                     n_individuals,
                 };
                 eta_rows.push(eta_row);
@@ -145,11 +120,11 @@ pub fn get_eta_shrinkage(path: &str) -> Result<Robj> {
         let empty_rows: Vec<EtaShkRow> = vec![];
         empty_rows
             .into_dataframe()
-            .map_err(|e| Error::Other(format!("Failed to build empty eta dataframe: {e}")))?
+            .map_to_extendr_err("Failed to build empty eta dataframe")?
     } else {
         eta_rows
             .into_dataframe()
-            .map_err(|e| Error::Other(format!("Failed to build eta dataframe: {e}")))?
+            .map_to_extendr_err("Failed to build eta dataframe")?
     };
 
     Ok(eta_df.into_robj())
@@ -170,12 +145,10 @@ pub fn get_eps_shrinkage(path: &str) -> Result<Robj> {
     let shk_reader = ShkReader;
     let path = find_output_file(path, "shk")?;
 
-    let tables = shk_reader
-        .parse_file(path)
-        .map_err(|e| Error::Other(e.to_string()))?;
+    let tables = shk_reader.parse_file(path).map_to_extendr_err("")?;
 
     if tables.is_empty() {
-        return Err(Error::Other("No tables found in shk file".to_string()));
+        return Err(extendr_err!("No tables found in shk file"));
     }
 
     let mut eps_rows = Vec::new();
@@ -210,16 +183,8 @@ pub fn get_eps_shrinkage(path: &str) -> Result<Robj> {
                     method: method_name.clone(),
                     subpop,
                     eps_number: (eps_idx + 1) as i32,
-                    shrinkage_sd: table
-                        .eps_shrinkage_sd
-                        .as_ref()
-                        .and_then(|v| v.get(eps_idx))
-                        .map_or(Rfloat::na(), |&x| Rfloat::from(x)),
-                    shrinkage_vr: table
-                        .eps_shrinkage_vr
-                        .as_ref()
-                        .and_then(|v| v.get(eps_idx))
-                        .map_or(Rfloat::na(), |&x| Rfloat::from(x)),
+                    shrinkage_sd: extract_rfloat_value(&table.eps_shrinkage_sd, eps_idx),
+                    shrinkage_vr: extract_rfloat_value(&table.eps_shrinkage_vr, eps_idx),
                     n_individuals,
                 };
                 eps_rows.push(eps_row);
@@ -233,11 +198,11 @@ pub fn get_eps_shrinkage(path: &str) -> Result<Robj> {
         let empty_rows: Vec<EpsShkRow> = vec![];
         empty_rows
             .into_dataframe()
-            .map_err(|e| Error::Other(format!("Failed to build empty eps dataframe: {e}")))?
+            .map_to_extendr_err("Failed to build empty eps dataframe")?
     } else {
         eps_rows
             .into_dataframe()
-            .map_err(|e| Error::Other(format!("Failed to build eps dataframe: {e}")))?
+            .map_to_extendr_err("Failed to build eps dataframe")?
     };
 
     Ok(eps_df.into_robj())

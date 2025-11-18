@@ -7,6 +7,7 @@ use nonmem::estimation;
 use nonmem::output_files::ext::{EstimationTable, ExtReader};
 
 use crate::utils::find_output_file;
+use hyperion_core::{OptionExt, ResultExt, extendr_err};
 
 /// Extract .ext files from path (single file or directory)
 /// Returns Vec<(PathBuf, String)> where String is the model name (file stem)
@@ -23,7 +24,7 @@ fn extract_ext_files_from_path(path: &str) -> Result<Vec<(PathBuf, String)>> {
                 .to_string();
             return Ok(vec![(path_obj.to_path_buf(), model_name)]);
         } else {
-            return Err(Error::Other(format!("File must be .ext: {}", path)));
+            return Err(extendr_err!("File must be .ext: {}", path));
         }
     }
 
@@ -32,11 +33,10 @@ fn extract_ext_files_from_path(path: &str) -> Result<Vec<(PathBuf, String)>> {
         fn scan_directory_recursive(dir: &Path) -> Result<Vec<(PathBuf, String)>> {
             let mut ext_files = Vec::new();
 
-            for entry in std::fs::read_dir(dir).map_err(|e| {
-                Error::Other(format!("Failed to read directory {}: {}", dir.display(), e))
-            })? {
-                let entry = entry
-                    .map_err(|e| Error::Other(format!("Failed to read directory entry: {}", e)))?;
+            for entry in std::fs::read_dir(dir)
+                .map_to_extendr_err("Failed to read directory {dir.display()}")?
+            {
+                let entry = entry.map_to_extendr_err("Failed to read directory entry")?;
                 let path = entry.path();
 
                 if path.is_file() && path.extension() == Some(OsStr::new("ext")) {
@@ -59,25 +59,25 @@ fn extract_ext_files_from_path(path: &str) -> Result<Vec<(PathBuf, String)>> {
         let ext_files = scan_directory_recursive(path_obj)?;
 
         if ext_files.is_empty() {
-            return Err(Error::Other(format!(
+            return Err(extendr_err!(
                 "No .ext files found in directory (including subdirectories): {}",
                 path
-            )));
+            ));
         }
         return Ok(ext_files);
     }
 
     // Case 3: Invalid input
-    Err(Error::Other(format!(
+    Err(extendr_err!(
         "Path must be .ext file or directory: {}",
         path
-    )))
+    ))
 }
 
 /// Helper function to convert EstimationTable vector to R dataframe
 fn estimation_tables_to_dataframe(tables: Vec<EstimationTable>) -> Result<Robj> {
     if tables.is_empty() {
-        return Err(Error::Other("No tables found in ext file".to_string()));
+        return Err(extendr_err!("No tables found in ext file"));
     }
 
     // Get parameter names from the first table
@@ -152,9 +152,7 @@ pub fn create_ext_reader(
             "focei" => "foce",
             _ => method,
         };
-        let m: estimation::EstimationMethod = normalized_method
-            .parse()
-            .map_err(|e: String| Error::Other(e))?;
+        let m: estimation::EstimationMethod = normalized_method.parse().map_to_extendr_err("")?;
         reader = reader.only_method(m);
     }
 
@@ -172,7 +170,7 @@ fn fix_parameter_values(list: List, param_names: &[String]) -> Result<List> {
     let iterations = list
         .dollar("iteration")?
         .as_integers()
-        .ok_or_else(|| Error::Other("Failed to get iterations as integers".to_string()))?;
+        .ok_or_extendr_err("Failed to get iterations as integers")?;
 
     // Find which parameters are fixed (iteration -1000000006 has value 1)
     let fixed_row_idx = iterations
@@ -191,9 +189,10 @@ fn fix_parameter_values(list: List, param_names: &[String]) -> Result<List> {
         new_pairs.push(("method", list.dollar("method")?));
 
         for param_name in param_names {
-            let param_col = list.dollar(param_name)?.as_real_vector().ok_or_else(|| {
-                Error::Other(format!("Failed to get {} as real vector", param_name))
-            })?;
+            let param_col = list
+                .dollar(param_name)?
+                .as_real_vector()
+                .ok_or_extendr_err(format!("Failed to get {param_name} as real vector"))?;
 
             // Check if parameter is fixed
             let is_fixed = param_col.get(fixed_idx).is_some_and(|&val| val == 1.0);
@@ -245,9 +244,7 @@ pub fn read_ext_file(
     let ext_reader = create_ext_reader(line_prefixes, parameters_only, only_method, only_last)?;
     let path = find_output_file(path, "ext")?;
 
-    let tables = ext_reader
-        .parse_file(path)
-        .map_err(|e| Error::Other(e.to_string()))?;
+    let tables = ext_reader.parse_file(path).map_to_extendr_err("")?;
 
     estimation_tables_to_dataframe(tables)
 }
@@ -298,20 +295,15 @@ pub fn get_final_estimates(
                     .to_string();
                 all_files.push((Path::new(&path_str).to_path_buf(), model_name));
             } else {
-                return Err(Error::Other(format!(
-                    "All paths must be .ext files: {}",
-                    path_str
-                )));
+                return Err(extendr_err!("All paths must be .ext files: {}", path_str));
             }
         }
         if all_files.is_empty() {
-            return Err(Error::Other("No .ext files provided in vector".to_string()));
+            return Err(extendr_err!("No .ext files provided in vector"));
         }
         all_files
     } else {
-        return Err(Error::Other(
-            "Input must be a string or vector of strings".to_string(),
-        ));
+        return Err(extendr_err!("Input must be a string or vector of strings"));
     };
     let length = ext_files_with_names.len();
 
@@ -321,10 +313,10 @@ pub fn get_final_estimates(
 
     let results = ext_reader
         .parse_file_batch(ext_files)
-        .map_err(|e| Error::Other(e.to_string()))?;
+        .map_to_extendr_err("")?;
 
     if results.is_empty() {
-        return Err(Error::Other("No tables found in ext file".to_string()));
+        return Err(extendr_err!("No tables found in ext file"));
     }
 
     // Get parameter names from first table (all should be the same)
@@ -332,12 +324,10 @@ pub fn get_final_estimates(
         if let Some(first_table) = first_tables.first() {
             first_table.parameters.clone()
         } else {
-            return Err(Error::Other(
-                "No tables found in first ext file".to_string(),
-            ));
+            return Err(extendr_err!("No tables found in first ext file"));
         }
     } else {
-        return Err(Error::Other("No results found".to_string()));
+        return Err(extendr_err!("No results found"));
     };
 
     // build parameter columns directly (column-first approach)
@@ -362,10 +352,10 @@ pub fn get_final_estimates(
                     }
                 }
             } else {
-                return Err(Error::Other("No rows found in table".to_string()));
+                return Err(extendr_err!("No rows found in table"));
             }
         } else {
-            return Err(Error::Other("No tables found".to_string()));
+            return Err(extendr_err!("No tables found"));
         }
     }
 

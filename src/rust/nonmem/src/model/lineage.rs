@@ -1,9 +1,12 @@
 use extendr_api::prelude::*;
 use extendr_api::serializer::to_robj;
+
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
 use nonmem::{LineageTree, ModelMetadata, OutputFileHash, RunEndFile, RunStartFile};
+
+use hyperion_core::ResultExt;
 
 /// R-compatible version of RunEndFile with u128 -> f64 conversion
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -68,19 +71,19 @@ impl From<LineageTree> for RLineageTree {
 pub fn get_model_lineage(model_dir: &str) -> Result<Robj> {
     // Create lineage tree from folder
     let lineage = LineageTree::from_folder(model_dir)
-        .map_err(|e| Error::Other(format!("Pharos failed to create lineage tree: {e}")))?;
+        .map_to_extendr_err("Pharos failed to create lineage tree")?;
 
     // Convert to R-compatible version (u128 -> f64)
     let r_lineage: RLineageTree = lineage.into();
 
     // Serialize R-compatible lineage to Robj
-    let mut lineage_robj = to_robj(&r_lineage)
-        .map_err(|e| Error::Other(format!("Failed to create Robj from RLineageTree: {e}")))?;
+    let mut lineage_robj =
+        to_robj(&r_lineage).map_to_extendr_err("Failed to create Robj from RLineageTree")?;
 
     // Set S3 class
     let hyperion_nonmem_tree = lineage_robj
         .set_class(["hyperion_nonmem_tree"])
-        .map_err(|e| Error::Other(format!("Failed to set class: {e}")))?;
+        .map_to_extendr_err("Failed to set class")?;
 
     Ok(hyperion_nonmem_tree.to_owned())
 }

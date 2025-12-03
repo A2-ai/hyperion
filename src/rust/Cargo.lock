@@ -187,7 +187,7 @@ dependencies = [
 [[package]]
 name = "config"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=parser#5b1ba8097844845beca67dc8c7bde1bb10dab25f"
+source = "git+https://github.com/a2-ai/pharos?branch=parser#b84ec06177b4f6ef29a23d57135ef05317c2579c"
 dependencies = [
  "anyhow",
  "fs-err",
@@ -372,28 +372,27 @@ dependencies = [
 [[package]]
 name = "extendr-api"
 version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ea54977c6e37236839ffcbc20b5dcea58aa32ae43fbef54a81e1011dc6b19061"
+source = "git+https://github.com/extendr/extendr?branch=main#b1b744b3abec86962217403100f889aefc6d8ca2"
 dependencies = [
  "extendr-ffi",
  "extendr-macros",
  "once_cell",
  "paste",
+ "readonly",
  "serde",
 ]
 
 [[package]]
 name = "extendr-ffi"
 version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c76777174a82bdb3e66872f580687d3d0143eed1df9b9cd72b321b9596a23ca7"
+source = "git+https://github.com/extendr/extendr?branch=main#b1b744b3abec86962217403100f889aefc6d8ca2"
 
 [[package]]
 name = "extendr-macros"
 version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "661cc4ae29de9c4dafe16cfcbda1dbb9f31bd2568f96ebad232cc1f9bcc8b04d"
+source = "git+https://github.com/extendr/extendr?branch=main#b1b744b3abec86962217403100f889aefc6d8ca2"
 dependencies = [
+ "lazy_static",
  "proc-macro2",
  "quote",
  "syn",
@@ -803,7 +802,7 @@ dependencies = [
 [[package]]
 name = "nonmem"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=parser#5b1ba8097844845beca67dc8c7bde1bb10dab25f"
+source = "git+https://github.com/a2-ai/pharos?branch=parser#b84ec06177b4f6ef29a23d57135ef05317c2579c"
 dependencies = [
  "anyhow",
  "blake3",
@@ -1114,6 +1113,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "readonly"
+version = "0.2.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f2a62d85ed81ca5305dc544bd42c8804c5060b78ffa5ad3c64b0fb6a8c13d062"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "regex"
 version = "1.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1179,7 +1189,7 @@ dependencies = [
 [[package]]
 name = "scheduler"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=parser#5b1ba8097844845beca67dc8c7bde1bb10dab25f"
+source = "git+https://github.com/a2-ai/pharos?branch=parser#b84ec06177b4f6ef29a23d57135ef05317c2579c"
 dependencies = [
  "anyhow",
  "config",
@@ -1454,7 +1464,7 @@ checksum = "f6ccf251212114b54433ec949fd6a7841275f9ada20dddd2f29e9ceea4501493"
 [[package]]
 name = "utils"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=parser#5b1ba8097844845beca67dc8c7bde1bb10dab25f"
+source = "git+https://github.com/a2-ai/pharos?branch=parser#b84ec06177b4f6ef29a23d57135ef05317c2579c"
 dependencies = [
  "anyhow",
  "fs-err",

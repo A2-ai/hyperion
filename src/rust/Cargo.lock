@@ -125,9 +125,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.2.48"
+version = "1.2.49"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c481bdbf0ed3b892f6f806287d72acd515b352a4ec27a208489b8c1bc839633a"
+checksum = "90583009037521a116abf44494efecd645ba48b6622457080f080b85544e2215"
 dependencies = [
  "find-msvc-tools",
  "jobserver",
@@ -187,7 +187,7 @@ dependencies = [
 [[package]]
 name = "config"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=parser#4e3221e3c2b394e9fdb55bc1a9f71ac1eb96ae2f"
+source = "git+https://github.com/a2-ai/pharos?branch=main#c3feb2573c6134ff13c9173450bbde1250a0fdb7"
 dependencies = [
  "anyhow",
  "fs-err",
@@ -802,7 +802,7 @@ dependencies = [
 [[package]]
 name = "nonmem"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=parser#4e3221e3c2b394e9fdb55bc1a9f71ac1eb96ae2f"
+source = "git+https://github.com/a2-ai/pharos?branch=main#c3feb2573c6134ff13c9173450bbde1250a0fdb7"
 dependencies = [
  "anyhow",
  "blake3",
@@ -1189,7 +1189,7 @@ dependencies = [
 [[package]]
 name = "scheduler"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=parser#4e3221e3c2b394e9fdb55bc1a9f71ac1eb96ae2f"
+source = "git+https://github.com/a2-ai/pharos?branch=main#c3feb2573c6134ff13c9173450bbde1250a0fdb7"
 dependencies = [
  "anyhow",
  "config",
@@ -1464,7 +1464,7 @@ checksum = "f6ccf251212114b54433ec949fd6a7841275f9ada20dddd2f29e9ceea4501493"
 [[package]]
 name = "utils"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=parser#4e3221e3c2b394e9fdb55bc1a9f71ac1eb96ae2f"
+source = "git+https://github.com/a2-ai/pharos?branch=main#c3feb2573c6134ff13c9173450bbde1250a0fdb7"
 dependencies = [
  "anyhow",
  "fs-err",

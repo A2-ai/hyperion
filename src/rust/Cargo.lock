@@ -187,7 +187,7 @@ dependencies = [
 [[package]]
 name = "config"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=tolerance-type#66f144303216f9f6f18b328df4ec62a2c81e825b"
+source = "git+https://github.com/a2-ai/pharos?branch=main#62766827d033e65360223c1c3263c49cbcd5ef11"
 dependencies = [
  "anyhow",
  "fs-err",
@@ -802,7 +802,7 @@ dependencies = [
 [[package]]
 name = "nonmem"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=tolerance-type#66f144303216f9f6f18b328df4ec62a2c81e825b"
+source = "git+https://github.com/a2-ai/pharos?branch=main#62766827d033e65360223c1c3263c49cbcd5ef11"
 dependencies = [
  "anyhow",
  "blake3",
@@ -1189,7 +1189,7 @@ dependencies = [
 [[package]]
 name = "scheduler"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=tolerance-type#66f144303216f9f6f18b328df4ec62a2c81e825b"
+source = "git+https://github.com/a2-ai/pharos?branch=main#62766827d033e65360223c1c3263c49cbcd5ef11"
 dependencies = [
  "anyhow",
  "config",
@@ -1301,9 +1301,9 @@ dependencies = [
 
 [[package]]
 name = "simd-adler32"
-version = "0.3.7"
+version = "0.3.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d66dc143e6b11c1eddc06d5c423cfc97062865baf299914ab64caa38182078fe"
+checksum = "e320a6c5ad31d271ad523dcf3ad13e2767ad8b1cb8f047f75a8aeaf8da139da2"
 
 [[package]]
 name = "similar"
@@ -1464,7 +1464,7 @@ checksum = "f6ccf251212114b54433ec949fd6a7841275f9ada20dddd2f29e9ceea4501493"
 [[package]]
 name = "utils"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=tolerance-type#66f144303216f9f6f18b328df4ec62a2c81e825b"
+source = "git+https://github.com/a2-ai/pharos?branch=main#62766827d033e65360223c1c3263c49cbcd5ef11"
 dependencies = [
  "anyhow",
  "fs-err",

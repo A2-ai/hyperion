@@ -40,11 +40,6 @@ nonmem = { git = "https://github.com/a2-ai/pharos", package = "nonmem", branch =
 config = { git = "https://github.com/a2-ai/pharos", package = "config", branch = "transform-mod" }
 scheduler = { git = "https://github.com/a2-ai/pharos", package = "scheduler", branch = "transform-mod" }
 
-#nonmem = { path = "../../../pharos/components/nonmem", package = "nonmem" }
-#config = { path = "../../../pharos/components/config", package = "config" }
-#scheduler = { path = "../../../pharos/components/scheduler", package = "scheduler" }
-
-
 # Core utilities
 anyhow = "1.0.100"
 fs-err = "3.1.2"

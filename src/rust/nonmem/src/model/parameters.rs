@@ -1,4 +1,6 @@
+use extendr_api::Result;
 use extendr_api::prelude::*;
+
 use fs_err as fs;
 use std::ffi::OsStr;
 use std::path::Path;
@@ -37,10 +39,12 @@ use hyperion_core::ResultExt;
 #[extendr]
 pub fn get_parameters(
     path: &str,
-    #[default = "FALSE"] hide_off_diagonal_params: bool,
-    #[default = "NULL"] only_method: Option<&str>,
-    #[default = "TRUE"] only_last: Option<bool>,
-    #[default = r#"c("kind", "name", "random_effect", "value", "stderr", "rse", "shrinkage", "fixed", "diagonal")"#]
+    #[extendr(default = "FALSE")] hide_off_diagonal_params: bool,
+    #[extendr(default = "NULL")] only_method: Option<&str>,
+    #[extendr(default = "TRUE")] only_last: Option<bool>,
+    #[extendr(
+        default = r#"c("kind", "name", "random_effect", "value", "stderr", "rse", "shrinkage", "fixed", "diagonal")"#
+    )]
     columns: Vec<String>,
 ) -> Result<Robj> {
     let ext_reader = create_ext_reader(None, None, only_method, only_last)?;

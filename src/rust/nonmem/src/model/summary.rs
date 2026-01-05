@@ -1,4 +1,6 @@
+use extendr_api::Result;
 use extendr_api::prelude::*;
+
 use fs_err as fs;
 use std::path::Path;
 
@@ -280,8 +282,10 @@ pub fn build_parameters_df(parameters: TableParameters, columns: Vec<String>) ->
 #[extendr]
 pub fn get_model_summary(
     directory: &str,
-    #[default = "FALSE"] hide_off_diagonal_params: bool,
-    #[default = r#"c("name", "random_effect", "value", "stderr", "rse", "shrinkage", "kind")"#]
+    #[extendr(default = "FALSE")] hide_off_diagonal_params: bool,
+    #[extendr(
+        default = r#"c("name", "random_effect", "value", "stderr", "rse", "shrinkage", "kind")"#
+    )]
     columns: Vec<String>,
 ) -> Result<Robj> {
     // Load config and extract comment type

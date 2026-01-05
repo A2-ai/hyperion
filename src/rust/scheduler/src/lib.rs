@@ -1,4 +1,6 @@
+use extendr_api::Result;
 use extendr_api::prelude::*;
+
 use std::path::PathBuf;
 use which::which;
 
@@ -89,15 +91,15 @@ fn process_model_robj(model: Robj) -> Result<Vec<PathBuf>> {
 #[allow(clippy::too_many_arguments)]
 pub fn submit_model_to_slurm(
     model: Robj,
-    #[default = "FALSE"] overwrite: bool,
-    #[default = "FALSE"] dry_run: bool,
-    #[default = "FALSE"] run_in_output_dir: bool,
-    #[default = "1"] ncpu: Option<u8>,
-    #[default = "NULL"] partition: Option<String>,
-    #[default = "1"] clean_level: Option<u8>,
-    #[default = "NULL"] parafile: Option<String>,
-    #[default = "NULL"] template: Option<String>,
-    #[default = "NULL"] account: Option<String>,
+    #[extendr(default = "FALSE")] overwrite: bool,
+    #[extendr(default = "FALSE")] dry_run: bool,
+    #[extendr(default = "FALSE")] run_in_output_dir: bool,
+    #[extendr(default = "1")] ncpu: Option<u8>,
+    #[extendr(default = "NULL")] partition: Option<String>,
+    #[extendr(default = "1")] clean_level: Option<u8>,
+    #[extendr(default = "NULL")] parafile: Option<String>,
+    #[extendr(default = "NULL")] template: Option<String>,
+    #[extendr(default = "NULL")] account: Option<String>,
 ) -> Result<()> {
     // Process model input to get list of model files
     let model_files = process_model_robj(model)?;
@@ -181,13 +183,13 @@ pub fn submit_model_to_slurm(
 #[allow(clippy::too_many_arguments)]
 pub fn submit_model_to_sge(
     model: Robj,
-    #[default = "FALSE"] overwrite: bool,
-    #[default = "FALSE"] dry_run: bool,
-    #[default = "FALSE"] run_in_output_dir: bool,
-    #[default = "1"] ncpu: Option<u8>,
-    #[default = "1"] clean_level: Option<u8>,
-    #[default = "NULL"] parafile: Option<String>,
-    #[default = "NULL"] template: Option<String>,
+    #[extendr(default = "FALSE")] overwrite: bool,
+    #[extendr(default = "FALSE")] dry_run: bool,
+    #[extendr(default = "FALSE")] run_in_output_dir: bool,
+    #[extendr(default = "1")] ncpu: Option<u8>,
+    #[extendr(default = "1")] clean_level: Option<u8>,
+    #[extendr(default = "NULL")] parafile: Option<String>,
+    #[extendr(default = "NULL")] template: Option<String>,
 ) -> Result<()> {
     // Process model input to get list of model files
     let model_files = process_model_robj(model)?;

@@ -97,6 +97,56 @@ pub fn find_output_file(input_path: impl AsRef<Path>, extension: &str) -> Result
     }
 }
 
+/// Resolve a model input path (.mod or .ctl), with a fallback for output-model paths.
+pub fn resolve_input_model_path(input_path: impl AsRef<Path>) -> Result<PathBuf> {
+    let path = input_path.as_ref();
+
+    if path.is_dir() {
+        return Err(extendr_err!(
+            "Expected .mod or .ctl file path, got directory: {}",
+            path.display()
+        ));
+    }
+
+    let ext = match path.extension().and_then(|e| e.to_str()) {
+        Some("mod") => "mod",
+        Some("ctl") => "ctl",
+        _ => {
+            return Err(extendr_err!(
+                "Expected .mod or .ctl file path: {}",
+                path.display()
+            ));
+        }
+    };
+
+    if path.exists() {
+        let stem = path
+            .file_stem()
+            .ok_or_extendr_err("Could not determine model file stem")?
+            .to_string_lossy()
+            .to_string();
+        if let Some(parent) = path.parent()
+            && parent
+                .file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name == stem.as_str())
+        {
+            let candidate = parent.with_extension(ext);
+            if candidate.exists() {
+                return Ok(candidate);
+            }
+            return Err(extendr_err!(
+                "Expected input model file next to output directory: {}",
+                candidate.display()
+            ));
+        }
+
+        return Ok(path.to_path_buf());
+    }
+
+    Err(extendr_err!("File not found: {}", path.display()))
+}
+
 /// Gives Some(Model) if model path is found
 pub fn try_parse_model(path: &str) -> Option<Model> {
     let path_buf = std::path::Path::new(path);

@@ -4,10 +4,11 @@ use extendr_api::prelude::*;
 use extendr_api::serializer::to_robj;
 
 use fs_err as fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 //pharos nonmem crate
 use nonmem::Model;
+use nonmem::output_files::lst;
 
 use crate::utils::{find_output_file, get_comment_type};
 use hyperion_core::{OptionExt, ResultExt};
@@ -18,6 +19,64 @@ pub mod lineage;
 pub mod metadata;
 pub mod parameters;
 pub mod summary;
+
+/// Helper to convert Model to Robj for read_model and read_model_from_lst
+///
+/// This handles comment parsing and Model -> Robj + S3 setting
+fn model_to_robj(model: &mut Model, path: impl AsRef<Path>) -> Result<Robj> {
+    let path = path.as_ref();
+
+    // Load config and extract comment type
+    let comment_type = get_comment_type();
+    if let Some(c) = comment_type {
+        model.parse_comments(c);
+    };
+
+    // Convert to List directly
+    let model_list = to_robj(&model)
+        .map_to_extendr_err("failed to create Robj from Model")?
+        .as_list()
+        .ok_or_extendr_err("Expected model to be a list")?;
+
+    // Save tokens and token_ranges for attributes
+    let saved_tokens = model_list.dollar("tokens").ok();
+    let saved_token_ranges = model_list.dollar("token_ranges").ok();
+
+    // Rebuild list excluding tokens and token_ranges
+    let mut new_pairs: Vec<(&str, Robj)> = Vec::new();
+    for (name, value) in model_list.iter() {
+        if name != "tokens" && name != "token_ranges" {
+            new_pairs.push((name, value));
+        }
+    }
+
+    // Add filename to model object
+    if let Some(n) = path.file_stem().and_then(|name| name.to_str()) {
+        new_pairs.push(("filename", n.into_robj()));
+    }
+
+    // Convert to Robj only at the end
+    let mut model_robj: Robj = List::from_pairs(new_pairs).into();
+
+    // Set hidden attributes
+    if let Some(tokens) = saved_tokens {
+        model_robj
+            .set_attrib("_tokens", tokens)
+            .map_to_extendr_err("Failed to set tokens attribute")?;
+    }
+    if let Some(token_ranges) = saved_token_ranges {
+        model_robj
+            .set_attrib("_token_ranges", token_ranges)
+            .map_to_extendr_err("Failed to set token_ranges attribute")?;
+    }
+
+    // Set S3 class
+    let result = model_robj
+        .set_class(["hyperion_nonmem_model"])
+        .map_to_extendr_err("Failed to set class")?;
+
+    Ok(result.to_owned())
+}
 
 /// Helper function to reconstruct a pharos Model from hyperion_nonmem_model Robj
 ///
@@ -69,59 +128,20 @@ pub fn read_model(path: &str) -> Result<Robj> {
     let path = find_output_file(path, "mod")?;
 
     let content = fs::read_to_string(&path).map_to_extendr_err("")?;
-
-    // Load config and extract comment type
-    let comment_type = get_comment_type();
-
     let mut model = Model::parse(&content).map_to_extendr_err("Failed to read model file")?;
-    if let Some(c) = comment_type {
-        model.parse_comments(c);
-    };
+    let robj_model = model_to_robj(&mut model, path)?;
 
-    // Convert to List directly
-    let model_list = to_robj(&model)
-        .map_to_extendr_err("failed to create Robj from Model")?
-        .as_list()
-        .ok_or_extendr_err("Expected model to be a list")?;
+    Ok(robj_model)
+}
 
-    // Save tokens and token_ranges for attributes
-    let saved_tokens = model_list.dollar("tokens").ok();
-    let saved_token_ranges = model_list.dollar("token_ranges").ok();
+#[extendr]
+pub fn read_model_from_lst(path: &str) -> Result<Robj> {
+    let path = find_output_file(path, "lst")?;
+    let mut model =
+        lst::extract_model(&path).map_to_extendr_err("Failed to extract Model from lst file")?;
+    let robj_model = model_to_robj(&mut model, path)?;
 
-    // Rebuild list excluding tokens and token_ranges
-    let mut new_pairs: Vec<(&str, Robj)> = Vec::new();
-    for (name, value) in model_list.iter() {
-        if name != "tokens" && name != "token_ranges" {
-            new_pairs.push((name, value));
-        }
-    }
-
-    // Add filename to model object
-    if let Some(n) = path.file_stem().and_then(|name| name.to_str()) {
-        new_pairs.push(("filename", n.into_robj()));
-    }
-
-    // Convert to Robj only at the end
-    let mut model_robj: Robj = List::from_pairs(new_pairs).into();
-
-    // Set hidden attributes
-    if let Some(tokens) = saved_tokens {
-        model_robj
-            .set_attrib("_tokens", tokens)
-            .map_to_extendr_err("Failed to set tokens attribute")?;
-    }
-    if let Some(token_ranges) = saved_token_ranges {
-        model_robj
-            .set_attrib("_token_ranges", token_ranges)
-            .map_to_extendr_err("Failed to set token_ranges attribute")?;
-    }
-
-    // Set S3 class
-    let result = model_robj
-        .set_class(["hyperion_nonmem_model"])
-        .map_to_extendr_err("Failed to set class")?;
-
-    Ok(result.to_owned())
+    Ok(robj_model)
 }
 
 /// Checks model dataset
@@ -159,4 +179,5 @@ extendr_module! {
 
     fn read_model;
     fn check_dataset;
+    fn read_model_from_lst;
 }

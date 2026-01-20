@@ -11,7 +11,9 @@ use nonmem::Model;
 use nonmem::output_files::lst;
 
 use crate::model::run_status::determine_run_status;
-use crate::utils::{find_output_file, get_comment_type, resolve_input_model_path};
+use crate::utils::{
+    find_output_file, get_comment_type, get_model_source_path, resolve_input_model_path,
+};
 use hyperion_core::{OptionExt, ResultExt};
 
 pub mod check;
@@ -89,11 +91,10 @@ fn add_tokens_attrs(
 }
 
 fn add_model_source_attr(model_robj: &mut Robj, path: &Path) -> Result<()> {
-    if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-        model_robj
-            .set_attrib("model_source", name.into_robj())
-            .map_to_extendr_err("Failed to set model source attribute")?;
-    }
+    let source_path = get_model_source_path(path)?;
+    model_robj
+        .set_attrib("model_source", source_path.into_robj())
+        .map_to_extendr_err("Failed to set model source attribute")?;
 
     Ok(())
 }

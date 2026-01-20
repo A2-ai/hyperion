@@ -67,7 +67,7 @@ read_model_from_lst <- function(path) .Call(wrap__read_model_from_lst, path)
 
 #' Copies model file to new model file
 #'
-#' @param from path to model file to copy
+#' @param from path to model file to copy or hyperion_nonmem_model object
 #' @param to path to model file to write to
 #' @param overwrite boolean, wheter to overwrite existing model. Default FALSE
 #' @param ext_file path to ext file to use for parameter estimates

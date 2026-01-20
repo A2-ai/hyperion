@@ -98,6 +98,19 @@ copy_model(
   seed = 804
 )
 ```
+## Copy model accepts hyperion model object
+```{r}
+mod <- read_model("test_data/models/onecmt/run003.mod")
+mod |> 
+	copy_model(
+		to = "test_data/models/onecmt/run003b2.mod",
+		update = "all",
+		description = "Updating run003 with mod object",
+		overwrite = TRUE,
+		seed = 804831
+	)
+```
+
 
 # Check Model
 

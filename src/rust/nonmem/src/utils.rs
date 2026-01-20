@@ -3,6 +3,7 @@ use extendr_api::prelude::*;
 use extendr_api::serializer::to_robj;
 
 use fs_err as fs;
+use std::path::Component;
 use std::path::{Path, PathBuf};
 
 // pharos config and nonmem crate
@@ -145,6 +146,61 @@ pub fn resolve_input_model_path(input_path: impl AsRef<Path>) -> Result<PathBuf>
     }
 
     Err(extendr_err!("File not found: {}", path.display()))
+}
+
+/// Builds a model source string relative to the pharos config directory when available.
+pub fn get_model_source_path(path: impl AsRef<Path>) -> Result<String> {
+    let path = path.as_ref();
+    let config_dir = find_config_dir().map_to_extendr_err("Failed to find config dir")?;
+
+    if let Some(dir) = config_dir {
+        let rel = make_relative_path(&dir, path);
+        return Ok(rel.to_string_lossy().to_string());
+    }
+
+    Ok(path
+        .file_name()
+        .map(|name| name.to_string_lossy().to_string())
+        .unwrap_or_else(|| path.to_string_lossy().to_string()))
+}
+
+/// Resolve a model source string into an absolute or config-relative path.
+pub fn resolve_model_source_path(source: &str) -> Result<PathBuf> {
+    let source_path = Path::new(source);
+    if source_path.is_absolute() {
+        return Ok(source_path.to_path_buf());
+    }
+
+    if let Some(dir) = find_config_dir().map_to_extendr_err("Failed to find config dir")? {
+        return Ok(dir.join(source_path));
+    }
+
+    Ok(source_path.to_path_buf())
+}
+
+fn make_relative_path(base: &Path, target: &Path) -> PathBuf {
+    let base_components: Vec<Component<'_>> = base.components().collect();
+    let target_components: Vec<Component<'_>> = target.components().collect();
+
+    if base_components.first() != target_components.first() {
+        return target.to_path_buf();
+    }
+
+    let mut idx = 0;
+    let max = base_components.len().min(target_components.len());
+    while idx < max && base_components[idx] == target_components[idx] {
+        idx += 1;
+    }
+
+    let mut rel = PathBuf::new();
+    for _ in idx..base_components.len() {
+        rel.push("..");
+    }
+    for comp in target_components.iter().skip(idx) {
+        rel.push(comp.as_os_str());
+    }
+
+    rel
 }
 
 /// Gives Some(Model) if model path is found

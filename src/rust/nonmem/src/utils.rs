@@ -450,4 +450,49 @@ mod tests {
             "Expected None when mod file doesn't exist"
         );
     }
+
+    #[test]
+    fn test_resolve_input_model_path_ok() {
+        let temp_dir = TempDir::new().unwrap();
+        let mod_file = temp_dir.path().join("run001.mod");
+        fs::write(&mod_file, "test content").unwrap();
+
+        let result = resolve_input_model_path(&mod_file).unwrap();
+        assert_eq!(result, mod_file);
+    }
+
+    #[test]
+    fn test_resolve_input_model_path_rejects_output_model() {
+        let temp_dir = TempDir::new().unwrap();
+        let run_dir = temp_dir.path().join("run001");
+        fs::create_dir(&run_dir).unwrap();
+        let output_mod = run_dir.join("run001.mod");
+        fs::write(&output_mod, "test content").unwrap();
+
+        let err = resolve_input_model_path(&output_mod).unwrap_err();
+        let message = format!("{err}");
+        assert!(message.contains("Expected input model file"));
+        assert!(message.contains("Try:"));
+    }
+
+    #[test]
+    fn test_resolve_input_model_path_rejects_wrong_extension() {
+        let temp_dir = TempDir::new().unwrap();
+        let txt_file = temp_dir.path().join("run001.txt");
+        fs::write(&txt_file, "test content").unwrap();
+
+        let err = resolve_input_model_path(&txt_file).unwrap_err();
+        let message = format!("{err}");
+        assert!(message.contains("Expected .mod or .ctl"));
+    }
+
+    #[test]
+    fn test_resolve_model_source_path_absolute() {
+        let temp_dir = TempDir::new().unwrap();
+        let mod_file = temp_dir.path().join("run001.mod");
+        fs::write(&mod_file, "test content").unwrap();
+
+        let result = resolve_model_source_path(mod_file.to_string_lossy().as_ref()).unwrap();
+        assert_eq!(result, mod_file);
+    }
 }

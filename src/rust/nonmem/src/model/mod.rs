@@ -124,7 +124,7 @@ pub fn robj_to_model(model: &Robj) -> Result<Model> {
 /// @param path path to mod file, lst file, model output directory, or metadata.json file.
 /// If a .lst exists it is preferred, but a .mod/.ctl must also be present.
 ///
-/// @return hyperion_nonmem_model S3 object
+/// @return hyperion_nonmem_model S3 object with `model_source` attribute for the source file
 /// @export
 ///
 /// @examples \dontrun{
@@ -152,6 +152,16 @@ pub fn read_model(path: &str) -> Result<Robj> {
     Ok(robj_model)
 }
 
+/// Gets model object from lst file
+///
+/// @param path path to lst file, model output directory, or metadata.json file.
+///
+/// @return hyperion_nonmem_model S3 object with `model_source` attribute for the source file
+/// @export
+///
+/// @examples \dontrun{
+/// read_model_from_lst("model/nonmem/run001")
+/// }
 #[extendr]
 pub fn read_model_from_lst(path: &str) -> Result<Robj> {
     let path = find_output_file(path, "lst")?;

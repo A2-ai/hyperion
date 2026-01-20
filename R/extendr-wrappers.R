@@ -29,9 +29,10 @@ find_pharos_config_file <- function() .Call(wrap__find_pharos_config_file)
 
 #' Gets model object
 #'
-#' @param path path to mod file, model output directory, or metadata.json file
+#' @param path path to mod file, lst file, model output directory, or metadata.json file.
+#' If a .lst exists it is preferred, but a .mod/.ctl must also be present.
 #'
-#' @return hyperion_nonmem_model S3 object
+#' @return hyperion_nonmem_model S3 object with `model_source` attribute for the source file
 #' @export
 #'
 #' @examples \dontrun{
@@ -53,6 +54,16 @@ read_model <- function(path) .Call(wrap__read_model, path)
 #' }
 check_dataset <- function(model, model_dir) .Call(wrap__check_dataset, model, model_dir)
 
+#' Gets model object from lst file
+#'
+#' @param path path to lst file, model output directory, or metadata.json file.
+#'
+#' @return hyperion_nonmem_model S3 object with `model_source` attribute for the source file
+#' @export
+#'
+#' @examples \dontrun{
+#' read_model_from_lst("model/nonmem/run001")
+#' }
 read_model_from_lst <- function(path) .Call(wrap__read_model_from_lst, path)
 
 #' Copies model file to new model file

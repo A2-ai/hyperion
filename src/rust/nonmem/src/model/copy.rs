@@ -5,7 +5,7 @@ use nonmem::copy::{JitterSpec, ParamType, UpdateType};
 use nonmem::{CopyOptions, copy_model};
 use std::path::{Path, PathBuf};
 
-use crate::utils::{resolve_input_model_path, resolve_model_source_path};
+use crate::utils::{resolve_input_model_path, resolve_model_input_path_from_robj};
 use hyperion_core::{OptionExt, ResultExt, extendr_err};
 
 // This should move to Option<Robj>
@@ -129,14 +129,7 @@ fn parse_from_path(from: Robj) -> Result<PathBuf> {
     }
 
     if from.inherits("hyperion_nonmem_model") {
-        let source = from
-            .get_attrib("model_source")
-            .ok_or_extendr_err("`from` model object is missing model_source attribute")?;
-        let source_str = source
-            .as_str()
-            .ok_or_extendr_err("model_source attribute must be a string")?;
-        let source_path = resolve_model_source_path(source_str)?;
-        return resolve_input_model_path(source_path);
+        return resolve_model_input_path_from_robj(&from);
     }
 
     Err(extendr_err!(

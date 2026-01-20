@@ -133,11 +133,10 @@ pub fn resolve_input_model_path(input_path: impl AsRef<Path>) -> Result<PathBuf>
                 .is_some_and(|name| name == stem.as_str())
         {
             let candidate = parent.with_extension(ext);
-            if candidate.exists() {
-                return Ok(candidate);
-            }
             return Err(extendr_err!(
-                "Expected input model file next to output directory: {}",
+                "Expected input model file, got output model file: {}\n\
+                 Try: {}",
+                path.display(),
                 candidate.display()
             ));
         }
@@ -158,10 +157,7 @@ pub fn get_model_source_path(path: impl AsRef<Path>) -> Result<String> {
         return Ok(rel.to_string_lossy().to_string());
     }
 
-    Ok(path
-        .file_name()
-        .map(|name| name.to_string_lossy().to_string())
-        .unwrap_or_else(|| path.to_string_lossy().to_string()))
+    Ok(path.to_string_lossy().to_string())
 }
 
 /// Resolve a model source string into an absolute or config-relative path.
@@ -176,6 +172,18 @@ pub fn resolve_model_source_path(source: &str) -> Result<PathBuf> {
     }
 
     Ok(source_path.to_path_buf())
+}
+
+/// Resolve a model object's model_source attribute to an input model path.
+pub fn resolve_model_input_path_from_robj(model: &Robj) -> Result<PathBuf> {
+    let source = model
+        .get_attrib("model_source")
+        .ok_or_extendr_err("Model object is missing model_source attribute")?;
+    let source_str = source
+        .as_str()
+        .ok_or_extendr_err("model_source attribute must be a string")?;
+    let source_path = resolve_model_source_path(source_str)?;
+    resolve_input_model_path(source_path)
 }
 
 fn make_relative_path(base: &Path, target: &Path) -> PathBuf {

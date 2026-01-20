@@ -17,6 +17,6 @@ Gets model object
 }
 \examples{
 \dontrun{
-read_model("model/nonmem/run001")
+read_model("model/nonmem/run001.mod")
 }
 }

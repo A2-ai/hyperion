@@ -162,7 +162,7 @@ pub fn robj_to_model(model: &Robj) -> Result<Model> {
 /// @export
 ///
 /// @examples \dontrun{
-/// read_model("model/nonmem/run001")
+/// read_model("model/nonmem/run001.mod")
 /// }
 #[extendr]
 pub fn read_model(path: &str) -> Result<Robj> {
@@ -182,7 +182,7 @@ pub fn read_model(path: &str) -> Result<Robj> {
 /// @export
 ///
 /// @examples \dontrun{
-/// read_model_from_lst("model/nonmem/run001")
+/// read_model_from_lst("model/nonmem/run001/run001.lst")
 /// }
 #[extendr]
 pub fn read_model_from_lst(path: &str) -> Result<Robj> {

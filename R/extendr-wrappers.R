@@ -35,7 +35,7 @@ find_pharos_config_file <- function() .Call(wrap__find_pharos_config_file)
 #' @export
 #'
 #' @examples \dontrun{
-#' read_model("model/nonmem/run001")
+#' read_model("model/nonmem/run001.mod")
 #' }
 read_model <- function(path) .Call(wrap__read_model, path)
 
@@ -61,7 +61,7 @@ check_dataset <- function(model, model_dir) .Call(wrap__check_dataset, model, mo
 #' @export
 #'
 #' @examples \dontrun{
-#' read_model_from_lst("model/nonmem/run001")
+#' read_model_from_lst("model/nonmem/run001/run001.lst")
 #' }
 read_model_from_lst <- function(path) .Call(wrap__read_model_from_lst, path)
 
@@ -92,7 +92,8 @@ copy_model <- function(from, to, overwrite = FALSE, ext_file = NULL, update = 'n
 
 #' Gets model run summary
 #'
-#' @param directory path to model run output directory containing .ext, .lst files
+#' @param directory path to model run output directory containing .ext, .lst files,
+#' or a hyperion_nonmem_model object
 #' @param hide_off_diagonal_params boolean, if TRUE will not display the unfixed off-diagonal
 #' estimated parameters
 #' @param columns character vector of columns to include in resulting dataframe. Default: c("name", "value", "stderr", "rse", "shrinkage", "kind").

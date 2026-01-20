@@ -70,6 +70,13 @@ fn model_to_robj(model: &mut Model, path: impl AsRef<Path>) -> Result<Robj> {
             .map_to_extendr_err("Failed to set token_ranges attribute")?;
     }
 
+    // Set model source file
+    if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+        model_robj
+            .set_attrib("model_source", name.into_robj())
+            .map_to_extendr_err("Failed to set model source attribute")?;
+    }
+
     // Set S3 class
     let result = model_robj
         .set_class(["hyperion_nonmem_model"])
@@ -114,7 +121,8 @@ pub fn robj_to_model(model: &Robj) -> Result<Model> {
 
 /// Gets model object
 ///
-/// @param path path to mod file, model output directory, or metadata.json file
+/// @param path path to mod file, lst file, model output directory, or metadata.json file.
+/// If a .lst exists it is preferred, but a .mod/.ctl must also be present.
 ///
 /// @return hyperion_nonmem_model S3 object
 /// @export
@@ -124,13 +132,23 @@ pub fn robj_to_model(model: &Robj) -> Result<Model> {
 /// }
 #[extendr]
 pub fn read_model(path: &str) -> Result<Robj> {
-    // Read in mod file and parse into Model
-    let path = find_output_file(path, "mod").or_else(|_| find_output_file(path, "ctl"))?;
+    let mod_path = find_output_file(&path, "mod").or_else(|_| find_output_file(&path, "ctl"))?;
+    let lst_path = find_output_file(&path, "lst");
 
-    let content = fs::read_to_string(&path).map_to_extendr_err("")?;
-    let mut model = Model::parse(&content).map_to_extendr_err("Failed to read model file")?;
+    let (mut model, path) = match lst_path {
+        Ok(p) => {
+            let model = lst::extract_model(&p)
+                .map_to_extendr_err("Failed to extract Model from lst file")?;
+            (model, p)
+        }
+        Err(_) => {
+            let content = fs::read_to_string(&mod_path).map_to_extendr_err("")?;
+            let model = Model::parse(&content).map_to_extendr_err("Failed to read model file")?;
+            (model, mod_path)
+        }
+    };
+
     let robj_model = model_to_robj(&mut model, path)?;
-
     Ok(robj_model)
 }
 

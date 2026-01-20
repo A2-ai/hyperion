@@ -2,7 +2,7 @@ use extendr_api::Result;
 use extendr_api::prelude::*;
 
 use fs_err as fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 // Pharos nonmem crate
 use nonmem::output_files::{
@@ -14,9 +14,12 @@ use nonmem::output_files::{
 
 use crate::{
     output_files::{OMEGA, ParameterRowBuilder, ParameterTable, SIGMA, THETA},
-    utils::{find_output_file, get_comment_type},
+    utils::{
+        find_output_file, get_comment_type, resolve_input_model_path,
+        resolve_model_input_path_from_robj,
+    },
 };
-use hyperion_core::{ResultExt, extendr_err};
+use hyperion_core::{OptionExt, ResultExt, extendr_err};
 
 #[derive(Debug, IntoDataFrameRow)]
 pub struct MinimizationResultsRow {
@@ -265,9 +268,48 @@ pub fn build_parameters_df(parameters: TableParameters, columns: Vec<String>) ->
     Ok(parameters_df)
 }
 
+fn run_dir_from_model_path(model_path: &Path) -> Result<PathBuf> {
+    let stem = model_path
+        .file_stem()
+        .ok_or_extendr_err("Could not determine model file stem")?
+        .to_string_lossy();
+    let parent = model_path
+        .parent()
+        .ok_or_extendr_err("Could not determine model file parent directory")?;
+
+    Ok(parent.join(stem.as_ref()))
+}
+
+fn parse_summary_directory(input: Robj) -> Result<PathBuf> {
+    if input.is_string() {
+        let path = input
+            .as_str()
+            .ok_or_extendr_err("`directory` must be a string")?;
+        let path = Path::new(path);
+        if path.is_dir() {
+            return Ok(path.to_path_buf());
+        }
+        if path.exists() {
+            let model_path = resolve_input_model_path(path)?;
+            return run_dir_from_model_path(&model_path);
+        }
+        return Err(extendr_err!("Path does not exist: {}", path.display()));
+    }
+
+    if input.inherits("hyperion_nonmem_model") {
+        let model_path = resolve_model_input_path_from_robj(&input)?;
+        return run_dir_from_model_path(&model_path);
+    }
+
+    Err(extendr_err!(
+        "`directory` must be a run directory path or a hyperion_nonmem_model object"
+    ))
+}
+
 /// Gets model run summary
 ///
-/// @param directory path to model run output directory containing .ext, .lst files
+/// @param directory path to model run output directory containing .ext, .lst files,
+/// or a hyperion_nonmem_model object
 /// @param hide_off_diagonal_params boolean, if TRUE will not display the unfixed off-diagonal
 /// estimated parameters
 /// @param columns character vector of columns to include in resulting dataframe. Default: c("name", "value", "stderr", "rse", "shrinkage", "kind").
@@ -281,7 +323,7 @@ pub fn build_parameters_df(parameters: TableParameters, columns: Vec<String>) ->
 /// }
 #[extendr]
 pub fn get_model_summary(
-    directory: &str,
+    directory: Robj,
     #[extendr(default = "FALSE")] hide_off_diagonal_params: bool,
     #[extendr(
         default = r#"c("name", "random_effect", "value", "stderr", "rse", "shrinkage", "kind")"#
@@ -291,13 +333,14 @@ pub fn get_model_summary(
     // Load config and extract comment type
     let comment_type = get_comment_type();
 
-    if Path::new(&directory).is_file() {
+    let directory = parse_summary_directory(directory)?;
+    if !directory.is_dir() {
         return Err(extendr_err!(
             "Please input path to model run output directory."
         ));
-    };
+    }
 
-    let summary = get_summary(directory, comment_type, hide_off_diagonal_params)
+    let summary = get_summary(&directory, comment_type, hide_off_diagonal_params)
         .map_to_extendr_err("Failed to get summary")?;
 
     let run_details_df = build_run_details_df(summary.lst.run_details)?;

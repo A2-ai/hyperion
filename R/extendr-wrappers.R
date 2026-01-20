@@ -53,6 +53,8 @@ read_model <- function(path) .Call(wrap__read_model, path)
 #' }
 check_dataset <- function(model, model_dir) .Call(wrap__check_dataset, model, model_dir)
 
+read_model_from_lst <- function(path) .Call(wrap__read_model_from_lst, path)
+
 #' Copies model file to new model file
 #'
 #' @param from path to model file to copy

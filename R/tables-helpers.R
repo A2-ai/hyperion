@@ -362,17 +362,24 @@ build_comparison_label_map <- function(
   hide_cols
 ) {
   label_map <- list(name = "Parameter", pct_change = "% Change")
+  pct_change_refs <- attr(comparison, "pct_change_refs")
   if (length(pct_change_cols) > 0 && show_pct_change) {
     label_map$pct_change <- NULL
     for (col in pct_change_cols) {
       idx <- as.integer(sub("^pct_change_", "", col))
-      left_label <- if (length(labels) >= idx - 1) labels[idx - 1] else {
-        paste0("Model ", idx - 1)
+      # Use reference index if available, otherwise default to idx - 1
+      ref_idx <- if (!is.null(pct_change_refs[[col]])) {
+        pct_change_refs[[col]]
+      } else {
+        idx - 1
+      }
+      ref_label <- if (length(labels) >= ref_idx) labels[ref_idx] else {
+        paste0("Model ", ref_idx)
       }
       if (length(pct_change_cols) == 1) {
         label_map[[col]] <- "% Change"
       } else {
-        label_map[[col]] <- sprintf("%% Change vs %s", left_label)
+        label_map[[col]] <- sprintf("%% Change vs %s", ref_label)
       }
     }
   }
@@ -425,33 +432,23 @@ apply_comparison_footnotes <- function(
     NULL
   }
   pvalue_scientific <- if (!is.null(spec)) spec@pvalue_scientific else TRUE
-  footnote_lines <- build_comparison_footnote(
+  pvalue_threshold <- if (!is.null(spec)) spec@pvalue_threshold else NULL
+  summary_note <- build_comparison_footnote(
     comparison,
     n_sigfig,
     ofv_decimals,
-    pvalue_scientific
+    pvalue_scientific,
+    pvalue_threshold
   )
-  if (!is.null(footnote_lines)) {
-    for (fn_line in footnote_lines) {
-      table <- table |>
-        gt::tab_footnote(fn_line)
-    }
-  }
-
-  ci_cols <- grep("^ci_low_\\d+$", names(comparison), value = TRUE)
-  if (length(ci_cols) > 0 && any(!is.na(comparison[ci_cols]))) {
-    table <- table |>
-      gt::tab_footnote(
-        footnote = gt::md(sprintf(
-          "%d%% CI: $\\mathrm{Estimate} \\pm z_{%.3g} \\cdot \\mathrm{SE}$",
-          ci_pct,
-          (1 - ci_pct / 100) / 2
-        ))
-      )
-  }
 
   comparison_stats <- detect_comparison_statistics(comparison)
-  add_conditional_footnotes(table, comparison, spec, comparison_stats)
+  add_conditional_footnotes(
+    table,
+    comparison,
+    spec,
+    comparison_stats = comparison_stats,
+    summary_note = summary_note
+  )
 }
 
 #' Prepare comparison table data and layout
@@ -461,6 +458,9 @@ prepare_comparison_table_data <- function(
   spec,
   fallback_suffix_cols
 ) {
+  # Capture all comparison attrs early (dplyr operations strip custom attrs)
+  saved_attrs <- capture_comparison_attrs(comparison)
+
   suffix_cols <- get_comparison_suffix_cols(
     spec,
     comparison,
@@ -483,14 +483,14 @@ prepare_comparison_table_data <- function(
     }
   }
 
-  attr(comparison, "summary1") <- summaries[[max(1, length(summaries) - 1)]]
-  attr(comparison, "summary2") <- summaries[[length(summaries)]]
-  attr(comparison, "summaries") <- summaries
-  attr(comparison, "labels") <- labels
-
   comparison <- blank_ci_for_fixed(comparison)
   fixed_cols <- grep("^fixed_\\d+$", names(comparison), value = TRUE)
   comparison <- add_fixed_display_columns(comparison, fixed_cols)
+
+  # Restore saved attrs and set summaries/labels from meta
+  comparison <- restore_comparison_attrs(comparison, saved_attrs)
+  attr(comparison, "summaries") <- summaries
+  attr(comparison, "labels") <- labels
 
   layout <- compute_comparison_layout(
     comparison,

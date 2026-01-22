@@ -269,31 +269,31 @@ spec <- TableSpec(
 )
 
 mod1 <- read_model(file.path(model_dir, "run002.mod"))
-mod_sum1 <- get_model_summary(file.path(model_dir, "run002"))
-info1 <- get_model_parameter_info(file.path(model_dir, "run002"))
+mod_sum1 <- get_model_summary(mod1)
+info1 <- get_model_parameter_info(mod1)
 
 mod2 <- read_model(file.path(model_dir, "run003.mod"))
-mod_sum2 <- get_model_summary(file.path(model_dir, "run003"))
-info2 <- get_model_parameter_info(file.path(model_dir, "run003"))
+mod_sum2 <- get_model_summary(mod2)
+info2 <- get_model_parameter_info(mod2)
 
 mod3 <- read_model(file.path(model_dir, "run003b1.mod"))
-mod_sum3 <- get_model_summary(file.path(model_dir, "run003b1"))
-info3 <- get_model_parameter_info(file.path(model_dir, "run003b1"))
+mod_sum3 <- get_model_summary(mod3)
+info3 <- get_model_parameter_info(mod3)
 
-comp <- get_parameters(file.path(model_dir, "run002")) |>
+comp <- get_parameters(mod1) |>
   apply_table_spec(spec, info1) |>
   add_summary_info(mod_sum1) |>
   compare_with(
-    get_parameters(file.path(model_dir, "run003")) |>
+    get_parameters(mod2) |>
       apply_table_spec(spec, info2) |>
       add_summary_info(mod_sum2),
     labels = c(mod1$filename, mod2$filename)
-   ) |>
+  ) |>
   compare_with(
-    get_parameters(file.path(model_dir, "run003b1")) |>
+    get_parameters(mod3) |>
       apply_table_spec(spec, info3) |>
       add_summary_info(mod_sum3),
-      labels = c(mod3$filename)
+    labels = c(mod3$filename)
   )
 
 comp |>

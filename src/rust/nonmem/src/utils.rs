@@ -186,6 +186,22 @@ pub fn resolve_model_input_path_from_robj(model: &Robj) -> Result<PathBuf> {
     resolve_input_model_path(source_path)
 }
 
+/// Resolve input that can be either a path string or hyperion_nonmem_model object.
+pub fn resolve_model_or_path(input: Robj) -> Result<PathBuf> {
+    if input.is_string() {
+        let path = input.as_str().ok_or_extendr_err("Input must be a string")?;
+        return resolve_input_model_path(path);
+    }
+
+    if input.inherits("hyperion_nonmem_model") {
+        return resolve_model_input_path_from_robj(&input);
+    }
+
+    Err(extendr_err!(
+        "Input must be a model path or a hyperion_nonmem_model object"
+    ))
+}
+
 fn make_relative_path(base: &Path, target: &Path) -> PathBuf {
     let base_components: Vec<Component<'_>> = base.components().collect();
     let target_components: Vec<Component<'_>> = target.components().collect();

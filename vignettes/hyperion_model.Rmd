@@ -69,7 +69,15 @@ mod <- read_model(file.path(test_data_dir, "models", "onecmt", "run003.mod"))
 mod |>
 	get_model_summary()
 ```
+## parameters can be retrieved with model
 
+```{r}
+mod |> get_parameters()
+```
+## parameter info can be retrieved with model
+```{r}
+mod |> get_model_parameter_info() |> audit_parameter_info()
+```
 
 # Copy model
 

@@ -16,9 +16,9 @@ use crate::{
     model::robj_to_model,
     output_files::ext::create_ext_reader,
     output_files::{OMEGA, ParameterRow, ParameterRowBuilder, SIGMA, THETA, build_parameters_df},
-    utils::{find_output_file, get_comment_type},
+    utils::{find_output_file, get_comment_type, resolve_model_input_path_from_robj},
 };
-use hyperion_core::ResultExt;
+use hyperion_core::{OptionExt, ResultExt, extendr_err};
 
 /// Extract numeric indices from a parameter name for sorting.
 ///
@@ -87,7 +87,8 @@ fn compare_param_names(a: &str, b: &str) -> Ordering {
 
 /// Gets parameter estimates from model run
 ///
-/// @param path path to model file, model output directory, ext file or metadata json file.
+/// @param path path to model file, model output directory, ext file or metadata json file,
+/// or a hyperion_nonmem_model object
 /// @param hide_off_diagonal_params boolean, if TRUE will not display the unfixed off-diagonal
 /// estimated parameters
 /// @param only_method character, filter for getting estimates from specified method only.
@@ -101,10 +102,12 @@ fn compare_param_names(a: &str, b: &str) -> Ordering {
 ///
 /// @examples \dontrun{
 /// get_parameters("model/nonmem/run001/run001.ext")
+/// model <- read_model("model/nonmem/run001.mod")
+/// get_parameters(model)
 /// }
 #[extendr]
 pub fn get_parameters(
-    path: &str,
+    path: Robj,
     #[extendr(default = "FALSE")] hide_off_diagonal_params: bool,
     #[extendr(default = "NULL")] only_method: Option<&str>,
     #[extendr(default = "TRUE")] only_last: Option<bool>,
@@ -113,20 +116,36 @@ pub fn get_parameters(
 ) -> Result<Robj> {
     let ext_reader = create_ext_reader(None, None, only_method, only_last)?;
 
-    let search_path = if Path::new(path).extension() == Some(OsStr::new("ext")) {
-        Path::new(path).parent().unwrap().to_str().unwrap()
+    // Resolve the search path from either a string or model object
+    let search_path = if path.is_string() {
+        let path_str = path.as_str().ok_or_extendr_err("`path` must be a string")?;
+        let p = Path::new(path_str);
+        // If .ext file, use parent directory; otherwise use path as-is
+        if p.extension() == Some(OsStr::new("ext")) {
+            p.parent()
+                .map(|parent| parent.to_string_lossy().to_string())
+                .unwrap_or_else(|| ".".to_string())
+        } else {
+            path_str.to_string()
+        }
+    } else if path.inherits("hyperion_nonmem_model") {
+        // Model object: resolve to model path, use that for output file lookup
+        let model_path = resolve_model_input_path_from_robj(&path)?;
+        model_path.to_string_lossy().to_string()
     } else {
-        path
+        return Err(extendr_err!(
+            "`path` must be a model path or a hyperion_nonmem_model object"
+        ));
     };
 
-    let shk_data = match find_output_file(search_path, "shk") {
+    let shk_data = match find_output_file(&search_path, "shk") {
         Ok(p) => ShkReader.parse_file(p).unwrap_or_default(),
         Err(_) => Vec::new(),
     };
 
-    let ext_path = find_output_file(search_path, "ext")?;
+    let ext_path = find_output_file(&search_path, "ext")?;
     let model_path =
-        find_output_file(search_path, "mod").or_else(|_| find_output_file(search_path, "ctl"))?;
+        find_output_file(&search_path, "mod").or_else(|_| find_output_file(&search_path, "ctl"))?;
     let content = fs::read_to_string(&model_path).map_to_extendr_err("")?;
 
     let mut model = Model::parse(&content).map_to_extendr_err("Failed to read model file")?;

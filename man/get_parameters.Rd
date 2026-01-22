@@ -14,7 +14,8 @@ get_parameters(
 )
 }
 \arguments{
-\item{path}{path to model file, model output directory, ext file or metadata json file.}
+\item{path}{path to model file, model output directory, ext file or metadata json file,
+or a hyperion_nonmem_model object}
 
 \item{hide_off_diagonal_params}{boolean, if TRUE will not display the unfixed off-diagonal
 estimated parameters}
@@ -37,5 +38,7 @@ Gets parameter estimates from model run
 \examples{
 \dontrun{
 get_parameters("model/nonmem/run001/run001.ext")
+model <- read_model("model/nonmem/run001.mod")
+get_parameters(model)
 }
 }

@@ -143,7 +143,8 @@ get_model_lineage <- function(model_dir) .Call(wrap__get_model_lineage, model_di
 
 #' Gets parameter estimates from model run
 #'
-#' @param path path to model file, model output directory, ext file or metadata json file.
+#' @param path path to model file, model output directory, ext file or metadata json file,
+#' or a hyperion_nonmem_model object
 #' @param hide_off_diagonal_params boolean, if TRUE will not display the unfixed off-diagonal
 #' estimated parameters
 #' @param only_method character, filter for getting estimates from specified method only.
@@ -157,6 +158,8 @@ get_model_lineage <- function(model_dir) .Call(wrap__get_model_lineage, model_di
 #'
 #' @examples \dontrun{
 #' get_parameters("model/nonmem/run001/run001.ext")
+#' model <- read_model("model/nonmem/run001.mod")
+#' get_parameters(model)
 #' }
 get_parameters <- function(path, hide_off_diagonal_params = FALSE, only_method = NULL, only_last = TRUE, show_table_idx = FALSE, show_method = FALSE) .Call(wrap__get_parameters, path, hide_off_diagonal_params, only_method, only_last, show_table_idx, show_method)
 

@@ -4,7 +4,7 @@ use extendr_api::prelude::*;
 use fs_err as fs;
 use std::cmp::Ordering;
 use std::ffi::OsStr;
-use std::path::Path;
+use std::path::PathBuf;
 
 // pharos nonmem crate
 use nonmem::{
@@ -16,9 +16,9 @@ use crate::{
     model::robj_to_model,
     output_files::ext::create_ext_reader,
     output_files::{OMEGA, ParameterRow, ParameterRowBuilder, SIGMA, THETA, build_parameters_df},
-    utils::{find_output_file, get_comment_type, resolve_model_input_path_from_robj},
+    utils::{find_output_file, get_comment_type, path_from_robj},
 };
-use hyperion_core::{OptionExt, ResultExt, extendr_err};
+use hyperion_core::ResultExt;
 
 /// Extract numeric indices from a parameter name for sorting.
 ///
@@ -117,25 +117,15 @@ pub fn get_parameters(
     let ext_reader = create_ext_reader(None, None, only_method, only_last)?;
 
     // Resolve the search path from either a string or model object
-    let search_path = if path.is_string() {
-        let path_str = path.as_str().ok_or_extendr_err("`path` must be a string")?;
-        let p = Path::new(path_str);
-        // If .ext file, use parent directory; otherwise use path as-is
-        if p.extension() == Some(OsStr::new("ext")) {
-            p.parent()
-                .map(|parent| parent.to_string_lossy().to_string())
-                .unwrap_or_else(|| ".".to_string())
-        } else {
-            path_str.to_string()
-        }
-    } else if path.inherits("hyperion_nonmem_model") {
-        // Model object: resolve to model path, use that for output file lookup
-        let model_path = resolve_model_input_path_from_robj(&path)?;
-        model_path.to_string_lossy().to_string()
+    let search_path = path_from_robj(&path)?;
+    // If .ext file, use parent directory; otherwise use path as-is
+    let search_path = if search_path.extension() == Some(OsStr::new("ext")) {
+        search_path
+            .parent()
+            .map(|p| p.to_path_buf())
+            .unwrap_or_else(|| PathBuf::from("."))
     } else {
-        return Err(extendr_err!(
-            "`path` must be a model path or a hyperion_nonmem_model object"
-        ));
+        search_path
     };
 
     let shk_data = match find_output_file(&search_path, "shk") {

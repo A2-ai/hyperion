@@ -43,7 +43,7 @@ reference = [
 		"check_model",
 		"check_dataset",
 		"copy_model",
-		"get_model_summary",
+		{ slug = "summary.hyperion_nonmem_model", label = "summary" },
 		"get_run_info",
 		"get_parameters",
 		"get_model_parameter_info",

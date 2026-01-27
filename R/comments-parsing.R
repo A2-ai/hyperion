@@ -108,7 +108,7 @@ get_model_parameter_info <- function(mod, lookup_path = NULL) {
     mod_path <- attr(mod, "model_source") %||% "unknown"
     # If model was read from .mod/.ctl file, find and read from .lst instead
     if (!grepl("\\.lst$", mod_path, ignore.case = TRUE)) {
-      run_status <- attr(mod, "run_status") %||% NA_character_
+      run_status <- refresh_run_status(mod)
       if (!identical(run_status, "run")) {
         stop("model run_status must be 'run', got: ", run_status)
       }
@@ -121,7 +121,7 @@ get_model_parameter_info <- function(mod, lookup_path = NULL) {
     )
   }
 
-  run_status <- attr(mod, "run_status") %||% NA_character_
+  run_status <- refresh_run_status(mod)
   if (!identical(run_status, "run")) {
     stop("model run_status must be 'run', got: ", run_status)
   }

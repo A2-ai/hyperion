@@ -1,3 +1,28 @@
+#' @noRd
+build_tree_display_parts <- function(x) {
+  if (is.null(x$nodes) || length(x$nodes) == 0) {
+    return(list(
+      is_empty = TRUE,
+      title = "Hyperion Model Tree"
+    ))
+  }
+
+  tree_data <- build_cli_tree_data(x)
+  total_models <- length(tree_data$parent)
+  all_parents <- tree_data$parent
+  all_children <- unlist(tree_data$children)
+  root_nodes <- setdiff(all_parents, all_children)
+
+  list(
+    is_empty = FALSE,
+    title = "Hyperion Model Tree",
+    tree_data = tree_data,
+    total_models = total_models,
+    root_nodes = root_nodes,
+    nodes = x$nodes
+  )
+}
+
 #' Print Method for Hyperion Tree Objects
 #'
 #' Displays a hyperion_nonmem_tree in a readable tree format using cli::tree().
@@ -7,52 +32,39 @@
 #' @param ... Additional arguments (currently unused)
 #'
 #' @return Invisibly returns the input object
-#' @export
+#' @rawNamespace S3method(base::print, hyperion_nonmem_tree)
 print.hyperion_nonmem_tree <- function(x, ...) {
-  # Handle empty tree
-  if (is.null(x$nodes) || length(x$nodes) == 0) {
-    cli::cli_h1("Hyperion Model Tree")
+  cli::cli_text("")
+  parts <- build_tree_display_parts(x)
+
+  if (parts$is_empty) {
+    cli::cli_h1(parts$title)
     cli::cli_alert_warning("Empty tree - no models found")
     return(invisible(x))
   }
 
-  # Build data structure and use cli::tree with descriptions
-  tree_data <- build_cli_tree_data(x)
-
-  # Header with correct model count (including models without metadata)
-  total_models <- length(tree_data$parent)
-  cli::cli_h1("Hyperion Model Tree")
-  cli::cli_alert_info("Models: {total_models}")
+  cli::cli_h1(parts$title)
+  cli::cli_alert_info("Models: {parts$total_models}")
   cli::cli_text("")
 
-  # Find root nodes (nodes that have no parents in the tree)
-  all_parents <- tree_data$parent
-  all_children <- unlist(tree_data$children)
-  root_nodes <- setdiff(all_parents, all_children)
-
-  # Display each root as a separate tree
   final_output <- character()
 
-  for (root_idx in seq_along(root_nodes)) {
-    root_node <- root_nodes[root_idx]
+  for (root_idx in seq_along(parts$root_nodes)) {
+    root_node <- parts$root_nodes[root_idx]
+    tree_output <- cli::tree(parts$tree_data, root = root_node)
 
-    # Generate tree for this root
-    tree_output <- cli::tree(tree_data, root = root_node)
-
-    # Process each line of this tree
     for (i in seq_along(tree_output)) {
       line <- tree_output[i]
-      # Extract node name from the line (after tree characters)
-      node_name <- gsub("^[^a-zA-Z0-9._]*", "", line) # Remove leading tree chars
+      node_name <- gsub("^[^a-zA-Z0-9._]*", "", line)
       node_key <- paste0(node_name, ".mod")
 
-      # Determine node type for coloring
-      is_root <- (node_name %in% root_nodes)
-      children <- tree_data$children[tree_data$parent == node_name][[1]]
+      is_root <- (node_name %in% parts$root_nodes)
+      children <- parts$tree_data$children[
+        parts$tree_data$parent == node_name
+      ][[1]]
       is_leaf <- length(children) == 0
 
-      # Apply colors to node name
-      tree_prefix <- gsub(node_name, "", line, fixed = TRUE) # Get tree characters
+      tree_prefix <- gsub(node_name, "", line, fixed = TRUE)
       colored_node <- if (is_root) {
         cli::col_blue(cli::style_bold(node_name))
       } else if (is_leaf) {
@@ -61,13 +73,12 @@ print.hyperion_nonmem_tree <- function(x, ...) {
         cli::col_yellow(node_name)
       }
 
-      # Add description if available
       if (
         node_key %in%
-          names(x$nodes) &&
-          !is.null(x$nodes[[node_key]]$description)
+          names(parts$nodes) &&
+          !is.null(parts$nodes[[node_key]]$description)
       ) {
-        desc_text <- x$nodes[[node_key]]$description
+        desc_text <- parts$nodes[[node_key]]$description
         if (nchar(desc_text) > 50) {
           desc_text <- paste0(substr(desc_text, 1, 47), "...")
         }
@@ -84,13 +95,11 @@ print.hyperion_nonmem_tree <- function(x, ...) {
       }
     }
 
-    # Add blank line between trees (except after the last one)
-    if (root_idx < length(root_nodes)) {
+    if (root_idx < length(parts$root_nodes)) {
       final_output <- c(final_output, "")
     }
   }
 
-  # Print the enhanced tree(s)
   cat(final_output, sep = "\n")
   invisible(x)
 }
@@ -152,44 +161,47 @@ build_cli_tree_data <- function(hyperion_nonmem_tree) {
 #' @return HTML/markdown output for rendered documents
 #' @exportS3Method knitr::knit_print
 knit_print.hyperion_nonmem_tree <- function(x, ...) {
-  # Build markdown output
+  parts <- build_tree_display_parts(x)
   output <- character()
 
-  # Handle empty tree
-  if (is.null(x$nodes) || length(x$nodes) == 0) {
-    output <- c(output, "# Hyperion Model Tree", "")
+  if (parts$is_empty) {
+    output <- c(
+      output,
+      "",
+      paste0("<strong>", parts$title, "</strong>"),
+      ""
+    )
     output <- c(output, "\u26a0\ufe0f Empty tree - no models found", "")
     return(knitr::asis_output(paste(output, collapse = "\n")))
   }
 
-  # Build tree data to get correct model count
-  tree_data <- build_cli_tree_data(x)
-  total_models <- length(tree_data$parent)
+  output <- c(
+    output,
+    "",
+    paste0("<strong>", parts$title, "</strong>"),
+    ""
+  )
+  output <- c(
+    output,
+    paste0("\u2139\ufe0f <strong>Models:</strong> ", parts$total_models),
+    ""
+  )
 
-  # Header with model count (including models without metadata)
-  output <- c(output, "# Hyperion Model Tree", "")
-  output <- c(output, paste0("\u2139\ufe0f **Models:** ", total_models), "")
-
-  # Find root nodes (nodes that have no parents in the tree)
-  all_parents <- tree_data$parent
-  all_children <- unlist(tree_data$children)
-  root_nodes <- setdiff(all_parents, all_children)
-
-  # Create markdown tree for each root
-  for (root_idx in seq_along(root_nodes)) {
-    root_node <- root_nodes[root_idx]
-
-    # Build tree recursively starting from root
-    tree_lines <- knit_print_tree_node(root_node, tree_data, x$nodes, level = 0)
+  for (root_idx in seq_along(parts$root_nodes)) {
+    root_node <- parts$root_nodes[root_idx]
+    tree_lines <- knit_print_tree_node(
+      root_node,
+      parts$tree_data,
+      parts$nodes,
+      level = 0
+    )
     output <- c(output, tree_lines)
 
-    # Add blank line between trees (except after the last one)
-    if (root_idx < length(root_nodes)) {
+    if (root_idx < length(parts$root_nodes)) {
       output <- c(output, "")
     }
   }
 
-  # Return as HTML
   knitr::asis_output(paste(output, collapse = "\n"))
 }
 
@@ -266,4 +278,160 @@ knit_print_tree_node <- function(node_name, tree_data, nodes_info, level = 0) {
   }
 
   return(output)
+}
+
+# ==============================================================================
+# Lineage utility functions
+# ==============================================================================
+
+#' Normalize model names with or without .mod suffix
+#'
+#' @param model_name Character model name
+#' @param keep_suffix Logical, if TRUE preserves existing suffix or adds .mod
+#' @return Normalized model name
+#' @noRd
+normalize_model_name <- function(model_name, keep_suffix = FALSE) {
+  suffix <- NULL
+  if (grepl("\\.mod$", model_name)) {
+    suffix <- ".mod"
+  } else if (grepl("\\.ctl$", model_name)) {
+    suffix <- ".ctl"
+  }
+  clean <- sub("\\.(mod|ctl)$", "", model_name)
+  if (keep_suffix) {
+    return(paste0(clean, suffix %||% ".mod"))
+  }
+  clean
+}
+
+#' Get a model's ancestors
+#'
+#' Walk up the based_on chain to find all ancestors of a model.
+#'
+#' @param lineage A hyperion_nonmem_tree object from `get_model_lineage()`
+#' @param model_name Character, model name (e.g., "run001" or "run001.mod")
+#' @return Character vector of ancestor names (without .mod suffix),
+#'   ordered from parent to root. Returns empty vector if no ancestors.
+#' @export
+get_model_ancestors <- function(lineage, model_name) {
+  if (!inherits(lineage, "hyperion_nonmem_tree")) {
+    stop("lineage must be a hyperion_nonmem_tree object")
+  }
+
+  # Normalize model name (add .mod if needed)
+  model_key <- normalize_model_name(model_name, keep_suffix = TRUE)
+
+  ancestors <- character(0)
+  current <- model_key
+  visited <- character(0)
+
+  # Walk up the based_on chain
+
+  while (TRUE) {
+    if (current %in% visited) {
+      stop(sprintf("Circular lineage detected at %s", current))
+    }
+    visited <- c(visited, current)
+    node <- lineage$nodes[[current]]
+    if (is.null(node) || length(node$based_on) == 0) {
+      break
+    }
+    parent <- node$based_on[[1]]
+    # Normalize parent name
+    parent_clean <- normalize_model_name(parent)
+    ancestors <- c(ancestors, parent_clean)
+    current <- normalize_model_name(parent, keep_suffix = TRUE)
+  }
+
+  ancestors
+}
+
+#' Get a model's descendants
+#'
+#' Find all models whose based_on chain includes the given model.
+#'
+#' @param lineage A hyperion_nonmem_tree object from `get_model_lineage()`
+#' @param model_name Character, model name (e.g., "run001" or "run001.mod")
+#' @return Character vector of descendant names (without .mod suffix)
+#' @export
+get_model_descendants <- function(lineage, model_name) {
+  if (!inherits(lineage, "hyperion_nonmem_tree")) {
+    stop("lineage must be a hyperion_nonmem_tree object")
+  }
+
+  # Normalize model name (remove .mod if present)
+  model_clean <- normalize_model_name(model_name)
+
+  descendants <- character(0)
+
+  # Build parent -> children map once
+  parent_map <- list()
+  for (node_name in names(lineage$nodes)) {
+    node <- lineage$nodes[[node_name]]
+    if (!is.null(node) && length(node$based_on) > 0) {
+      parent_clean <- normalize_model_name(node$based_on[[1]])
+      child_clean <- normalize_model_name(node_name)
+      parent_map[[parent_clean]] <- unique(c(
+        parent_map[[parent_clean]],
+        child_clean
+      ))
+    }
+  }
+
+  # Traverse descendants from the starting model
+  queue <- model_clean
+  visited <- character(0)
+
+  while (length(queue) > 0) {
+    current <- queue[[1]]
+    queue <- queue[-1]
+    children <- parent_map[[current]]
+    if (length(children) == 0) {
+      next
+    }
+    for (child in children) {
+      if (child %in% visited) {
+        next
+      }
+      visited <- c(visited, child)
+      descendants <- c(descendants, child)
+      queue <- c(queue, child)
+    }
+  }
+
+  descendants
+}
+
+#' Check if two models are in a direct lineage
+#'
+#' Returns TRUE if model1 is an ancestor of model2 or vice versa
+#' (i.e., they are in a direct parent-child chain).
+#'
+#' @param lineage A hyperion_nonmem_tree object from `get_model_lineage()`
+#' @param model1 Character, model name (e.g., "run001" or "run001.mod")
+#' @param model2 Character, model name (e.g., "run003" or "run003.mod")
+#' @return Logical, TRUE if models are in direct lineage
+#' @export
+are_models_in_lineage <- function(lineage, model1, model2) {
+  if (!inherits(lineage, "hyperion_nonmem_tree")) {
+    stop("lineage must be a hyperion_nonmem_tree object")
+  }
+
+  # Normalize model names
+  model1_clean <- normalize_model_name(model1)
+  model2_clean <- normalize_model_name(model2)
+
+  # Check if model1 is ancestor of model2
+  ancestors2 <- get_model_ancestors(lineage, model2)
+  if (model1_clean %in% ancestors2) {
+    return(TRUE)
+  }
+
+  # Check if model2 is ancestor of model1
+  ancestors1 <- get_model_ancestors(lineage, model1)
+  if (model2_clean %in% ancestors1) {
+    return(TRUE)
+  }
+
+  FALSE
 }

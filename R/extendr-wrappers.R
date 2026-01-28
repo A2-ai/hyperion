@@ -53,16 +53,12 @@ read_model <- function(path) .Call(wrap__read_model, path)
 #' }
 check_dataset <- function(model, model_dir) .Call(wrap__check_dataset, model, model_dir)
 
-#' Gets model object from lst file
+#' Gets model object from lst file (internal)
 #'
 #' @param path path to lst file, model output directory, or metadata.json file.
 #'
 #' @return hyperion_nonmem_model S3 object with `model_source` attribute for the source file
-#' @export
-#'
-#' @examples \dontrun{
-#' read_model_from_lst("model/nonmem/run001/run001.lst")
-#' }
+#' @keywords internal
 read_model_from_lst <- function(path) .Call(wrap__read_model_from_lst, path)
 
 #' Copies model file to new model file
@@ -90,90 +86,93 @@ read_model_from_lst <- function(path) .Call(wrap__read_model_from_lst, path)
 #' }
 copy_model <- function(from, to, overwrite = FALSE, ext_file = NULL, update = 'none', jitter = NULL, jitter_excluded = NULL, seed = NULL, description = NULL, no_metadata = FALSE) .Call(wrap__copy_model_wrap, from, to, overwrite, ext_file, update, jitter, jitter_excluded, seed, description, no_metadata)
 
-#' Gets model run summary
+#' Gets model run summary (internal implementation)
 #'
 #' @param directory path to model run output directory containing .ext, .lst files,
 #' or a hyperion_nonmem_model object
 #' @param hide_off_diagonal_params boolean, if TRUE will not display the unfixed off-diagonal
 #' estimated parameters
-#' @param columns character vector of columns to include in resulting dataframe. Default: c("name", "value", "stderr", "rse", "shrinkage", "kind").
-#' Available columns: "kind", "name", "value", "stderr", "rse", "shrinkage", "fixed", "table_idx", "method", random_effect
 #'
 #' @return hyperion_nonmem_summary S3 object
-#' @export
-#'
-#' @examples \dontrun{
-#' get_model_summary("model/nonmem/run001")
-#' }
-get_model_summary <- function(directory, hide_off_diagonal_params = FALSE, columns = c("name", "random_effect", "value", "stderr", "rse", "shrinkage", "kind")) .Call(wrap__get_model_summary, directory, hide_off_diagonal_params, columns)
+#' @keywords internal
+get_model_summary_internal <- function(directory, hide_off_diagonal_params = FALSE) .Call(wrap__get_model_summary_internal, directory, hide_off_diagonal_params)
 
 #' Parses lst file for run details and heuristics
 #'
-#' @param path path to model file, model output directory, lst file or metadata json file.
+#' @param path path to model file, model output directory, lst file or metadata json file,
+#' or a hyperion_nonmem_model object
 #'
 #' @return list of data.frames of run details and run heuristics
 #' @export
 #'
 #' @examples \dontrun{
 #' get_run_info("model/nonmem/run001/run001.lst")
+#' model <- read_model("model/nonmem/run001.mod")
+#' get_run_info(model)
 #' }
 get_run_info <- function(path) .Call(wrap__get_run_info, path)
 
 #' Checks mod file for nmtran errors
 #'
-#' @param model_path path to nonmem model file
+#' @param model_path path to nonmem model file, or a hyperion_nonmem_model object
 #'
-#' @return NULL
+#' @return exit code of NMTRAN
 #' @export
 #'
 #' @examples \dontrun{
 #' check_model("model/nonmem/1001.mod")
+#' model <- read_model("model/nonmem/1001.mod")
+#' check_model(model)
 #' }
 check_model <- function(model_path) .Call(wrap__check_model_wrap, model_path)
 
 #' Get's model lineage
 #'
-#' @param model_dir path to directory containing all models
+#' @param model_dir path to directory containing all models, or a hyperion_nonmem_model object
+#' (uses the model's parent directory)
 #'
 #' @return hyperion_nonmem_tree S3 object
 #' @export
 #'
 #' @examples \dontrun{
 #' get_model_lineage("model/nonmem/")
+#' model <- read_model("model/nonmem/run001.mod")
+#' get_model_lineage(model)
 #' }
 get_model_lineage <- function(model_dir) .Call(wrap__get_model_lineage, model_dir)
 
 #' Gets parameter estimates from model run
 #'
-#' @param path path to model file, model output directory, ext file or metadata json file.
+#' @param path path to model file, model output directory, ext file or metadata json file,
+#' or a hyperion_nonmem_model object
 #' @param hide_off_diagonal_params boolean, if TRUE will not display the unfixed off-diagonal
 #' estimated parameters
 #' @param only_method character, filter for getting estimates from specified method only.
 #' Available methods are Fo, Foce, Saems, Bayes, Imp, ImpMap, Its, Nuts
 #' @param only_last boolean, for grabbing only last estimation method parameters
-#' @param columns character vector of columns to include in resulting dataframe. Default:c("kind", "name", "random_effect", "value", "stderr", "rse", "shrinkage", "fixed", "diagonal")
-#' /// Available columns: "kind", "name", "random_effect", "value", "stderr", "rse", "shrinkage", "fixed", "diagonal", "table_idx", "method"
+#' @param show_table_idx boolean, if TRUE include table_idx column in output
+#' @param show_method boolean, if TRUE include method column in output
 #'
 #' @return data.frame of parameter estimates
 #' @export
 #'
 #' @examples \dontrun{
 #' get_parameters("model/nonmem/run001/run001.ext")
+#' model <- read_model("model/nonmem/run001.mod")
+#' get_parameters(model)
 #' }
-get_parameters <- function(path, hide_off_diagonal_params = FALSE, only_method = NULL, only_last = TRUE, columns = c("kind", "name", "random_effect", "value", "stderr", "rse", "shrinkage", "fixed", "diagonal")) .Call(wrap__get_parameters, path, hide_off_diagonal_params, only_method, only_last, columns)
+get_parameters <- function(path, hide_off_diagonal_params = FALSE, only_method = NULL, only_last = TRUE, show_table_idx = FALSE, show_method = FALSE) .Call(wrap__get_parameters, path, hide_off_diagonal_params, only_method, only_last, show_table_idx, show_method)
 
-#' Gets parameter names from model for display purposes
+#' Gets parameter names from model using typed comment parsing (internal)
+#'
+#' This function extracts parameter names using the pharos typed comment parser.
+#' For general use, prefer the R-side get_parameter_names() which handles both
+#' typed and raw comment formats.
 #'
 #' @param model hyperion_nonmem_model object from read_model()
 #'
 #' @return Named character vector with NONMEM names as names and user-friendly names as values
-#' @export
-#'
-#' @examples \dontrun{
-#' model <- read_model("run001.mod")
-#' param_names <- get_model_parameter_names(model)
-#' omega_names <- param_names[grepl("^OMEGA", names(param_names))]
-#' }
+#' @keywords internal
 get_model_parameter_names <- function(model) .Call(wrap__get_model_parameter_names, model)
 
 #' Creates a metadata file for a NONMEM model
@@ -182,7 +181,7 @@ get_model_parameter_names <- function(model) .Call(wrap__get_model_parameter_nam
 #' including its description, tags, and lineage information. The metadata is stored
 #' in a structured format that can be used for model tracking and documentation.
 #'
-#' @param model_path Path to the NONMEM model file (required)
+#' @param model_path Path to the NONMEM model file, or a hyperion_nonmem_model object (required)
 #' @param description Optional description of the model and its purpose
 #' @param tags Character vector of tags to categorize or label the model
 #' @param based_on Character vector of model names/paths that this model is based on
@@ -193,28 +192,25 @@ get_model_parameter_names <- function(model) .Call(wrap__get_model_parameter_nam
 #' @examples
 #' \dontrun{
 #' # Create basic metadata for a model
-#' create_metadata_file("run001.mod", description = "Base population PK model")
+#' set_metadata_file("run001.mod", description = "Base population PK model")
+#'
+#' # Create metadata using a model object
+#' model <- read_model("run001.mod")
+#' set_metadata_file(model, description = "Base population PK model")
 #'
 #' # Create metadata with tags and lineage
-#' create_metadata_file(
+#' set_metadata_file(
 #'   "run002.mod",
 #'   description = "PK model with covariate effects",
 #'   tags = c("population", "pk", "covariates"),
 #'   based_on = c("run001.mod")
-#' )
-#'
-#' # Overwrite existing metadata
-#' create_metadata_file(
-#'   "run001.mod",
-#'   description = "Updated base model",
-#'   overwrite = TRUE
 #' )
 #' }
 set_metadata_file <- function(model_path, description = NULL, tags = NULL, based_on = NULL) .Call(wrap__set_metadata_file, model_path, description, tags, based_on)
 
 #' Updates a metadatafile
 #'
-#' @param model_path path to model file or metadata file to update
+#' @param model_path path to model file or metadata file to update, or a hyperion_nonmem_model object
 #' @param description Optional description to add to metadata
 #' @param tags Optional character vector of tags to add to tags field
 #' @param based_on character vector of models to add to based_on field
@@ -225,8 +221,18 @@ set_metadata_file <- function(model_path, description = NULL, tags = NULL, based
 #' @examples \dontrun{
 #' update_metadata_file("model/nonmem/run001.mod", tags = "key model")
 #' update_metadata_file("model/nonmem/run004.mod", tags = "key model", based_on = "1002")
+#' model <- read_model("model/nonmem/run001.mod")
+#' update_metadata_file(model, tags = "key model")
 #' }
 update_metadata_file <- function(model_path, description = NULL, tags = NULL, based_on = NULL) .Call(wrap__append_to_metadata_file, model_path, description, tags, based_on)
+
+#' Determine run status for a model path, run directory, or model object.
+#'
+#' @param input A hyperion_nonmem_model object, run directory, or model path.
+#' @return "run" or "not_run"
+#'
+#' Accepts .mod/.ctl/.lst paths, run directories, or a hyperion_nonmem_model object.
+get_run_status <- function(input) .Call(wrap__get_run_status, input)
 
 #' Reads ext file
 #'
@@ -263,7 +269,8 @@ get_final_estimates <- function(paths, parameters_only = TRUE, only_method = NUL
 
 #' Gets gradients of pararmeters during modeling
 #'
-#' @param path path to model file, model output directory, grd file or metadata json file.
+#' @param path path to model file, model output directory, grd file or metadata json file,
+#' or a hyperion_nonmem_model object
 #' @param only_method character, filter for getting estimates from specified method only.
 #' Available methods are Fo, Foce, Saems, Bayes, Imp, ImpMap, Its, Nuts
 #' @param only_last boolean, for grabbing only last estimation method parameters
@@ -273,32 +280,123 @@ get_final_estimates <- function(paths, parameters_only = TRUE, only_method = NUL
 #'
 #' @examples \dontrun{
 #' get_gradients("model/nonmem/run001/run001.grd")
+#' model <- read_model("model/nonmem/run001.mod")
+#' get_gradients(model)
 #' }
 get_gradients <- function(path, only_method = NULL, only_last = TRUE) .Call(wrap__get_gradients, path, only_method, only_last)
 
 #' Gets ETA shrinkage metrics from .shk file
 #'
-#' @param path path to model file, model output directory, shk file or metadata json file.
+#' @param path path to model file, model output directory, shk file or metadata json file,
+#' or a hyperion_nonmem_model object
 #'
 #' @return data.frame of ETA shrinkage metrics
 #' @export
 #'
 #' @examples \dontrun{
 #' get_eta_shrinkage("model/nonmem/run001/run001.shk")
+#' model <- read_model("model/nonmem/run001.mod")
+#' get_eta_shrinkage(model)
 #' }
 get_eta_shrinkage <- function(path) .Call(wrap__get_eta_shrinkage, path)
 
 #' Gets EPS shrinkage metrics from .shk file
 #'
-#' @param path path to model file, model output directory, shk file or metadata json file.
+#' @param path path to model file, model output directory, shk file or metadata json file,
+#' or a hyperion_nonmem_model object
 #'
 #' @return data.frame of EPS shrinkage metrics
 #' @export
 #'
 #' @examples \dontrun{
 #' get_eps_shrinkage("model/nonmem/run001/run001.shk")
+#' model <- read_model("model/nonmem/run001.mod")
+#' get_eps_shrinkage(model)
 #' }
 get_eps_shrinkage <- function(path) .Call(wrap__get_eps_shrinkage, path)
+
+#' Compute coefficient of variation (CV%) for random effect parameters
+#'
+#' Calculates the CV% for Omega/Sigma diagonal parameters based on the
+#' specified transformation. For LogNormal and AddErr transforms, uses
+#' `sqrt(exp(estimate) - 1) * 100`. For Proportional, uses `sqrt(estimate) * 100`.
+#' Returns NA for Theta parameters or Identity transform as CV is not meaningful.
+#'
+#' @param estimate The parameter estimate(s) (variance scale), can be a vector
+#' @param param_type Parameter type(s), can be a vector: "Theta", "Omega", or "Sigma"
+#' @param transform Transformation type(s), can be a vector: "LogNormal", "AddErr", "Proportional", or "Identity". Defaults to "Identity".
+#'
+#' @return CV as a percentage (vector), or NA if not applicable
+#' @export
+#'
+#' @examples \dontrun{
+#' compute_cv(0.09, "Omega", "LogNormal")
+#' df %>% mutate(cv = compute_cv(estimate, kind, "LogNormal"))
+#' }
+compute_cv <- function(estimate, param_type, transform = 'identity') .Call(wrap__compute_cv, estimate, param_type, transform)
+
+#' Compute confidence interval for parameter estimates
+#'
+#' Calculates confidence intervals using the Wald method with optional
+#' back-transformation. For LogNormal transform, the CI is computed on the
+#' log scale and then exponentiated. For other transforms, standard
+#' symmetric intervals are computed.
+#'
+#' @param estimate The parameter estimate(s), can be a vector
+#' @param se The standard error(s) of the estimate(s), can be a vector
+#' @param ci_level Confidence level between 0 and 1 (e.g., 0.95 for 95% CI). Defaults to 0.95.
+#' @param transform Transformation type(s), can be a vector: "LogNormal", "AddErr", "Proportional", or "Identity". Defaults to "Identity".
+#'
+#' @return A list with `lower` and `upper` vectors for the CI bounds
+#' @export
+#'
+#' @examples \dontrun{
+#' compute_ci(1.5, 0.2)$lower
+#' df %>% mutate(
+#'   ci_lower = compute_ci(estimate, se)$lower,
+#'   ci_upper = compute_ci(estimate, se)$upper
+#' )
+#' }
+compute_ci <- function(estimate, se, ci_level = 0.95, transform = 'identity') .Call(wrap__compute_ci, estimate, se, ci_level, transform)
+
+#' Compute relative standard error (RSE%) for parameter estimates
+#'
+#' Calculates the RSE% based on the specified transformation and parameter type.
+#' For LogNormal Omega/Sigma, uses `sqrt(exp(se^2) - 1) * 100`.
+#' For other transforms, uses `se / |estimate| * 100`.
+#'
+#' @param estimate The parameter estimate(s), can be a vector
+#' @param se The standard error(s) of the estimate(s), can be a vector
+#' @param param_type Parameter type(s), can be a vector: "Theta", "Omega", or "Sigma"
+#' @param transform Transformation type(s), can be a vector: "LogNormal", "AddErr", "Proportional", or "Identity". Defaults to "Identity".
+#'
+#' @return RSE as a percentage (vector)
+#' @export
+#'
+#' @examples \dontrun{
+#' compute_rse(1.5, 0.2, "Theta")
+#' df %>% mutate(rse = compute_rse(estimate, stderr, kind))
+#' }
+compute_rse <- function(estimate, se, param_type, transform = 'identity') .Call(wrap__compute_rse, estimate, se, param_type, transform)
+
+#' Back-transform a parameter value to the natural scale
+#'
+#' Applies the inverse transformation to convert a parameter from the
+#' estimation scale to the natural/interpretable scale. For LogNormal,
+#' this exponentiates the value. For Identity, Proportional, and AddErr,
+#' the value is returned unchanged.
+#'
+#' @param value The parameter value(s) on the estimation scale, can be a vector
+#' @param transform Transformation type(s), can be a vector: "LogNormal", "AddErr", "Proportional", or "Identity"
+#'
+#' @return The back-transformed value(s) on the natural scale
+#' @export
+#'
+#' @examples \dontrun{
+#' transform_value(0.5, "LogNormal")
+#' transform_value(c(0.5, 1.0), "LogNormal")
+#' }
+transform_value <- function(value, transform) .Call(wrap__transform_value, value, transform)
 
 #' Gets the pharos.toml configuration as an R object
 #'
@@ -323,13 +421,24 @@ get_pharos_config <- function() .Call(wrap__get_pharos_config)
 #' }
 get_comment_type <- function() .Call(wrap__get_comment_type_wrap)
 
+#' @keywords internal
+#' @noRd
+resolve_input_model_path <- function(path) .Call(wrap__resolve_input_model_path_wrap, path)
+
+#' Resolve a model_source string into an absolute or config-relative path.
+#'
+#' @keywords internal
+#' @noRd
+resolve_model_source_path <- function(path) .Call(wrap__resolve_model_source_path_wrap, path)
+
 #' Submits a NONMEM model to SLURM for execution
 #'
 #' This function submits a NONMEM model file to a SLURM cluster for execution,
 #' allowing for parallel processing and job queue management. The function handles
 #' job configuration, resource allocation, and job submission through pharos
 #'
-#' @param model Path to the NONMEM model file, or character vector of model paths/patterns (required)
+#' @param model A hyperion_nonmem_model object, path to the NONMEM model file,
+#' or character vector of model paths/patterns (required)
 #' @param overwrite Whether to overwrite existing output files (default: FALSE)
 #' @param dry_run Whether to perform a dry run without actually submitting the job (default: FALSE)
 #' @param run_in_output_dir Whether to run the job in the output directory (default: FALSE)
@@ -348,6 +457,10 @@ get_comment_type <- function() .Call(wrap__get_comment_type_wrap)
 #' # Submit a basic NONMEM model
 #' submit_model_to_slurm("model.mod")
 #'
+#' # Submit using a model object
+#' model <- read_model("model.mod")
+#' submit_model_to_slurm(model)
+#'
 #' # Dry run to test submission without actually running
 #' submit_model_to_slurm("model.mod", dry_run = TRUE)
 #'
@@ -362,14 +475,15 @@ submit_model_to_slurm <- function(model, overwrite = FALSE, dry_run = FALSE, run
 #' allowing for parallel processing and job queue management. The function handles
 #' job configuration, resource allocation, and job submission through pharos
 #'
-#' @param model Path to the NONMEM model file, or character vector of model paths/patterns (required)
+#' @param model A hyperion_nonmem_model object, path to the NONMEM model file,
+#' or character vector of model paths/patterns (required)
 #' @param overwrite Whether to overwrite existing output files (default: FALSE)
 #' @param dry_run Whether to perform a dry run without actually submitting the job (default: FALSE)
 #' @param run_in_output_dir Whether to run the job in the output directory (default: FALSE)
 #' @param ncpu Number of CPUs to allocate for the job (default: 1)
 #' @param clean_level Level of cleanup to perform after job completion (default: 1)
 #' @param parafile Path to parameter file for parallel runs (default: NULL)
-#' @param template Path to SLURM template file for job submission (default: NULL)
+#' @param template Path to SGE template file for job submission (default: NULL)
 #'
 #' @return Returns invisibly after printing job submission results. Prints model path and corresponding SGE job ID for each submitted job.
 #' @export
@@ -378,6 +492,10 @@ submit_model_to_slurm <- function(model, overwrite = FALSE, dry_run = FALSE, run
 #' \dontrun{
 #' # Submit a basic NONMEM model
 #' submit_model_to_sge("model.mod")
+#'
+#' # Submit using a model object
+#' model <- read_model("model.mod")
+#' submit_model_to_sge(model)
 #'
 #' # Dry run to test submission without actually running
 #' submit_model_to_sge("model.mod", dry_run = TRUE)

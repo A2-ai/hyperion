@@ -10,5 +10,8 @@ inst/doc
 **/*.html
 **/*_files/
 
+!tests/testthat/_snaps/**/*
 lefthook.yaml
 ./pharos.toml
+/doc/
+/Meta/

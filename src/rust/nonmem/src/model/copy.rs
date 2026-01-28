@@ -5,7 +5,7 @@ use nonmem::copy::{JitterSpec, ParamType, UpdateType};
 use nonmem::{CopyOptions, copy_model};
 use std::path::{Path, PathBuf};
 
-use crate::utils::{resolve_input_model_path, resolve_model_input_path_from_robj};
+use crate::utils::resolve_model_or_path;
 use hyperion_core::{OptionExt, ResultExt, extendr_err};
 
 // This should move to Option<Robj>
@@ -122,21 +122,6 @@ fn parse_update_robj(update: Robj) -> Result<Vec<UpdateType>> {
     Ok(update_types)
 }
 
-fn parse_from_path(from: Robj) -> Result<PathBuf> {
-    if from.is_string() {
-        let path = from.as_str().ok_or_extendr_err("`from` must be a string")?;
-        return resolve_input_model_path(path);
-    }
-
-    if from.inherits("hyperion_nonmem_model") {
-        return resolve_model_input_path_from_robj(&from);
-    }
-
-    Err(extendr_err!(
-        "`from` must be a model path or a hyperion_nonmem_model object"
-    ))
-}
-
 /// Copies model file to new model file
 ///
 /// @param from path to model file to copy or hyperion_nonmem_model object
@@ -181,6 +166,10 @@ pub fn copy_model_wrap(
     let jitter_specs = parse_jitter_robj(jitter)?;
     let jitter_excluded_parsed = parse_jitter_excluded_robj(jitter_excluded)?;
 
+    if description.trim().is_empty() {
+        return Err(extendr_err!("Description cannot be empty"));
+    }
+
     let mut options = CopyOptions {
         update: update_types,
         ext_path: ext_file.map(PathBuf::from),
@@ -191,7 +180,7 @@ pub fn copy_model_wrap(
         no_metadata,
     };
 
-    let from_path = parse_from_path(from)?;
+    let from_path = resolve_model_or_path(from)?;
     let original_filename = match from_path.file_name() {
         Some(filename) => filename.to_string_lossy().to_string(),
         None => Err(extendr_err!("`from` model file does not have a file name"))?,

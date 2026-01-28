@@ -1,51 +1,48 @@
 use extendr_api::Result;
 use extendr_api::prelude::*;
 use hyperion_core::ResultExt;
-use std::path::Path;
 
 // pharos config and nonmem crates
 use nonmem::check_model;
 
-use crate::utils::load_nonmem_config;
+use crate::utils::{load_nonmem_config, resolve_model_or_path};
 use hyperion_core::extendr_err;
 
 /// Checks mod file for nmtran errors
 ///
-/// @param model_path path to nonmem model file
+/// @param model_path path to nonmem model file, or a hyperion_nonmem_model object
 ///
-/// @return NULL
+/// @return exit code of NMTRAN
 /// @export
 ///
 /// @examples \dontrun{
 /// check_model("model/nonmem/1001.mod")
+/// model <- read_model("model/nonmem/1001.mod")
+/// check_model(model)
 /// }
 #[extendr(r_name = "check_model")]
-pub fn check_model_wrap(model_path: &str) -> Result<String> {
+pub fn check_model_wrap(model_path: Robj) -> Result<i32> {
+    let model_path = resolve_model_or_path(model_path)?;
+
     let (_config_path, nonmem_config) =
         load_nonmem_config(None).map_to_extendr_err("Failed to create NonmemConfig")?;
 
-    let res = match check_model(&nonmem_config, Path::new(&model_path)) {
+    let res = match check_model(&nonmem_config, &model_path) {
         Ok(r) => r,
         Err(e) => {
             let error_msg = e.to_string();
             if error_msg.contains("NMTRAN.exe not found") {
-                // Return this specific error as a successful result
-                return Ok(error_msg);
+                println!("{}", error_msg.trim());
+                return Ok(-1);
             } else {
-                // All other errors remain as actual errors
                 return Err(extendr_err!("Failed to run NMTRAN.exe: {e}"));
             }
         }
     };
 
-    if res.success {
-        Ok(res.stdout.to_string())
-    } else {
-        Ok(format!(
-            "{}\nnmtran failed with exit code {:?}",
-            res.stdout, res.exit_code
-        ))
-    }
+    println!("{}", res.stdout.trim());
+
+    Ok(res.exit_code)
 }
 
 extendr_module! {

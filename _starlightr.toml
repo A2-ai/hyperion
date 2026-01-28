@@ -1,0 +1,120 @@
+[site]
+title = "hyperion"
+description = "Hyperion is an R interface to the pharos CLI for"
+
+[output]
+dir = "../Docs/hyperion-docs"
+
+[versions]
+enabled = true
+list = [{ tag = "0.1.1", label = "v0.1.1", default = true }]
+
+[home]
+hero = { actions = [
+	{ text = "Get Started", link = "./articles/readme/", icon = "right-arrow", variant = "primary" },
+	{ text = "View on GitHub", link = "https://github.com/A2-ai/hyperion", icon = "external", variant = "minimal" },
+] }
+cards = [
+	{ icon = "document", title = "Model Interaction", description = "hyperion has several functions for interacting with NONMEM models", link = "./reference/read_model/" },
+	{ icon = "seti:csv", title = "Parameter Tables", description = "hyperion can create model parameter tables", link = "./articles/parameter-tables/" },
+]
+
+[sidebar]
+articles = [
+	{ label = "Getting Started", contents = [
+		{ slug = "README", label = "Welcome" },
+	] },
+	{ label = "Output File Parsing", contents = [
+		"ext",
+		"grd",
+		"shk",
+		"lst",
+	] },
+	{ label = "NONMEM Model Interactions", contents = [
+		"hyperion_model",
+	] },
+	{ label = "Parameter Tables", contents = [
+		"parameter-tables",
+	] },
+]
+reference = [
+	{ label = "Models", contents = [
+		"read_model",
+		"check_model",
+		"check_dataset",
+		"copy_model",
+		{ slug = "summary.hyperion_nonmem_model", label = "summary" },
+		"get_run_info",
+		"get_parameters",
+		"get_model_parameter_info",
+		"get_parameter_names",
+		"get_model_lineage",
+		"are_models_in_lineage",
+		"get_model_ancestors",
+		"get_model_descendants",
+		"read_model_from_lst",
+	] },
+	{ label = "Model Metadata", contents = [
+		"set_metadata_file",
+		"update_metadata_file",
+	] },
+	{ label = "Parameter Computations", contents = [
+		"compute_ci",
+		"compute_cv",
+		"compute_rse",
+		"transform_value",
+	] },
+	{ label = "Parameter Tables", contents = [
+		"Tablespec",
+		"apply_table_spec",
+		"get_table_spec",
+		"add_summary_info",
+		"make_parameter_table",
+		"compare_with",
+		"make_comparison_table",
+		"add_model_lineage",
+		"filter_rules",
+		"section_rules",
+	] },
+	{ label = "Model Lineage Tables", contents = [
+		"SummarySpec",
+		"apply_summary_spec",
+		"get_summary_spec",
+		"make_summary_table",
+		"summary_filter_rules",
+	] },
+	{ label = "Output Files", contents = [
+		"get_eta_shrinkage",
+		"get_eps_shrinkage",
+		"get_gradients",
+		"get_final_estimates",
+		"read_ext_file",
+	] },
+	{ label = "Comment Parsing", contents = [
+		"ThetaComment",
+		"get_theta_names",
+		"OmegaComment",
+		"get_eta_labels",
+		"SigmaComment",
+		"ModelComments",
+		"get_model_parameter_names",
+		"get_comment",
+		"get_comment_type",
+		"audit_parameter_info",
+		"get_parameter_transform",
+		"get_parameter_unit",
+	] },
+	{ label = "Lookup & Rules", contents = [
+		"apply_lookup",
+		"apply_lookup_defaults",
+		"add_parameter_to_lookup",
+		"remove_parameter_from_lookup",
+		"list_lookup_parameters",
+	] },
+	{ label = "Configuration & Submission", contents = [
+		"init",
+		"get_pharos_config",
+		"submit_model_to_sge",
+		"submit_model_to_slurm",
+	] },
+]

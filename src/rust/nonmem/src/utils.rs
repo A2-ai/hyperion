@@ -186,6 +186,32 @@ pub fn resolve_model_input_path_from_robj(model: &Robj) -> Result<PathBuf> {
     resolve_input_model_path(source_path)
 }
 
+/// Resolve input to a PathBuf for use with find_output_file.
+///
+/// Accepts either a path string or hyperion_nonmem_model object.
+/// Does not validate the path - suitable for functions that accept
+/// directories, output files, or model files and use find_output_file.
+pub fn path_from_robj(input: &Robj) -> Result<PathBuf> {
+    if input.inherits("hyperion_nonmem_model") {
+        return resolve_model_input_path_from_robj(input);
+    }
+
+    if let Some(s) = input.as_str() {
+        return Ok(PathBuf::from(s));
+    }
+
+    Err(extendr_err!(
+        "Input must be a path or a hyperion_nonmem_model object"
+    ))
+}
+
+/// Resolve input that can be either a path string or hyperion_nonmem_model object.
+/// Validates that the path is a .mod or .ctl input model file.
+pub fn resolve_model_or_path(input: Robj) -> Result<PathBuf> {
+    let path = path_from_robj(&input)?;
+    resolve_input_model_path(&path)
+}
+
 fn make_relative_path(base: &Path, target: &Path) -> PathBuf {
     let base_components: Vec<Component<'_>> = base.components().collect();
     let target_components: Vec<Component<'_>> = target.components().collect();
@@ -215,14 +241,19 @@ fn make_relative_path(base: &Path, target: &Path) -> PathBuf {
 pub fn try_parse_model(path: &str) -> Option<Model> {
     let path_buf = std::path::Path::new(path);
 
-    // If input is a file, use its parent directory for finding mod file
+    // If a non-model file is provided (e.g., .grd), search from its parent dir.
     let search_path = if path_buf.is_file() {
-        path_buf.parent()?.to_str()?
+        match path_buf.extension().and_then(|e| e.to_str()) {
+            Some("mod") | Some("ctl") => path_buf,
+            _ => path_buf.parent().unwrap_or(path_buf),
+        }
     } else {
-        path
+        path_buf
     };
 
-    let model_path = find_output_file(search_path, "mod").ok()?;
+    let model_path = find_output_file(search_path, "mod")
+        .or_else(|_| find_output_file(path, "ctl"))
+        .ok()?;
     let content = fs::read_to_string(model_path).ok()?;
     Model::parse(&content).ok()
 }
@@ -335,10 +366,31 @@ pub fn get_comment_type_wrap() -> Result<Robj> {
     Ok(robj)
 }
 
+/// @keywords internal
+/// @noRd
+#[extendr(r_name = "resolve_input_model_path")]
+pub fn resolve_input_model_path_wrap(path: &str) -> Result<Robj> {
+    let path = resolve_input_model_path(path)?;
+    Ok(path.to_string_lossy().into_robj())
+}
+
+/// Resolve a model_source string into an absolute or config-relative path.
+///
+/// @keywords internal
+/// @noRd
+#[extendr(r_name = "resolve_model_source_path")]
+pub fn resolve_model_source_path_wrap(path: &str) -> Result<Robj> {
+    let path = resolve_model_source_path(path)?;
+    Ok(path.to_string_lossy().into_robj())
+}
+
 extendr_module! {
     mod utils;
+
     fn get_pharos_config;
     fn get_comment_type_wrap;
+    fn resolve_input_model_path_wrap;
+    fn resolve_model_source_path_wrap;
 }
 
 #[cfg(test)]

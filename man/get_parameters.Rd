@@ -9,12 +9,13 @@ get_parameters(
   hide_off_diagonal_params = FALSE,
   only_method = NULL,
   only_last = TRUE,
-  columns = c("kind", "name", "random_effect", "value", "stderr", "rse", "shrinkage",
-    "fixed", "diagonal")
+  show_table_idx = FALSE,
+  show_method = FALSE
 )
 }
 \arguments{
-\item{path}{path to model file, model output directory, ext file or metadata json file.}
+\item{path}{path to model file, model output directory, ext file or metadata json file,
+or a hyperion_nonmem_model object}
 
 \item{hide_off_diagonal_params}{boolean, if TRUE will not display the unfixed off-diagonal
 estimated parameters}
@@ -24,8 +25,9 @@ Available methods are Fo, Foce, Saems, Bayes, Imp, ImpMap, Its, Nuts}
 
 \item{only_last}{boolean, for grabbing only last estimation method parameters}
 
-\item{columns}{character vector of columns to include in resulting dataframe. Default:c("kind", "name", "random_effect", "value", "stderr", "rse", "shrinkage", "fixed", "diagonal")
-/// Available columns: "kind", "name", "random_effect", "value", "stderr", "rse", "shrinkage", "fixed", "diagonal", "table_idx", "method"}
+\item{show_table_idx}{boolean, if TRUE include table_idx column in output}
+
+\item{show_method}{boolean, if TRUE include method column in output}
 }
 \value{
 data.frame of parameter estimates
@@ -36,5 +38,7 @@ Gets parameter estimates from model run
 \examples{
 \dontrun{
 get_parameters("model/nonmem/run001/run001.ext")
+model <- read_model("model/nonmem/run001.mod")
+get_parameters(model)
 }
 }

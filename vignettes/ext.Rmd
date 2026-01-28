@@ -19,52 +19,77 @@ library(ggplot2)
 library(dplyr)
 library(tidyr)
 library(hyperion)
-library(flextable)
+test_data_dir <- system.file("extdata", package = "hyperion")
 ```
 ## get parameter estimates
 ```{r}
-get_parameters("test_data/models/onecmt/run002")
+get_parameters(file.path(test_data_dir, "models", "onecmt", "run002"))
 
-get_parameters("test_data/models/onecmt/run002.mod")
+get_parameters(file.path(test_data_dir, "models", "onecmt", "run002.mod"))
 
-get_parameters("test_data/models/onecmt/run002/run002.ext")
+get_parameters(file.path(test_data_dir, "models", "onecmt", "run002", "run002.ext"))
 
-get_parameters("test_data/models/onecmt/run002_metadata.json")
+get_parameters(file.path(test_data_dir, "models", "onecmt", "run002_metadata.json"))
 ```
 
 
 ```{r}
 get_parameters(
-  "test_data/models/onecmt/run002",
-  columns = c("name", "value", "stderr", "rse")
-) %>% 
+  file.path(test_data_dir, "models", "onecmt", "run002")
+) |> 
   mutate(
     `95% CI` = paste0(
       "(",
-      round(value - 1.96 * stderr, 3)," ,", 
-      round(value + 1.96 * stderr, 3),
+      round(estimate - 1.96 * stderr, 3)," ,", 
+      round(estimate + 1.96 * stderr, 3),
       ")"
     )
-  ) %>% 
-  flextable()
+  )
+```
+
+```{r}
+untransformed_df <- get_parameters(
+  file.path(test_data_dir, "models", "onecmt", "run002")
+)
+
+transformed_df <- untransformed_df |> 
+  mutate(
+    transform = case_when(
+      kind == "THETA" ~ "Identity",
+      kind == "OMEGA" & diagonal ~ "LogNormal",
+      kind == "OMEGA" & !diagonal ~ "Identity",
+      name == "SIGMA(1,1)" ~ "Proportional",
+      name == "SIGMA(2,2)" ~ "AddErr",
+      .default = "Identity"
+    ),
+    cv = compute_cv(estimate, kind, transform),
+    rse = compute_rse(estimate, stderr, kind, transform),
+    ci_low = compute_ci(estimate, stderr, 0.95, transform)$lower,
+    ci_high = compute_ci(estimate, stderr, 0.95, transform)$upper,
+  )
+transformed_df
 ```
 
 
 
 ## Read ext file
 ```{r}
-read_ext_file("test_data/ext/bql.ext", line_prefixes = "-1000000000", parameters_only = TRUE)
+read_ext_file(
+  file.path(test_data_dir, "ext", "bql.ext"),
+  line_prefixes = "-1000000000",
+  parameters_only = TRUE
+)
 ```
 
 
 ```{r}
-read_ext_file("test_data/ext/itsimp.ext", only_method = "its") %>% 
-  filter(iteration > 0) %>% 
+read_ext_file(file.path(test_data_dir, "ext", "itsimp.ext"), only_method = "its") |> 
+  filter(iteration > 0) |> 
   pivot_longer(
     cols = starts_with("THETA"),
     names_to = "parameter",
     values_to = "value"
-  ) %>%
+  ) |>
   ggplot(aes(x = iteration, y = value, color = parameter)) +
   geom_line() +
   geom_point() +
@@ -77,13 +102,13 @@ read_ext_file("test_data/ext/itsimp.ext", only_method = "its") %>%
 ```
 
 ```{r}
-read_ext_file("test_data/ext/itsimp.ext", only_method = "its") %>% 
-  filter(iteration > 0) %>% 
+read_ext_file(file.path(test_data_dir, "ext", "itsimp.ext"), only_method = "its") |> 
+  filter(iteration > 0) |> 
   pivot_longer(
     cols = starts_with("OMEGA"),
     names_to = "parameter",
     values_to = "value"
-  ) %>%
+  ) |>
   ggplot(aes(x = iteration, y = value, color = parameter)) +
   geom_line() +
   geom_point() +
@@ -96,13 +121,13 @@ read_ext_file("test_data/ext/itsimp.ext", only_method = "its") %>%
 ```
 
 ```{r}
-read_ext_file("test_data/ext/itsimp.ext", only_method = "its") %>% 
-  filter(iteration > 0) %>% 
+read_ext_file(file.path(test_data_dir, "ext", "itsimp.ext"), only_method = "its") |> 
+  filter(iteration > 0) |> 
   pivot_longer(
     cols = starts_with("SIGMA"),
     names_to = "parameter",
     values_to = "value"
-  ) %>%
+  ) |>
   ggplot(aes(x = iteration, y = value, color = parameter)) +
   geom_line() +
   geom_point() +
@@ -114,31 +139,10 @@ read_ext_file("test_data/ext/itsimp.ext", only_method = "its") %>%
   theme_bw()
 ```
 
-## Change columns
 ```{r}
-get_parameters(
-  "test_data/models/onecmt/run002",
-  columns = c("name", "value", "stderr", "rse", "shrinkage")
-)
-```
 
-```{r}
-get_parameters(
-  "test_data/models/onecmt/run002",
-  columns = c("name", "fixed", "value", "stderr", "rse", "shrinkage")
-)
+read_ext_file(file.path(test_data_dir, "ext", "example6.txt.ext")) |> 
+  filter(iteration == -1000000000)
 ```
-
-```{r}
-get_parameters(
-  "test_data/models/onecmt/run002",
-  columns = c("name", "method", "fixed", "value", "stderr", "rse", "shrinkage")
-)
-```
-
-```{r}
-read_ext_file("test_data/ext/example6.txt.ext") %>% filter(iteration == -1000000000)
-```
-
 
 

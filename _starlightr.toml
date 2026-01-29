@@ -7,7 +7,10 @@ dir = "../Docs/hyperion-docs"
 
 [versions]
 enabled = true
-list = [{ tag = "0.1.1", label = "v0.1.1", default = true }]
+list = [
+	{ tag = "0.2.0", label = "v0.2.0", default = true },
+	{ tag = "0.1.1", label = "v0.1.1" },
+]
 
 [home]
 hero = { actions = [
@@ -16,7 +19,8 @@ hero = { actions = [
 ] }
 cards = [
 	{ icon = "document", title = "Model Interaction", description = "hyperion has several functions for interacting with NONMEM models", link = "./reference/read_model/" },
-	{ icon = "seti:csv", title = "Parameter Tables", description = "hyperion can create model parameter tables", link = "./articles/parameter-tables/" },
+	{	icon = "open-book", title = "Hyperion Reference", description = "See the full hyperion reference for all functionality", link = "./reference/hyperion-package/" },
+
 ]
 
 [sidebar]
@@ -33,88 +37,73 @@ articles = [
 	{ label = "NONMEM Model Interactions", contents = [
 		"hyperion_model",
 	] },
-	{ label = "Parameter Tables", contents = [
-		"parameter-tables",
-	] },
 ]
 reference = [
-	{ label = "Models", contents = [
+	"hyperion-package",
+	{ label = "Model I/O", contents = [
 		"read_model",
+		"copy_model",
 		"check_model",
 		"check_dataset",
-		"copy_model",
-		{ slug = "summary.hyperion_nonmem_model", label = "summary" },
+	] },
+	{ label = "Model Summaries", contents = [
+		"summary.hyperion_nonmem_model",
 		"get_run_info",
+	] },
+	{ label = "Parameter Extraction", contents = [
 		"get_parameters",
-		"get_model_parameter_info",
-		"get_parameter_names",
-		"get_model_lineage",
-		"are_models_in_lineage",
-		"get_model_ancestors",
-		"get_model_descendants",
-		"read_model_from_lst",
-	] },
-	{ label = "Model Metadata", contents = [
-		"set_metadata_file",
-		"update_metadata_file",
-	] },
-	{ label = "Parameter Computations", contents = [
-		"compute_ci",
-		"compute_cv",
-		"compute_rse",
-		"transform_value",
-	] },
-	{ label = "Parameter Tables", contents = [
-		"Tablespec",
-		"apply_table_spec",
-		"get_table_spec",
-		"add_summary_info",
-		"make_parameter_table",
-		"compare_with",
-		"make_comparison_table",
-		"add_model_lineage",
-		"filter_rules",
-		"section_rules",
-	] },
-	{ label = "Model Lineage Tables", contents = [
-		"SummarySpec",
-		"apply_summary_spec",
-		"get_summary_spec",
-		"make_summary_table",
-		"summary_filter_rules",
-	] },
-	{ label = "Output Files", contents = [
-		"get_eta_shrinkage",
-		"get_eps_shrinkage",
-		"get_gradients",
 		"get_final_estimates",
 		"read_ext_file",
+		"get_gradients",
+		"get_eta_shrinkage",
+		"get_eps_shrinkage",
 	] },
-	{ label = "Comment Parsing", contents = [
+	{ label = "Parameter Metadata", contents = [
+		"get_model_parameter_info",
 		"ThetaComment",
-		"get_theta_names",
 		"OmegaComment",
-		"get_eta_labels",
 		"SigmaComment",
 		"ModelComments",
-		"get_model_parameter_names",
 		"get_comment",
-		"get_comment_type",
-		"audit_parameter_info",
+		"get_parameter_names",
 		"get_parameter_transform",
 		"get_parameter_unit",
+		"get_theta_names",
+		"get_eta_labels",
+		"update_param_info",
+		"audit_parameter_info",
 	] },
-	{ label = "Lookup & Rules", contents = [
+	{ label = "Lookup Files", contents = [
 		"apply_lookup",
 		"apply_lookup_defaults",
 		"add_parameter_to_lookup",
 		"remove_parameter_from_lookup",
 		"list_lookup_parameters",
 	] },
-	{ label = "Configuration & Submission", contents = [
+	{ label = "Transform Calculations", contents = [
+		"compute_cv",
+		"compute_rse",
+		"compute_ci",
+		"transform_value",
+	] },
+	{ label = "Model Lineage", contents = [
+		"get_model_lineage",
+		"get_model_ancestors",
+		"get_model_descendants",
+		"are_models_in_lineage",
+	] },
+	{ label = "Configuration", contents = [
 		"init",
 		"get_pharos_config",
-		"submit_model_to_sge",
+		"get_comment_type",
+		"use_type1_comments",
+	] },
+	{ label = "Metadata Files", contents = [
+		"set_metadata_file",
+		"update_metadata_file",
+	] },
+	{ label = "Job Submission", contents = [
 		"submit_model_to_slurm",
+		"submit_model_to_sge",
 	] },
 ]

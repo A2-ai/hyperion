@@ -1,8 +1,10 @@
 test_that("get_model_parameter_names works for typed comments", {
-  mod_dir <- testthat::test_path("testdata", "models", "onecmt")
+  mod_dir <- system.file("extdata", "models", "onecmt", package = "hyperion")
 
   # run1 has incorrect type1 comments so nothing is parsed
   run1 <- read_model(file.path(mod_dir, "run001.mod"))
+	expect_equal(get_comment_type(), "type1")
+
   n1 <- get_model_parameter_names(run1)
   expect_equal(all(n1 == ""), TRUE)
 
@@ -19,7 +21,7 @@ test_that("get_model_parameter_names works for typed comments", {
 })
 
 test_that("get_parameter_names works for all comments", {
-  mod_dir <- testthat::test_path("testdata", "models", "onecmt")
+  mod_dir <- system.file("extdata", "models", "onecmt", package = "hyperion")
 
   # run1 has incorrect type1 comments so nothing is parsed
   run1 <- read_model(file.path(mod_dir, "run001.mod"))
@@ -29,12 +31,13 @@ test_that("get_parameter_names works for all comments", {
 
   # run2 has correct type1 comments for THETA/OMEGA
   # so parameter name should have non-empty values.
-  # Sigma is incorrect and will be empty
+  # Sigma is incorrect and will be empty, OMEGA is
+	# processed differently ((theta) vs , theta)
   run2 <- read_model(file.path(mod_dir, "run002.mod"))
   n2 <- get_parameter_names(run2)
   n2_mp <- get_model_parameter_names(run2)
   for (p in rownames(n2)) {
-    if (!grepl("^SIGMA", p)) {
+    if (grepl("^THETA", p)) {
       expect_equal(n2[p, "name"], n2_mp[[p]])
     }
   }

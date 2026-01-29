@@ -19,12 +19,17 @@
 #'
 #' # Theta not in name - appends it
 #' format_omega_display_name("IIV", "CL")
-#' # Returns: "IIV (CL)"
+#' # Returns: "IIV CL"
+#'
+#' # Multiple thetas
+#' format_omega_display_name("IIV", c("CL", "V"))
+#' # Returns: "IIV CL, V"
 #'
 #' # With custom labels
 #' format_omega_display_name("IIV", "CL", c(CL = "Clearance"))
-#' # Returns: "IIV (Clearance)"
+#' # Returns: "IIV Clearance"
 #'
+#' @keywords internal
 #' @export
 format_omega_display_name <- function(
   name,
@@ -52,50 +57,81 @@ format_omega_display_name <- function(
     labels_to_use <- associated_theta
   }
 
+  # Extract root for display (strip prefixes/suffixes, preserve case)
+  extract_root <- function(term) {
+    # Strip TV/ETA prefix
+    term <- sub("^(TV|ETA)", "", term, ignore.case = TRUE)
+    # Strip /<letter> suffix (e.g., /F)
+    sub("/[A-Za-z]$", "", term)
+  }
+
+  # Normalize for matching (root + lowercase)
+  normalize_for_match <- function(term) {
+    tolower(extract_root(term))
+  }
+
+  # Normalize into "token space" form for phrase matching
+  # Keeps / as part of tokens, converts other non-alphanumeric to spaces
+  normalize_for_phrase <- function(x) {
+    x <- tolower(x)
+    x <- gsub("[^a-z0-9/]+", " ", x)
+    x <- gsub("\\s+", " ", x)
+    trimws(x)
+  }
+
+  # Prepare padded omega name for phrase-safe matching
+  omega_phrase_normalized <- normalize_for_phrase(name)
+  omega_padded <- paste0(" ", omega_phrase_normalized, " ")
+
+  # Split omega name into segments on hyphen and space (preserve / within segments)
+  omega_segments_raw <- unlist(strsplit(name, "[- ]+"))
+  omega_segments_normalized <- vapply(
+    omega_segments_raw,
+    normalize_for_match,
+    character(1)
+  )
+
   # Check which thetas are already present in the name
-  # Use word boundary pattern to avoid matching "V" in "COV"
   theta_already_present <- vapply(
     seq_along(associated_theta),
     function(i) {
-      # Build pattern that matches theta as a distinct component
-      # (at word boundary or separated by common delimiters like -, /, space)
-      safe_theta <- gsub(
-        "([][{}()^$*+?.|\\\\])",
-        "\\\\\\1",
-        associated_theta[i]
-      )
-      theta_pattern <- paste0(
-        "(^|[^A-Za-z0-9])",
-        safe_theta,
-        "($|[^A-Za-z0-9])"
-      )
-      if (grepl(theta_pattern, name)) {
+      theta <- associated_theta[i]
+      label <- labels_to_use[i]
+
+      # Normalize theta and label for comparison
+      theta_normalized <- normalize_for_match(theta)
+      label_normalized <- normalize_for_match(label)
+
+      # Phrase-safe checks using padded boundaries
+      # Handles multi-word labels like "CL/F Scaling" without matching substrings
+      label_phrase <- normalize_for_phrase(label)
+      theta_phrase <- normalize_for_phrase(theta)
+
+      if (grepl(paste0(" ", label_phrase, " "), omega_padded, fixed = TRUE)) {
         return(TRUE)
       }
-      # Check if theta label is in target (with same boundary check)
-      safe_label <- gsub(
-        "([][{}()^$*+?.|\\\\])",
-        "\\\\\\1",
-        labels_to_use[i]
-      )
-      label_pattern <- paste0(
-        "(^|[^A-Za-z0-9])",
-        safe_label,
-        "($|[^A-Za-z0-9])"
-      )
-      if (grepl(label_pattern, name)) {
+      if (grepl(paste0(" ", theta_phrase, " "), omega_padded, fixed = TRUE)) {
         return(TRUE)
       }
+
+      # Fall back to segment-based matching
+      if (theta_normalized %in% omega_segments_normalized) {
+        return(TRUE)
+      }
+      if (label_normalized %in% omega_segments_normalized) {
+        return(TRUE)
+      }
+
       FALSE
     },
     logical(1)
   )
 
-  # Only append missing thetas
+  # Only append missing thetas (keep original name for display)
   missing_labels <- labels_to_use[!theta_already_present]
   if (length(missing_labels) > 0) {
     theta_str <- paste(missing_labels, collapse = ", ")
-    paste0(name, " (", theta_str, ")")
+    paste0(name, " ", theta_str)
   } else {
     name
   }

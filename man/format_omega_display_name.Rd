@@ -30,10 +30,15 @@ format_omega_display_name("IIV-CL", "CL")
 
 # Theta not in name - appends it
 format_omega_display_name("IIV", "CL")
-# Returns: "IIV (CL)"
+# Returns: "IIV CL"
+
+# Multiple thetas
+format_omega_display_name("IIV", c("CL", "V"))
+# Returns: "IIV CL, V"
 
 # With custom labels
 format_omega_display_name("IIV", "CL", c(CL = "Clearance"))
-# Returns: "IIV (Clearance)"
+# Returns: "IIV Clearance"
 
 }
+\keyword{internal}

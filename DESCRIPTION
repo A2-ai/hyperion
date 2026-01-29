@@ -26,21 +26,10 @@ Depends:
     R (>= 4.2)
 Suggests:
     dplyr,
-    equatags,
-    flextable,
-    ftExtra,
     ggplot2,
-    gt (>= 1.0.0),
-    here,
-    htmltools,
-    officer,
     rmarkdown,
     tidyr,
-    tomledit,
-    katex,
     testthat (>= 3.3.2),
-    diffviewer,
-    webshot2,
     withr
 VignetteBuilder: knitr
 Imports:
@@ -48,5 +37,6 @@ Imports:
     cli,
     knitr,
     lifecycle,
-    S7
+    S7,
+    tomledit
 Config/testthat/edition: 3

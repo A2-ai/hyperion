@@ -41,17 +41,16 @@ read_model <- function(path) .Call(wrap__read_model, path)
 
 #' Checks model dataset
 #'
-#' @param model list of model object from `read_model`
-#' @param model_dir directory of model output //TODO check this
+#' @param model hyperion_nonmem_model object from `read_model`
 #'
-#' @return nothing //todo maybe a true/false?
+#' @return Dataset check results
 #' @export
 #'
 #' @examples \dontrun{
 #' model <- read_model("model/nonmem/run001.mod")
-#' model |> check_dataset("model/nonmem/run001")
+#' model |> check_dataset()
 #' }
-check_dataset <- function(model, model_dir) .Call(wrap__check_dataset, model, model_dir)
+check_dataset <- function(model) .Call(wrap__check_dataset, model)
 
 #' Gets model object from lst file (internal)
 #'
@@ -421,15 +420,25 @@ get_pharos_config <- function() .Call(wrap__get_pharos_config)
 #' }
 get_comment_type <- function() .Call(wrap__get_comment_type_wrap)
 
-#' @keywords internal
-#' @noRd
-resolve_input_model_path <- function(path) .Call(wrap__resolve_input_model_path_wrap, path)
-
-#' Resolve a model_source string into an absolute or config-relative path.
+#' Validate and resolve a model path (.mod or .ctl).
 #'
 #' @keywords internal
 #' @noRd
-resolve_model_source_path <- function(path) .Call(wrap__resolve_model_source_path_wrap, path)
+validate_model_path <- function(path) .Call(wrap__validate_model_path_wrap, path)
+
+#' Convert a config-relative path to absolute.
+#'
+#' @keywords internal
+#' @noRd
+from_config_relative <- function(path) .Call(wrap__from_config_relative_wrap, path)
+
+#' Convert an absolute path to be relative to the pharos config directory.
+#'
+#' @param path Absolute path to make relative.
+#' @return Path relative to pharos.toml directory, or original path if not under config dir.
+#' @keywords internal
+#' @noRd
+to_config_relative <- function(path) .Call(wrap__to_config_relative_wrap, path)
 
 #' Submits a NONMEM model to SLURM for execution
 #'

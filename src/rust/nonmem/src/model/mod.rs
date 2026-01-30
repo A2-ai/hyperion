@@ -4,7 +4,7 @@ use extendr_api::prelude::*;
 use extendr_api::serializer::to_robj;
 
 use fs_err as fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 //pharos nonmem crate
 use nonmem::Model;
@@ -12,9 +12,10 @@ use nonmem::output_files::lst;
 
 use crate::model::run_status::determine_run_status;
 use crate::utils::{
-    find_output_file, get_comment_type, get_model_source_path, resolve_input_model_path,
+    find_output_file, from_config_relative, get_comment_type, to_config_relative,
+    validate_model_path,
 };
-use hyperion_core::ResultExt;
+use hyperion_core::{OptionExt, ResultExt};
 
 pub mod check;
 pub mod copy;
@@ -54,7 +55,7 @@ fn add_filename_attr(model_robj: &mut Robj, path: &Path) -> Result<()> {
 }
 
 fn add_model_source_attr(model_robj: &mut Robj, path: &Path) -> Result<()> {
-    let source_path = get_model_source_path(path)?;
+    let source_path = to_config_relative(path)?;
     model_robj
         .set_attrib("model_source", source_path.into_robj())
         .map_to_extendr_err("Failed to set model source attribute")?;
@@ -100,7 +101,7 @@ pub fn robj_to_model(model: &Robj) -> Result<Model> {
 /// }
 #[extendr]
 pub fn read_model(path: &str) -> Result<Robj> {
-    let mod_path = resolve_input_model_path(&path)?;
+    let mod_path = validate_model_path(&path)?;
     let content = fs::read_to_string(&mod_path).map_to_extendr_err("")?;
 
     let mut model = Model::parse(&content).map_to_extendr_err("Failed to read model file")?;
@@ -126,24 +127,34 @@ pub fn read_model_from_lst(path: &str) -> Result<Robj> {
 
 /// Checks model dataset
 ///
-/// @param model list of model object from `read_model`
-/// @param model_dir directory of model output //TODO check this
+/// @param model hyperion_nonmem_model object from `read_model`
 ///
-/// @return nothing //todo maybe a true/false?
+/// @return Dataset check results
 /// @export
 ///
 /// @examples \dontrun{
 /// model <- read_model("model/nonmem/run001.mod")
-/// model |> check_dataset("model/nonmem/run001")
+/// model |> check_dataset()
 /// }
 #[extendr]
-pub fn check_dataset(model: Robj, model_dir: &str) -> Result<Robj> {
+pub fn check_dataset(model: Robj) -> Result<Robj> {
+    let source = model
+        .get_attrib("model_source")
+        .ok_or_extendr_err("Model object is missing model_source attribute")?
+        .as_str()
+        .ok_or_extendr_err("model_source attribute must be a character")?;
+    let model_path = from_config_relative(source)?;
+    let model_dir = model_path
+        .parent()
+        .ok_or_extendr_err("Could not determine model directory")?;
+
     let model = robj_to_model(&model)?;
+    let dataset = model.check_dataset(model_dir).map_to_extendr_err("")?;
 
-    let model_dir = PathBuf::from(model_dir);
-    let dataset = model.check_dataset(&model_dir).map_to_extendr_err("")?;
+    let mut robj = to_robj(&dataset).map_to_extendr_err("Failed to serialize to Robj")?;
 
-    let robj = to_robj(&dataset).map_to_extendr_err("Failed to serialize to Robj")?;
+    robj.set_class(["hyperion_nonmem_dataset"])
+        .map_to_extendr_err("Failed to set class")?;
 
     Ok(robj)
 }

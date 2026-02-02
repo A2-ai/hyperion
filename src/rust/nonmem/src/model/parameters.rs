@@ -117,7 +117,7 @@ pub fn get_parameters(
     let ext_reader = create_ext_reader(None, None, only_method, only_last)?;
 
     // Resolve the search path from either a string or model object
-    let search_path = path_from_robj(&path)?;
+    let search_path = path_from_robj(&path, false)?;
     // If .ext file, use parent directory; otherwise use path as-is
     let search_path = if search_path.extension() == Some(OsStr::new("ext")) {
         search_path

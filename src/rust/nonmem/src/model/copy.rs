@@ -5,7 +5,7 @@ use nonmem::copy::{JitterSpec, ParamType, UpdateType};
 use nonmem::{CopyOptions, copy_model};
 use std::path::{Path, PathBuf};
 
-use crate::utils::validated_model_from_robj;
+use crate::utils::path_from_robj;
 use hyperion_core::{OptionExt, ResultExt, extendr_err};
 
 // This should move to Option<Robj>
@@ -180,7 +180,7 @@ pub fn copy_model_wrap(
         no_metadata,
     };
 
-    let from_path = validated_model_from_robj(&from)?;
+    let from_path = path_from_robj(&from, true)?;
     let original_filename = match from_path.file_name() {
         Some(filename) => filename.to_string_lossy().to_string(),
         None => Err(extendr_err!("`from` model file does not have a file name"))?,

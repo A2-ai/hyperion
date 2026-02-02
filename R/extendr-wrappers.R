@@ -228,7 +228,7 @@ update_metadata_file <- function(model_path, description = NULL, tags = NULL, ba
 #' Determine run status for a model path, run directory, or model object.
 #'
 #' @param input A hyperion_nonmem_model object, run directory, or model path.
-#' @return "run" or "not_run"
+#' @return "run", "running", or "not_run"
 #'
 #' Accepts .mod/.ctl/.lst paths, run directories, or a hyperion_nonmem_model object.
 get_run_status <- function(input) .Call(wrap__get_run_status, input)

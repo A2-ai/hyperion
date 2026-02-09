@@ -86,17 +86,35 @@ print.hyperion_nonmem_model <- function(x, digits = NULL, ...) {
 #' @param object A hyperion_nonmem_model object
 #' @param hide_off_diagonal_params Logical, if TRUE will not display the unfixed
 #'   off-diagonal estimated parameters. Default is FALSE.
+#' @param n_iterations Number of recent iterations to show for running models.
+#'   Default is 10.
 #' @param ... Additional arguments (currently unused)
 #' @return A hyperion_nonmem_summary object
 #' @rawNamespace S3method(base::summary, hyperion_nonmem_model)
 summary.hyperion_nonmem_model <- function(
   object,
   hide_off_diagonal_params = FALSE,
+  n_iterations = 10,
   ...
 ) {
+  validate_n_iterations(n_iterations)
+
   run_status <- refresh_run_status(object)
+
+  # Handle "not_run" status - return informative summary instead of error
+  if (identical(run_status, "not_run")) {
+    return(build_not_run_summary(object))
+  }
+
+  if (identical(run_status, "running")) {
+    return(build_running_summary(object, n_iterations))
+  }
+
   if (!identical(run_status, "run")) {
-    stop("model run_status must be 'run', got: ", run_status)
+    rlang::abort(paste0(
+      "model run_status must be 'run', 'running', or 'not_run', got: ",
+      run_status
+    ))
   }
 
   summary_obj <- get_model_summary_internal(
@@ -125,13 +143,113 @@ summary.hyperion_nonmem_model <- function(
   summary_obj
 }
 
+#' Build summary object for a running model
+#'
+#' @param object A hyperion_nonmem_model object
+#' @param n_iterations Number of recent iterations to include
+#' @return A hyperion_nonmem_summary object with iterations and gradients
+#' @keywords internal
+#' @noRd
+build_running_summary <- function(object, n_iterations) {
+  run_name <- get_model_name(object)
+  model_path <- from_config_relative(attr(object, "model_source"))
+
+  # Get recent iterations from ext file (may not exist yet)
+  iterations <- tryCatch(
+    {
+      ext_data <- read_ext_file(
+        model_path,
+        parameters_only = TRUE,
+        only_last = TRUE
+      )
+      if (!is.null(ext_data) && nrow(ext_data) > 0) {
+        n_rows <- nrow(ext_data)
+        start_row <- max(1, n_rows - n_iterations + 1)
+        ext_data[start_row:n_rows, , drop = FALSE]
+      } else {
+        NULL
+      }
+    },
+    error = function(e) NULL
+  )
+
+  # Get gradients from grd file (may not exist yet)
+  gradients <- tryCatch(
+    {
+      grd_data <- get_gradients(object, only_last = TRUE)
+      if (!is.null(grd_data) && nrow(grd_data) > 0) {
+        n_rows <- nrow(grd_data)
+        start_row <- max(1, n_rows - n_iterations + 1)
+        grd_data[start_row:n_rows, , drop = FALSE]
+      } else {
+        NULL
+      }
+    },
+    error = function(e) NULL
+  )
+
+  summary_obj <- list(
+    run_name = run_name,
+    run_status = "running",
+    iterations = iterations,
+    gradients = gradients
+  )
+
+  class(summary_obj) <- c(
+    "hyperion_nonmem_summary_running",
+    "hyperion_nonmem_summary"
+  )
+  summary_obj
+}
+
+#' Build summary object for a model that has not been run
+#'
+#' @param object A hyperion_nonmem_model object
+#' @return A hyperion_nonmem_summary object with basic model info
+#' @keywords internal
+#' @noRd
+build_not_run_summary <- function(object) {
+  run_name <- get_model_name(object)
+
+  problem <- NULL
+  if (!is.null(object$problem)) {
+    if (is.character(object$problem) && length(object$problem) > 0) {
+      problem <- object$problem
+    } else if (is.list(object$problem) && !is.null(object$problem$title)) {
+      problem <- object$problem$title
+    }
+  }
+
+  data_path <- NULL
+  if (!is.null(object$data)) {
+    if (is.character(object$data) && length(object$data) > 0) {
+      data_path <- object$data
+    } else if (is.list(object$data) && !is.null(object$data$path)) {
+      data_path <- object$data$path
+    }
+  }
+
+  summary_obj <- list(
+    run_name = run_name,
+    run_status = "not_run",
+    problem = problem,
+    data_path = data_path
+  )
+
+  class(summary_obj) <- c(
+    "hyperion_nonmem_summary_not_run",
+    "hyperion_nonmem_summary"
+  )
+  summary_obj
+}
+
 #' Gets model run summary
 #'
 #' @description
 #' `r lifecycle::badge("deprecated")`
 #'
 #' `get_model_summary()` was deprecated in hyperion 0.2.0 in favor of
-#' `summary(model)`. It will be removed in hyperion 0.3.0.
+#' `summary(model)`. It was removed in hyperion 0.3.0.
 #'
 #' @param directory path to model run output directory containing .ext, .lst
 #'   files, or a hyperion_nonmem_model object
@@ -141,13 +259,34 @@ summary.hyperion_nonmem_model <- function(
 #' @return hyperion_nonmem_summary S3 object
 #' @export
 get_model_summary <- function(directory, hide_off_diagonal_params = FALSE) {
-  lifecycle::deprecate_warn(
-    "0.2.0",
+  lifecycle::deprecate_stop(
+    "0.3.0",
     "get_model_summary()",
     "summary()",
-    details = "This function will be removed in hyperion 0.3.0."
+    details = "`get_model_summary()` was removed in hyperion 0.3.0. Use `summary(model)` instead."
   )
-  get_model_summary_internal(directory, hide_off_diagonal_params)
+}
+
+#' @keywords internal
+#' @noRd
+validate_n_iterations <- function(n_iterations) {
+  if (
+    !is.numeric(n_iterations) ||
+      length(n_iterations) != 1 ||
+      is.na(n_iterations) ||
+      !is.finite(n_iterations) ||
+      n_iterations <= 0 ||
+      n_iterations != as.integer(n_iterations)
+  ) {
+    rlang::abort(
+      paste0(
+        "`n_iterations` must be a single positive integer, got: ",
+        deparse(n_iterations)
+      )
+    )
+  }
+
+  invisible(n_iterations)
 }
 
 #' Structure method for hyperion_nonmem_model objects
@@ -465,7 +604,7 @@ get_random_effect_parameter_data <- function(
         }
 
         if (is.null(prev_block)) {
-          stop(
+          rlang::abort(
             "BlockSame found but no previous Block structure with matching size exists."
           )
         }
@@ -701,7 +840,7 @@ knit_print.hyperion_nonmem_model <- function(x, ...) {
 get_model_name <- function(model) {
   model_source <- attr(model, "model_source")
   if (is.null(model_source)) {
-    stop("Model object is missing model_source attribute")
+    rlang::abort("Model object is missing model_source attribute")
   }
   tools::file_path_sans_ext(basename(model_source))
 }
@@ -711,19 +850,31 @@ get_model_name <- function(model) {
 #' Extracts the directory path from a hyperion_nonmem_model object.
 #'
 #' @param model A hyperion_nonmem_model object
-#' @return Character string with the model directory path (relative to pharos.toml)
+#' @param absolute Logical; if TRUE, resolve `model_source` using
+#'   [from_config_relative()] before extracting the directory. Default FALSE.
+#' @return Character string with the model directory path
 #' @export
 #'
 #' @examples
 #' \dontrun{
 #' mod <- read_model("models/run001.mod")
-#' get_model_dir(mod) # "models"
+#' get_model_dir(mod) # "models" (config-relative)
+#' get_model_dir(mod, absolute = TRUE) # "/path/to/project/models"
 #' }
-get_model_dir <- function(model) {
+get_model_dir <- function(model, absolute = FALSE) {
   model_source <- attr(model, "model_source")
   if (is.null(model_source)) {
-    stop("Model object is missing model_source attribute")
+    rlang::abort("Model object is missing model_source attribute")
   }
+
+  if (!is.logical(absolute) || length(absolute) != 1 || is.na(absolute)) {
+    rlang::abort("absolute must be TRUE or FALSE")
+  }
+
+  if (absolute) {
+    model_source <- from_config_relative(model_source)
+  }
+
   dirname(model_source)
 }
 

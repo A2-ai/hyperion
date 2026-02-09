@@ -228,7 +228,7 @@ update_metadata_file <- function(model_path, description = NULL, tags = NULL, ba
 #' Determine run status for a model path, run directory, or model object.
 #'
 #' @param input A hyperion_nonmem_model object, run directory, or model path.
-#' @return "run" or "not_run"
+#' @return "run", "running", or "not_run"
 #'
 #' Accepts .mod/.ctl/.lst paths, run directories, or a hyperion_nonmem_model object.
 get_run_status <- function(input) .Call(wrap__get_run_status, input)
@@ -426,10 +426,19 @@ get_comment_type <- function() .Call(wrap__get_comment_type_wrap)
 #' @noRd
 validate_model_path <- function(path) .Call(wrap__validate_model_path_wrap, path)
 
-#' Convert a config-relative path to absolute.
+#' Convert a config-relative path to an absolute path.
 #'
-#' @keywords internal
-#' @noRd
+#' Resolves a path stored relative to the project configuration directory
+#' (the directory containing `pharos.toml`) to an absolute path. If the
+#' path is already absolute, it is returned unchanged.
+#'
+#' @details hyperion model objects store paths relative to the project
+#' configuration directory. Use this function to resolve them to absolute
+#' paths for file system operations.
+#'
+#' @param path A config-relative or absolute file path.
+#' @return The absolute file path as a character string.
+#' @export
 from_config_relative <- function(path) .Call(wrap__from_config_relative_wrap, path)
 
 #' Convert an absolute path to be relative to the pharos config directory.

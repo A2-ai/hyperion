@@ -81,3 +81,44 @@ test_that("get_random_effect_parameter_data handles BlockSame copying", {
   expect_equal(result$Parameter[3], "OMEGA(2,2)")
   expect_equal(result$Fixed[4], "Yes")
 })
+
+test_that("summary.hyperion_nonmem_model validates n_iterations", {
+  mod <- structure(list(), class = "hyperion_nonmem_model")
+
+  expect_error(
+    summary(mod, n_iterations = 0),
+    "`n_iterations` must be a single positive integer"
+  )
+  expect_error(
+    summary(mod, n_iterations = -1),
+    "`n_iterations` must be a single positive integer"
+  )
+  expect_error(
+    summary(mod, n_iterations = 1.5),
+    "`n_iterations` must be a single positive integer"
+  )
+  expect_error(
+    summary(mod, n_iterations = "foo"),
+    "`n_iterations` must be a single positive integer"
+  )
+})
+
+test_that("build_running_summary limits iteration and gradient rows", {
+  object <- structure(list(), model_source = "model/path")
+
+  ext_data <- data.frame(iter = 1:5, stringsAsFactors = FALSE)
+  grd_data <- data.frame(grad = 11:15, stringsAsFactors = FALSE)
+
+  testthat::local_mocked_bindings(
+    get_model_name = function(object) "run004",
+    from_config_relative = function(path) path,
+    read_ext_file = function(...) ext_data,
+    get_gradients = function(...) grd_data
+  )
+
+  result <- build_running_summary(object, n_iterations = 2)
+
+  expect_equal(result$run_status, "running")
+  expect_equal(result$iterations$iter, c(4L, 5L))
+  expect_equal(result$gradients$grad, c(14L, 15L))
+})

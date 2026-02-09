@@ -10,7 +10,7 @@ get_run_status(input)
 \item{input}{A hyperion_nonmem_model object, run directory, or model path.}
 }
 \value{
-"run" or "not_run"
+"run", "running", or "not_run"
 
 Accepts .mod/.ctl/.lst paths, run directories, or a hyperion_nonmem_model object.
 }

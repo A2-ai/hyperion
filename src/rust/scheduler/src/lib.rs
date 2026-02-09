@@ -12,7 +12,7 @@ use scheduler::{
 };
 
 use hyperion_core::{ResultExt, extendr_err};
-use hyperion_nonmem::utils::{load_nonmem_config, validated_model_from_robj};
+use hyperion_nonmem::utils::{load_nonmem_config, path_from_robj};
 
 /// Helper function to process Robj model input and expand patterns
 ///
@@ -30,7 +30,7 @@ fn process_model_robj(model: Robj) -> Result<Vec<PathBuf>> {
 
     // Handle hyperion_nonmem_model object
     if model.inherits("hyperion_nonmem_model") {
-        let path = validated_model_from_robj(&model)?;
+        let path = path_from_robj(&model, true)?;
         return Ok(vec![path]);
     }
 
@@ -47,7 +47,7 @@ fn process_model_robj(model: Robj) -> Result<Vec<PathBuf>> {
         // Handle R lists (can contain strings or model objects)
         list.values().try_fold(Vec::new(), |mut acc, item| {
             if item.inherits("hyperion_nonmem_model") {
-                let path = validated_model_from_robj(&item)?;
+                let path = path_from_robj(&item, true)?;
                 acc.push(path);
                 Ok(acc)
             } else if let Some(pattern) = item.as_str() {
@@ -164,7 +164,7 @@ pub fn submit_model_to_slurm(
         .map_to_extendr_err("Failed to submit job to slurm")?;
 
     for (p, job_id) in res {
-        println!("Model {p:?} -> job ID {job_id}");
+        rprintln!("Model {p:?} -> job ID {job_id}");
     }
     Ok(())
 }
@@ -257,7 +257,7 @@ pub fn submit_model_to_sge(
         .map_to_extendr_err("Failed to submit job to sge")?;
 
     for (p, job_id) in res {
-        println!("Model {p:?} submitted: job id {job_id}");
+        rprintln!("Model {p:?} submitted: job id {job_id}");
     }
 
     Ok(())

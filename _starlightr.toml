@@ -10,105 +10,103 @@ enabled = true
 list = [
   { tag = "0.3.1", label = "v0.3.1", default = true },
   { tag = "0.3.0", label = "v0.3.0" },
-	{ tag = "0.2.0", label = "v0.2.0" },
-	{ tag = "0.1.1", label = "v0.1.1" },
+  { tag = "0.2.0", label = "v0.2.0" },
+  { tag = "0.1.1", label = "v0.1.1" },
 ]
 
 [home]
 hero = { actions = [
-	{ text = "Get Started", link = "./articles/readme/", icon = "right-arrow", variant = "primary" },
-	{ text = "View on GitHub", link = "https://github.com/A2-ai/hyperion", icon = "external", variant = "minimal" },
+  { text = "Get Started", link = "./articles/readme/", icon = "right-arrow", variant = "primary" },
+  { text = "View on GitHub", link = "https://github.com/A2-ai/hyperion", icon = "external", variant = "minimal" },
 ] }
 cards = [
-	{ icon = "document", title = "Model Interaction", description = "hyperion has several functions for interacting with NONMEM models", link = "./reference/read_model/" },
-	{	icon = "open-book", title = "Hyperion Reference", description = "See the full hyperion reference for all functionality", link = "./reference/hyperion-package/" },
-
+  { icon = "document", title = "Model Interaction", description = "hyperion has several functions for interacting with NONMEM models", link = "./reference/read_model/" },
+  { icon = "open-book", title = "Hyperion Reference", description = "See the full hyperion reference for all functionality", link = "./reference/hyperion-package/" },
 ]
 
 [sidebar]
 articles = [
-	{ label = "Getting Started", contents = [
-		{ slug = "README", label = "Welcome" },
-	] },
-	{ label = "Output File Parsing", contents = [
-		"ext",
-		"grd",
-		"shk",
-		"lst",
-	] },
-	{ label = "NONMEM Model Interactions", contents = [
-		"hyperion_model",
-	] },
+  { label = "Getting Started", contents = [
+    { slug = "README", label = "Welcome" },
+  ], collapsed = true },
+  { label = "Output File Parsing", contents = [
+    "ext",
+    "grd",
+    "shk",
+    "lst",
+  ], collapsed = true },
+  { label = "NONMEM Model Interactions", contents = "hyperion_model", collapsed = true },
 ]
 reference = [
-	"hyperion-package",
-	{ label = "Model I/O", collapsed = true, contents = [
-		"read_model",
-		"copy_model",
-		"check_model",
-		"check_dataset",
-		"get_model_name",
-		"get_model_dir",
-		"get_data_path",
-	] },
-	{ label = "Model Summaries", collapsed = true, contents = [
-		"summary.hyperion_nonmem_model",
-		"get_run_info",
-	] },
-	{ label = "Parameter Extraction", collapsed = true, contents = [
-		"get_parameters",
-		"get_final_estimates",
-		"read_ext_file",
-		"get_gradients",
-		"get_eta_shrinkage",
-		"get_eps_shrinkage",
-	] },
-	{ label = "Parameter Metadata", collapsed = true, contents = [
-		"get_model_parameter_info",
-		"ThetaComment",
-		"OmegaComment",
-		"SigmaComment",
-		"ModelComments",
-		"get_comment",
-		"get_parameter_names",
-		"get_parameter_transform",
-		"get_parameter_unit",
-		"get_theta_names",
-		"get_eta_labels",
-		"update_param_info",
-		"audit_parameter_info",
-	] },
-	{ label = "Lookup Files", collapsed = true, contents = [
-		"apply_lookup",
-		"apply_lookup_defaults",
-		"add_parameter_to_lookup",
-		"remove_parameter_from_lookup",
-		"list_lookup_parameters",
-	] },
-	{ label = "Transform Calculations", collapsed = true, contents = [
-		"compute_cv",
-		"compute_rse",
-		"compute_ci",
-		"transform_value",
-	] },
-	{ label = "Model Lineage", collapsed = true, contents = [
-		"get_model_lineage",
-		"get_model_ancestors",
-		"get_model_descendants",
-		"are_models_in_lineage",
-	] },
-	{ label = "Configuration", collapsed = true, contents = [
-		"init",
-		"get_pharos_config",
-		"get_comment_type",
-		"use_type1_comments",
-	] },
-	{ label = "Metadata Files", collapsed = true, contents = [
-		"set_metadata_file",
-		"update_metadata_file",
-	] },
-	{ label = "Job Submission", collapsed = true, contents = [
-		"submit_model_to_slurm",
-		"submit_model_to_sge",
-	] },
+  "hyperion-package",
+  { label = "Model I/O", collapsed = true, contents = [
+    "read_model",
+    "copy_model",
+    "check_model",
+    "check_dataset",
+    "get_model_name",
+    "get_model_dir",
+    "get_data_path",
+    "from_config_relative",
+  ] },
+  { label = "Model Summaries", collapsed = true, contents = [
+    "summary.hyperion_nonmem_model",
+    "get_run_info",
+  ] },
+  { label = "Parameter Extraction", collapsed = true, contents = [
+    "get_parameters",
+    "get_final_estimates",
+    "read_ext_file",
+    "get_gradients",
+    "get_eta_shrinkage",
+    "get_eps_shrinkage",
+  ] },
+  { label = "Parameter Metadata", collapsed = true, contents = [
+    "get_model_parameter_info",
+    "ThetaComment",
+    "OmegaComment",
+    "SigmaComment",
+    "ModelComments",
+    "get_comment",
+    "get_parameter_names",
+    "get_parameter_transform",
+    "get_parameter_unit",
+    "get_theta_names",
+    "get_eta_labels",
+    "update_param_info",
+    "audit_parameter_info",
+  ] },
+  { label = "Lookup Files", collapsed = true, contents = [
+    "apply_lookup",
+    "apply_lookup_defaults",
+    "add_parameter_to_lookup",
+    "remove_parameter_from_lookup",
+    "list_lookup_parameters",
+  ] },
+  { label = "Transform Calculations", collapsed = true, contents = [
+    "compute_cv",
+    "compute_rse",
+    "compute_ci",
+    "transform_value",
+  ] },
+  { label = "Model Lineage", collapsed = true, contents = [
+    "get_model_lineage",
+    "get_model_ancestors",
+    "get_model_descendants",
+    "are_models_in_lineage",
+  ] },
+  { label = "Configuration", collapsed = true, contents = [
+    "init",
+    "get_pharos_config",
+    "get_comment_type",
+    "use_type1_comments",
+  ] },
+  { label = "Metadata Files", collapsed = true, contents = [
+    "set_metadata_file",
+    "update_metadata_file",
+  ] },
+  { label = "Job Submission", collapsed = true, contents = [
+    "submit_model_to_slurm",
+    "submit_model_to_sge",
+  ] },
 ]

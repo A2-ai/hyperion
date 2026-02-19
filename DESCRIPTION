@@ -1,6 +1,6 @@
 Package: hyperion
 Title: Pharmaceutical Model Development and Workflow Tools
-Version: 0.3.1
+Version: 0.3.2
 Authors@R: c(
     person("Matt", "Smith", , "matthews@a2-ai.com", role = c("aut", "cre")),
     person("Vincent", "Prouillet", ,"vincent@a2-ai.com", role = c("aut")),
@@ -41,3 +41,4 @@ Imports:
     S7,
     tomledit
 Config/testthat/edition: 3
+URL: https://a2-ai.github.io/hyperion-docs, https://github.com/a2-ai/hyperion

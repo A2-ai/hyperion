@@ -61,8 +61,7 @@ jobs:
       
       - name: rv-sysdeps-install
         run: |
-          dnf install -y epel-release
-          MISSING_DEPS="$(rv sysdeps --only-absent --ignore 'libgit2_1.7-devel' --ignore pandoc) libgit2-devel libcurl-devel"
+          MISSING_DEPS="$(rv sysdeps --only-absent)"
           if [ -n "$MISSING_DEPS" ]; then
             echo "Found missing system dependencies:"
             echo "$MISSING_DEPS"
@@ -84,7 +83,7 @@ jobs:
 
       - name: Run R Releaser build-src
         id: releaser
-        uses: A2-ai/r-releaser/build-src@main
+        uses: A2-ai/r-releaser/build-src@build-binary
         with:
           library: ${{ steps.library.outputs.result }}
           resave-data: false

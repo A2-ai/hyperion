@@ -61,7 +61,7 @@ jobs:
       
       - name: rv-sysdeps-install
         run: |
-          MISSING_DEPS="$(rv sysdeps --only-absent)"
+         MISSING_DEPS="$(rv sysdeps --only-absent --ignore pandoc --ignore libgit2_1.7-devel) libgit2-devel"
           if [ -n "$MISSING_DEPS" ]; then
             echo "Found missing system dependencies:"
             echo "$MISSING_DEPS"

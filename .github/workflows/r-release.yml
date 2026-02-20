@@ -90,6 +90,7 @@ jobs:
           resave-data: false
           md5: true
           user: prismbuilder
+          build-vignettes: false
           metadata: |
             {
               "PrismRemoteType": "git",

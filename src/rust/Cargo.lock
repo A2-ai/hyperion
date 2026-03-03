@@ -156,7 +156,7 @@ dependencies = [
 [[package]]
 name = "config"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=pd-fix#ab705e831db57a3004d56f3fd0bb59ae63120385"
+source = "git+https://github.com/a2-ai/pharos?branch=pd-fix#30f28e43b0de7345d2b81da6d40a281e19ba2a3b"
 dependencies = [
  "anyhow",
  "fs-err",
@@ -833,7 +833,7 @@ dependencies = [
 [[package]]
 name = "nonmem"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=pd-fix#ab705e831db57a3004d56f3fd0bb59ae63120385"
+source = "git+https://github.com/a2-ai/pharos?branch=pd-fix#30f28e43b0de7345d2b81da6d40a281e19ba2a3b"
 dependencies = [
  "anyhow",
  "blake3",
@@ -1246,7 +1246,7 @@ dependencies = [
 [[package]]
 name = "scheduler"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=pd-fix#ab705e831db57a3004d56f3fd0bb59ae63120385"
+source = "git+https://github.com/a2-ai/pharos?branch=pd-fix#30f28e43b0de7345d2b81da6d40a281e19ba2a3b"
 dependencies = [
  "anyhow",
  "config",
@@ -1505,7 +1505,7 @@ checksum = "ebc1c04c71510c7f702b52b7c350734c9ff1295c464a03335b00bb84fc54f853"
 [[package]]
 name = "utils"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=pd-fix#ab705e831db57a3004d56f3fd0bb59ae63120385"
+source = "git+https://github.com/a2-ai/pharos?branch=pd-fix#30f28e43b0de7345d2b81da6d40a281e19ba2a3b"
 dependencies = [
  "anyhow",
  "fs-err",

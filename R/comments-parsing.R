@@ -408,7 +408,9 @@ parse_raw_theta_comment <- function(nonmem_name, name, raw, mod_path = NULL) {
 
   if (!is.null(raw) && nzchar(raw)) {
     parts <- extract_raw_theta_parts(raw)
-    if (is.null(name)) name <- parts$name
+    if (is.null(name)) {
+      name <- parts$name
+    }
     unit <- parts$unit
     parameterization <- map_parameterization(parts$parameterization, "THETA")
   }
@@ -439,7 +441,9 @@ parse_raw_omega_comment <- function(
 
   if (!is.null(raw) && nzchar(raw)) {
     parts <- extract_raw_omega_parts(raw, known_thetas)
-    if (is.null(name)) name <- parts$name
+    if (is.null(name)) {
+      name <- parts$name
+    }
     parameterization <- map_parameterization(parts$parameterization, "OMEGA")
     associated_theta <- parts$associated_theta
   }
@@ -464,7 +468,9 @@ parse_raw_sigma_comment <- function(nonmem_name, name, raw, mod_path = NULL) {
 
   if (!is.null(raw) && nzchar(raw)) {
     parts <- extract_raw_sigma_parts(raw)
-    if (is.null(name)) name <- parts$name
+    if (is.null(name)) {
+      name <- parts$name
+    }
     unit <- parts$unit
     parameterization <- map_parameterization(parts$parameterization, "SIGMA")
   }
@@ -558,20 +564,28 @@ parse_type1_theta_comment <- function(
     type1 <- parsed$Type1
 
     if (!is.null(type1$WithUnit)) {
-      if (is.null(name)) name <- type1$WithUnit$parameter
-      if (is.null(unit)) unit <- type1$WithUnit$unit
-      if (is.null(parameterization))
+      if (is.null(name)) {
+        name <- type1$WithUnit$parameter
+      }
+      if (is.null(unit)) {
+        unit <- type1$WithUnit$unit
+      }
+      if (is.null(parameterization)) {
         parameterization <- map_parameterization(
           type1$WithUnit$parametrization,
           "THETA"
         )
+      }
     } else if (!is.null(type1$Type)) {
-      if (is.null(name)) name <- type1$Type$typ
-      if (is.null(parameterization))
+      if (is.null(name)) {
+        name <- type1$Type$typ
+      }
+      if (is.null(parameterization)) {
         parameterization <- map_parameterization(
           type1$Type$parameterization,
           "THETA"
         )
+      }
     } else if (!is.null(type1$Covariate)) {
       if (is.null(name)) name <- type1$Covariate$parameter
     } else if (is.character(type1)) {
@@ -641,23 +655,30 @@ parse_type1_omega_comment <- function(
       if (is.null(name)) {
         parsed_raw <- extract_raw_omega_parts(type1, known_thetas)
         name <- parsed_raw$name
-        if (is.null(associated_theta))
+        if (is.null(associated_theta)) {
           associated_theta <- parsed_raw$associated_theta
-        if (is.null(parameterization))
+        }
+        if (is.null(parameterization)) {
           parameterization <- map_parameterization(
             parsed_raw$parameterization,
             "OMEGA"
           )
+        }
       }
     } else {
       # Omega style: name, theta_name, parameterization
-      if (is.null(name)) name <- type1$name
-      if (is.null(associated_theta)) associated_theta <- type1$theta_name
-      if (is.null(parameterization))
+      if (is.null(name)) {
+        name <- type1$name
+      }
+      if (is.null(associated_theta)) {
+        associated_theta <- type1$theta_name
+      }
+      if (is.null(parameterization)) {
         parameterization <- map_parameterization(
           type1$parameterization,
           "OMEGA"
         )
+      }
     }
   }
 
@@ -668,14 +689,18 @@ parse_type1_omega_comment <- function(
       nzchar(raw)
   ) {
     parsed_raw <- extract_raw_omega_parts(raw, known_thetas)
-    if (is.null(name)) name <- parsed_raw$name
-    if (is.null(associated_theta))
+    if (is.null(name)) {
+      name <- parsed_raw$name
+    }
+    if (is.null(associated_theta)) {
       associated_theta <- parsed_raw$associated_theta
-    if (is.null(parameterization))
+    }
+    if (is.null(parameterization)) {
       parameterization <- map_parameterization(
         parsed_raw$parameterization,
         "OMEGA"
       )
+    }
   }
 
   create_comment_with_sources(
@@ -709,34 +734,47 @@ parse_type1_sigma_comment <- function(
     if (is.character(type1)) {
       # Type1$Unknown: raw string stored directly
       parsed_raw <- extract_raw_sigma_parts(type1)
-      if (is.null(name)) name <- parsed_raw$name
-      if (is.null(unit)) unit <- parsed_raw$unit
-      if (is.null(parameterization))
+      if (is.null(name)) {
+        name <- parsed_raw$name
+      }
+      if (is.null(unit)) {
+        unit <- parsed_raw$unit
+      }
+      if (is.null(parameterization)) {
         parameterization <- map_parameterization(
           parsed_raw$parameterization,
           "SIGMA"
         )
+      }
     } else {
       # Sigma style: name, parameterization
-      if (is.null(name)) name <- type1$name
-      if (is.null(parameterization))
+      if (is.null(name)) {
+        name <- type1$name
+      }
+      if (is.null(parameterization)) {
         parameterization <- map_parameterization(
           type1$parameterization,
           "SIGMA"
         )
+      }
     }
   }
 
   # Fallback: extract from raw comment
   if (!is.null(raw) && nzchar(raw)) {
     parsed_raw <- extract_raw_sigma_parts(raw)
-    if (is.null(name)) name <- parsed_raw$name
-    if (is.null(unit)) unit <- parsed_raw$unit
-    if (is.null(parameterization))
+    if (is.null(name)) {
+      name <- parsed_raw$name
+    }
+    if (is.null(unit)) {
+      unit <- parsed_raw$unit
+    }
+    if (is.null(parameterization)) {
       parameterization <- map_parameterization(
         parsed_raw$parameterization,
         "SIGMA"
       )
+    }
   }
 
   create_comment_with_sources(

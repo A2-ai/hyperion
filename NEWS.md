@@ -1,3 +1,45 @@
+# hyperion 0.4.0
+
+## Breaking changes
+
+- `copy_model()`: the `jitter` parameter now accepts a single numeric value only.
+  Named vector input (e.g., `c("theta" = 0.05, "omega" = 0.1)`) is no longer
+  supported. Jittering of omega matrices could produce non-positive definite
+  matrices causing nonmem to fail. Jittering for these parameters was removed
+  to prevent this issue.
+- `get_model_summary()` has been fully removed. Use `summary(model)` instead.
+
+## New features
+
+- `get_model_parameter_info()` now supports model objects that are not yet run.
+  - For completed runs, metadata is still sourced from `.lst`.
+  - For `not_run`/`running` model objects, metadata is parsed directly from the model.
+- `get_partition_info()` gives a data frame of available slurm partitions
+- submit_model_to_slurm() now validates requested CPU counts against live 
+  SLURM partition information before submission.
+- SLURM submissions now warn when the chosen ncpu/partition combination 
+  would leave the final node less than 50% utilized.
+
+
+## Bug fixes
+
+- Run heuristics now correctly report `NA` when a heuristic result is unavailable
+  (e.g., covariance step not run), instead of silently defaulting to `FALSE`.
+  Summary output shows a warning indicator for these cases.
+- `summary()` now gracefully warns and falls back to NONMEM parameter names when
+  comment parsing fails, instead of aborting.
+- `get_parameter_names()` now returns an empty data frame with a warning instead
+  of aborting when comment parsing fails.
+- `estimation_time` and `covariance_time` in run details now return `NA` instead
+  of `0.0` when not present in the output.
+- Fixed raw unit parsing for nested delimiters in comments, including:
+  - `(1/(mg*hr))`
+  - `(1/[mg*hr])`
+  - `[1/[mg*hr]]`
+- Improved raw OMEGA off-diagonal parsing so theta-pair comments with slash names
+  (for example `CL/F-V2/F`) are parsed as associated theta pairs instead of being
+  split into incorrect fragments.
+
 # hyperion 0.3.2
 
 ## New features

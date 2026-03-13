@@ -5,9 +5,13 @@ version = '0.1.0'
 edition = '2024'
 
 [lib]
-crate-type = [ 'staticlib' ]
+crate-type = [ 'rlib', 'staticlib' ]
 name = 'hyperion'
 path = 'lib.rs'
+
+[[bin]]
+name = 'document'
+path = 'document.rs'
 
 [workspace]
 members = ["nonmem", "scheduler", "core"]

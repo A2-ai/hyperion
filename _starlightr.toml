@@ -110,5 +110,6 @@ reference = [
   { label = "Job Submission", collapsed = true, contents = [
     "submit_model_to_slurm",
     "submit_model_to_sge",
+		"get_partition_info",
   ] },
 ]

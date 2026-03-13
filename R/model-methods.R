@@ -117,7 +117,7 @@ summary.hyperion_nonmem_model <- function(
     ))
   }
 
-  summary_obj <- get_model_summary_internal(
+  summary_obj <- get_model_summary(
     object,
     hide_off_diagonal_params = hide_off_diagonal_params
   )
@@ -129,15 +129,26 @@ summary.hyperion_nonmem_model <- function(
     identical(tolower(comment_type), "type1")
 
   if (!is_type1 && !is.null(summary_obj$parameters)) {
-    info <- get_model_parameter_info(object)
-    name_map <- get_parameter_names(info)
+    tryCatch(
+      {
+        info <- get_model_parameter_info(object)
+        name_map <- get_parameter_names(info)
 
-    if (nrow(name_map) > 0 && "name" %in% names(summary_obj$parameters)) {
-      nonmem_names <- summary_obj$parameters$name
-      mapped <- name_map[nonmem_names, "name", drop = TRUE]
-      replace_idx <- !is.na(mapped) & nzchar(mapped)
-      summary_obj$parameters$name[replace_idx] <- mapped[replace_idx]
-    }
+        if (nrow(name_map) > 0 && "name" %in% names(summary_obj$parameters)) {
+          nonmem_names <- summary_obj$parameters$name
+          mapped <- name_map[nonmem_names, "name", drop = TRUE]
+          replace_idx <- !is.na(mapped) & nzchar(mapped)
+          summary_obj$parameters$name[replace_idx] <- mapped[replace_idx]
+        }
+      },
+      error = function(e) {
+        rlang::warn(c(
+          "Could not apply parameter names from model comments.",
+          "i" = "Falling back to NONMEM parameter names.",
+          "x" = conditionMessage(e)
+        ))
+      }
+    )
   }
 
   summary_obj
@@ -255,30 +266,6 @@ build_not_run_summary <- function(object) {
     "hyperion_nonmem_summary"
   )
   summary_obj
-}
-
-#' Gets model run summary
-#'
-#' @description
-#' `r lifecycle::badge("deprecated")`
-#'
-#' `get_model_summary()` was deprecated in hyperion 0.2.0 in favor of
-#' `summary(model)`. It was removed in hyperion 0.3.0.
-#'
-#' @param directory path to model run output directory containing .ext, .lst
-#'   files, or a hyperion_nonmem_model object
-#' @param hide_off_diagonal_params boolean, if TRUE will not display the unfixed
-#'   off-diagonal estimated parameters
-#'
-#' @return hyperion_nonmem_summary S3 object
-#' @export
-get_model_summary <- function(directory, hide_off_diagonal_params = FALSE) {
-  lifecycle::deprecate_stop(
-    "0.3.0",
-    "get_model_summary()",
-    "summary()",
-    details = "`get_model_summary()` was removed in hyperion 0.3.0. Use `summary(model)` instead."
-  )
 }
 
 #' @keywords internal

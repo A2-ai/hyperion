@@ -1,7 +1,6 @@
 use extendr_api::Result;
 use extendr_api::prelude::*;
 
-use fs_err as fs;
 use std::path::{Path, PathBuf};
 
 // Pharos nonmem crate
@@ -9,7 +8,7 @@ use nonmem::output_files::{
     cor::CorrelationMatrix,
     ext::{MinimizationResults, TableParameters},
     get_summary,
-    lst::{RunDetails, RunHeuristics, parse_lst},
+    lst::{LstSummary, RunDetails, RunHeuristics},
 };
 
 use crate::{
@@ -37,15 +36,15 @@ pub struct RunDetailsRow {
     pub significant_digits: i32,
     pub only_sim: bool,
     pub estimation_method: String,
-    pub estimation_time: f64,
-    pub covariance_time: f64,
+    pub estimation_time: Rfloat,
+    pub covariance_time: Rfloat,
 }
 
 /// Row for RunHeuristics - tidy format with one row per heuristic
 #[derive(Debug, IntoDataFrameRow)]
 pub struct RunHeuristicsRow {
     pub heuristic_name: String,
-    pub value: bool,
+    pub value: Rbool,
 }
 
 /// Row for CorrelationMatrix - tidy format with one row per parameter pair
@@ -178,8 +177,8 @@ pub fn build_run_details_df(details: RunDetails) -> Result<Robj> {
             significant_digits: details.significant_digits as i32,
             only_sim: details.only_sim,
             estimation_method: method,
-            estimation_time: details.estimation_time.get(i).copied().unwrap_or(0.0),
-            covariance_time: details.covariance_time.get(i).copied().unwrap_or(0.0),
+            estimation_time: Rfloat::from(details.estimation_time.get(i).copied()),
+            covariance_time: Rfloat::from(details.covariance_time.get(i).copied()),
         })
         .collect();
 
@@ -195,23 +194,23 @@ pub fn build_run_heuristics_df(heuristics: &RunHeuristics) -> Result<Robj> {
     let rows = vec![
         RunHeuristicsRow {
             heuristic_name: "covariance_step_aborted".to_string(),
-            value: heuristics.covariance_step_aborted.unwrap_or(false),
+            value: Rbool::from(heuristics.covariance_step_aborted),
         },
         RunHeuristicsRow {
             heuristic_name: "eigenvalue_issues".to_string(),
-            value: heuristics.eigenvalue_issues.unwrap_or(false),
+            value: Rbool::from(heuristics.eigenvalue_issues),
         },
         RunHeuristicsRow {
             heuristic_name: "parameter_near_boundary".to_string(),
-            value: heuristics.parameter_near_boundary.unwrap_or(false),
+            value: Rbool::from(heuristics.parameter_near_boundary),
         },
         RunHeuristicsRow {
             heuristic_name: "hessian_reset".to_string(),
-            value: heuristics.hessian_reset.unwrap_or(false),
+            value: Rbool::from(heuristics.hessian_reset),
         },
         RunHeuristicsRow {
             heuristic_name: "minimization_terminated".to_string(),
-            value: heuristics.minimization_terminated.unwrap_or(false),
+            value: Rbool::from(heuristics.minimization_terminated),
         },
     ];
 
@@ -308,7 +307,7 @@ fn parse_summary_directory(input: Robj) -> Result<PathBuf> {
 /// @return hyperion_nonmem_summary S3 object
 /// @keywords internal
 #[extendr]
-pub fn get_model_summary_internal(
+pub fn get_model_summary(
     directory: Robj,
     #[extendr(default = "FALSE")] hide_off_diagonal_params: bool,
 ) -> Result<Robj> {
@@ -371,10 +370,10 @@ pub fn get_model_summary_internal(
 #[extendr]
 pub fn get_run_info(path: Robj) -> Result<Robj> {
     let search_path = path_from_robj(&path, false)?;
-    let path = find_output_file(&search_path, "lst")?;
+    let lst_path = find_output_file(&search_path, "lst")?;
 
-    let content = fs::read_to_string(path).map_to_extendr_err("")?;
-    let summary = parse_lst(&content);
+    let summary =
+        LstSummary::from_run(&lst_path).map_to_extendr_err("Failed to create LstSummary")?;
 
     let run_details_df = build_run_details_df(summary.run_details)
         .map_to_extendr_err("Failed to build run details")?;
@@ -392,6 +391,6 @@ pub fn get_run_info(path: Robj) -> Result<Robj> {
 
 extendr_module! {
     mod summary;
-    fn get_model_summary_internal;
+    fn get_model_summary;
     fn get_run_info;
 }

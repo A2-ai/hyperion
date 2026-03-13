@@ -79,7 +79,7 @@ fn parse_param_types(param_types: &Strings, target_len: usize) -> Result<Vec<Par
 
     // Recycle single param_type to target length if needed
     if parsed.len() == 1 && target_len > 1 {
-        return Ok(vec![parsed[0].clone(); target_len]);
+        return Ok(vec![parsed[0]; target_len]);
     }
 
     if parsed.len() != target_len {

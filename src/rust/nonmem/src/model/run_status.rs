@@ -58,10 +58,10 @@ pub fn determine_run_status(path: impl AsRef<Path>) -> Result<RunStatus> {
 
     if ext_exists && lst_exists {
         let ext_reader = ExtReader::default().final_estimates_only();
-        if let Ok(tables) = ext_reader.parse_file(&ext_path) {
-            if tables.iter().any(|t| !t.rows.is_empty()) {
-                return Ok(RunStatus::Run);
-            }
+        if let Ok(tables) = ext_reader.parse_file(&ext_path)
+            && tables.iter().any(|t| !t.rows.is_empty())
+        {
+            return Ok(RunStatus::Run);
         }
     }
 

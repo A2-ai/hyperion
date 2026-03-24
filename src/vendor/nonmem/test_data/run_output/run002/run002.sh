@@ -1,1 +1,0 @@
-/opt/nonmem/nm760/run/nmfe76 run002.mod run002.lst -maxlim=2

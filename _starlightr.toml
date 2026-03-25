@@ -5,10 +5,16 @@ description = "Hyperion is an R interface to the pharos CLI for"
 [output]
 dir = "../Docs/hyperion-docs"
 
+[reference]
+skip_sections = ["title", "name", "alias", "doc type", "keyword"]
+section_order = ["Description", "Details"]
+include_pagefind = true
+
 [versions]
 enabled = true
 list = [
-  { tag = "0.3.2", label = "v0.3.2", default = true },
+	{ tag = "0.4.1", label = "v0.4.1", default = true },
+  { tag = "0.3.2", label = "v0.3.2" },
   { tag = "0.3.1", label = "v0.3.1" },
   { tag = "0.3.0", label = "v0.3.0" },
   { tag = "0.2.0", label = "v0.2.0" },

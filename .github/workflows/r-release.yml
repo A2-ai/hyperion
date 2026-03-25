@@ -164,8 +164,9 @@ jobs:
 
       - name: rv-sysdeps-install
         run: |
-          dnf install -y epel-release dnf-plugins-core
-          dnf config-manager --set-enabled powertools
+          dnf install -y epel-release 
+          # dnf install -y epel-release dnf-plugins-core
+          # dnf config-manager --set-enabled powertools
           MISSING_DEPS="$(rv sysdeps --only-absent --ignore 'libgit2_1.7-devel' --ignore pandoc) libgit2-devel libcurl-devel"
           if [ -n "$MISSING_DEPS" ]; then
             echo "Found missing system dependencies:"
@@ -492,8 +493,9 @@ jobs:
 
       - name: rv-sysdeps-install
         run: |
-          dnf install -y epel-release dnf-plugins-core
-          dnf config-manager --set-enabled powertools
+          dnf install -y epel-release 
+          # dnf install -y epel-release dnf-plugins-core
+          # dnf config-manager --set-enabled powertools
           MISSING_DEPS="$(rv sysdeps --only-absent --ignore 'libgit2_1.7-devel' --ignore pandoc) libgit2-devel libcurl-devel"
           if [ -n "$MISSING_DEPS" ]; then
             echo "Found missing system dependencies:"

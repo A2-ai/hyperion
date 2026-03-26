@@ -39,7 +39,7 @@ serde = { workspace = true }
 extendr-api = { git = "https://github.com/extendr/extendr", branch = "main", features = ["serde"] }
 
 # Pharos components
-nmparser = { path = "../../../pharos/components/nonmem-parser", package = "nonmem-parser" }
+nmparser = { git = "https://github.com/a2-ai/pharos", package = "nonmem-parser", branch = "nonmem-parser2" }
 nonmem = { git = "https://github.com/a2-ai/pharos", package = "nonmem", branch = "main" }
 config = { git = "https://github.com/a2-ai/pharos", package = "config", branch = "main" }
 scheduler = { git = "https://github.com/a2-ai/pharos", package = "scheduler", branch = "main" }

@@ -468,6 +468,18 @@ from_config_relative <- function(path) .Call(wrap__from_config_relative_wrap, pa
 #' @noRd
 to_config_relative <- function(path) .Call(wrap__to_config_relative_wrap, path)
 
+#' Gets model object
+#'
+#' @param path path to mod or ctl file.
+#'
+#' @return hyperion_nonmem_model S3 object with `model_source` and `run_status` attributes
+#' @export
+#'
+#' @examples \dontrun{
+#' read_nmmodel("model/nonmem/run001.mod")
+#' }
+read_nmmodel <- function(path) .Call(wrap__read_nmmodel, path)
+
 #' Submits a NONMEM model to SLURM for execution
 #'
 #' This function submits a NONMEM model file to a SLURM cluster for execution,

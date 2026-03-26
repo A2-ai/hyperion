@@ -14,13 +14,14 @@ name = 'document'
 path = 'document.rs'
 
 [workspace]
-members = ["nonmem", "scheduler", "core"]
+members = ["nonmem", "scheduler", "core", "nmparser"]
 
 [dependencies]
 # Internal crates
 hyperion-nonmem = { path = "nonmem" }
 hyperion-scheduler = { path = "scheduler" }
 hyperion-core = { path = "core" }
+hyperion-nmparser = { path = "nmparser" }
 
 # R Integration
 extendr-api = { workspace = true }
@@ -38,6 +39,7 @@ serde = { workspace = true }
 extendr-api = { git = "https://github.com/extendr/extendr", branch = "main", features = ["serde"] }
 
 # Pharos components
+nmparser = { path = "../../../pharos/components/nonmem-parser", package = "nonmem-parser" }
 nonmem = { git = "https://github.com/a2-ai/pharos", package = "nonmem", branch = "main" }
 config = { git = "https://github.com/a2-ai/pharos", package = "config", branch = "main" }
 scheduler = { git = "https://github.com/a2-ai/pharos", package = "scheduler", branch = "main" }

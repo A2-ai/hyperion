@@ -10,7 +10,7 @@ read_model(path)
 \item{path}{path to mod or ctl file.}
 }
 \value{
-hyperion_nonmem_model S3 object with \code{model_source} and \code{run_status} attributes
+hyperion_nonmem_model S3 object with \code{model_source} attribute
 }
 \description{
 Gets model object

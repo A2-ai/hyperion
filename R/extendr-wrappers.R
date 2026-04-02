@@ -22,31 +22,6 @@ set_panic_message <- function() .Call(wrap__set_panic_message)
 
 find_pharos_config_file <- function() .Call(wrap__find_pharos_config_file)
 
-#' Gets model object
-#'
-#' @param path path to mod or ctl file.
-#'
-#' @return hyperion_nonmem_model S3 object with `model_source` and `run_status` attributes
-#' @export
-#'
-#' @examples \dontrun{
-#' read_model("model/nonmem/run001.mod")
-#' }
-read_model <- function(path) .Call(wrap__read_model, path)
-
-#' Checks model dataset
-#'
-#' @param model hyperion_nonmem_model object from `read_model`
-#'
-#' @return Dataset check results
-#' @export
-#'
-#' @examples \dontrun{
-#' model <- read_model("model/nonmem/run001.mod")
-#' model |> check_dataset()
-#' }
-check_dataset <- function(model) .Call(wrap__check_dataset, model)
-
 #' Gets model object from lst file (internal)
 #'
 #' @param path path to lst file, model output directory, or metadata.json file.
@@ -119,6 +94,14 @@ get_run_info <- function(path) .Call(wrap__get_run_info, path)
 #' check_model(model)
 #' }
 check_model <- function(model_path) .Call(wrap__check_model_wrap, model_path)
+
+#' Checks model dataset
+#'
+#' @param model hyperion_nonmem_model object from `read_model`
+#'
+#' @return Dataset check results
+#' @export
+check_dataset <- function(model) .Call(wrap__check_dataset, model)
 
 #' Get's model lineage
 #'
@@ -472,13 +455,13 @@ to_config_relative <- function(path) .Call(wrap__to_config_relative_wrap, path)
 #'
 #' @param path path to mod or ctl file.
 #'
-#' @return hyperion_nonmem_model S3 object with `model_source` and `run_status` attributes
+#' @return hyperion_nonmem_model S3 object with `model_source` attribute
 #' @export
 #'
 #' @examples \dontrun{
-#' read_nmmodel("model/nonmem/run001.mod")
+#' read_model("model/nonmem/run001.mod")
 #' }
-read_nmmodel <- function(path) .Call(wrap__read_nmmodel, path)
+read_model <- function(path) .Call(wrap__read_model, path)
 
 #' Submits a NONMEM model to SLURM for execution
 #'

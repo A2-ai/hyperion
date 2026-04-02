@@ -2,6 +2,7 @@ use extendr_api::Result;
 use extendr_api::prelude::*;
 
 use fs_err as fs;
+use hyperion_nmparser::robj_to_model;
 use std::cmp::Ordering;
 use std::ffi::OsStr;
 use std::path::PathBuf;
@@ -13,7 +14,6 @@ use nonmem::{
 };
 
 use crate::{
-    model::robj_to_model,
     output_files::ext::create_ext_reader,
     output_files::{OMEGA, ParameterRow, ParameterRowBuilder, SIGMA, THETA, build_parameters_df},
     utils::{find_output_file, get_comment_type, path_from_robj},
@@ -138,7 +138,7 @@ pub fn get_parameters(
         find_output_file(&search_path, "mod").or_else(|_| find_output_file(&search_path, "ctl"))?;
     let content = fs::read_to_string(&model_path).map_to_extendr_err("")?;
 
-    let mut model = Model::parse(&content).map_to_extendr_err("Failed to read model file")?;
+    let model = Model::parse(&content).map_to_extendr_err("Failed to read model file")?;
 
     let comment_type = get_comment_type();
     let parameter_names = model
@@ -224,7 +224,7 @@ pub fn get_parameters(
 /// @keywords internal
 #[extendr]
 pub fn get_model_parameter_names(model: Robj) -> Result<Robj> {
-    let mut model = robj_to_model(&model)?;
+    let model = robj_to_model(&model)?;
 
     let comment_type = get_comment_type();
     let parameter_names = model

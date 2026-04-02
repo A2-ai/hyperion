@@ -58,13 +58,13 @@ pub fn get_gradients(
     let search_path = path_from_robj(&path, false)?;
     let grd_path = find_output_file(&search_path, "grd")?;
 
-    let mut model = try_parse_model(search_path.to_string_lossy().as_ref());
+    let model = try_parse_model(search_path.to_string_lossy().as_ref());
 
     // Load config and extract comment type
     let comment_type = get_comment_type();
 
     let tables = grd_reader
-        .parse_file(grd_path, model.as_mut(), comment_type)
+        .parse_file(grd_path, model.as_ref(), comment_type)
         .map_to_extendr_err("")?;
 
     if tables.is_empty() {

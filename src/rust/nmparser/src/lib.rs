@@ -160,7 +160,7 @@ pub fn read_model(path: &str) -> Result<Robj> {
         Err(diags) => {
             let msg = diags
                 .iter()
-                .map(|d| d.to_string())
+                .map(|d| d.render(mod_path.as_path(), &content))
                 .collect::<Vec<_>>()
                 .join("\n");
             return Err(extendr_err!("Failed to read model file:\n{msg}"));

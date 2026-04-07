@@ -18,7 +18,7 @@ use crate::{
     output_files::{OMEGA, ParameterRow, ParameterRowBuilder, SIGMA, THETA, build_parameters_df},
     utils::{find_output_file, get_comment_type, path_from_robj},
 };
-use hyperion_core::ResultExt;
+use hyperion_core::{ResultExt, extendr_err};
 
 /// Extract numeric indices from a parameter name for sorting.
 ///
@@ -138,7 +138,17 @@ pub fn get_parameters(
         find_output_file(&search_path, "mod").or_else(|_| find_output_file(&search_path, "ctl"))?;
     let content = fs::read_to_string(&model_path).map_to_extendr_err("")?;
 
-    let model = Model::parse(&content).map_to_extendr_err("Failed to read model file")?;
+    let model = match Model::parse(&content) {
+        Ok(model) => model,
+        Err(diags) => {
+            let msg = diags
+                .iter()
+                .map(|d| d.render(model_path.as_path(), &content))
+                .collect::<Vec<_>>()
+                .join("\n");
+            return Err(extendr_err!("Failed to read model file:\n{msg}"));
+        }
+    };
 
     let comment_type = get_comment_type();
     let parameter_names = model

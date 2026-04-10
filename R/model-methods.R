@@ -18,18 +18,6 @@ print.hyperion_nonmem_model <- function(x, digits = NULL, ...) {
     cli::cli_text("{.strong Run Status:} {parts$run_status}")
   }
 
-  if (!is.null(parts$records)) {
-    cli::cli_text("{.strong Records:} {parts$records$count} record blocks")
-    if (length(parts$records$types) > 0) {
-      cli::cli_text("{.strong Record Types:}")
-      for (i in seq_along(parts$records$types)) {
-        type <- names(parts$records$types)[i]
-        count <- parts$records$types[i]
-        cli::cli_text("  \u2022 {type}: {count}")
-      }
-    }
-  }
-
   if (!is.null(parts$data$dataset)) {
     cli::cli_text("{.strong Dataset:} {parts$data$dataset}")
   }
@@ -240,8 +228,8 @@ build_not_run_summary <- function(object) {
   if (!is.null(object$problem)) {
     if (is.character(object$problem) && length(object$problem) > 0) {
       problem <- object$problem
-    } else if (is.list(object$problem) && !is.null(object$problem$title)) {
-      problem <- object$problem$title
+    } else if (is.list(object$problem) && !is.null(object$problem$text)) {
+      problem <- object$problem$text
     }
   }
 
@@ -300,8 +288,7 @@ validate_n_iterations <- function(n_iterations) {
 #' @rawNamespace S3method(utils::str, hyperion_nonmem_model)
 str.hyperion_nonmem_model <- function(object, ...) {
   class(object) <- "list"
-  object$tokens <- NULL
-  object$token_ranges <- NULL
+  object$source <- NULL
   utils::str(object, ...)
 }
 
@@ -314,7 +301,7 @@ str.hyperion_nonmem_model <- function(object, ...) {
 #' @return The element value, or NULL for restricted fields
 #' @rawNamespace S3method(base::`$`, hyperion_nonmem_model)
 `$.hyperion_nonmem_model` <- function(x, name) {
-  if (name %in% c("tokens", "token_ranges")) {
+  if (name %in% c("source")) {
     return(NULL)
   }
   .subset2(x, name)
@@ -322,7 +309,7 @@ str.hyperion_nonmem_model <- function(object, ...) {
 
 #' @rawNamespace S3method(base::`[[`, hyperion_nonmem_model)
 `[[.hyperion_nonmem_model` <- function(x, i, ...) {
-  if (is.character(i) && i %in% c("tokens", "token_ranges")) {
+  if (is.character(i) && i %in% c("source")) {
     return(NULL)
   }
   NextMethod("[[")
@@ -331,7 +318,7 @@ str.hyperion_nonmem_model <- function(object, ...) {
 #' @rawNamespace S3method(base::names, hyperion_nonmem_model)
 names.hyperion_nonmem_model <- function(x) {
   n <- NextMethod("names")
-  setdiff(n, c("tokens", "token_ranges"))
+  setdiff(n, c("source"))
 }
 
 #' @noRd
@@ -347,31 +334,12 @@ build_model_display_parts <- function(x, digits = NULL) {
   if (!is.null(x$problem)) {
     if (is.character(x$problem) && length(x$problem) > 0) {
       problem <- x$problem
-    } else if (is.list(x$problem) && !is.null(x$problem$title)) {
-      problem <- x$problem$title
+    } else if (is.list(x$problem) && !is.null(x$problem$text)) {
+      problem <- x$problem$text
     }
   }
 
   run_status <- format_run_status(refresh_run_status(x))
-
-  records <- NULL
-  if (!is.null(x$records)) {
-    if (length(x$records) > 0) {
-      record_types <- sapply(x$records, function(r) {
-        if (is.list(r) && !is.null(r$record_type)) {
-          r$record_type
-        } else {
-          NA_character_
-        }
-      })
-    } else {
-      record_types <- character(0)
-    }
-    records <- list(
-      count = length(x$records),
-      types = table(record_types)
-    )
-  }
 
   data_info <- list(dataset = NULL, ignore = NULL, num_records = NULL)
   if (!is.null(x$data)) {
@@ -401,16 +369,17 @@ build_model_display_parts <- function(x, digits = NULL) {
     )
 
     for (col in x$input_columns) {
-      if (!is.null(col$Included)) {
-        included_cols <- c(included_cols, col$Included)
-      } else if (!is.null(col$Dropped)) {
-        dropped_cols <- c(dropped_cols, col$Dropped)
-      } else if (!is.null(col$Aliased)) {
+      kind <- col$kind
+      if (!is.null(kind$Included)) {
+        included_cols <- c(included_cols, kind$Included)
+      } else if (!is.null(kind$Dropped)) {
+        dropped_cols <- c(dropped_cols, kind$Dropped)
+      } else if (!is.null(kind$Aliased)) {
         aliased_cols <- rbind(
           aliased_cols,
           data.frame(
-            from = col$Aliased$from,
-            to = col$Aliased$to,
+            from = kind$Aliased$from,
+            to = kind$Aliased$to,
             stringsAsFactors = FALSE
           )
         )
@@ -458,7 +427,6 @@ build_model_display_parts <- function(x, digits = NULL) {
     title = title,
     problem = problem,
     run_status = run_status,
-    records = records,
     data = data_info,
     input_columns = input_columns,
     tables = tables
@@ -488,25 +456,48 @@ format_run_status <- function(run_status) {
 create_blocksame_data <- function(param_names, prev_block) {
   # BlockSame copies everything from the previous Block's parameters
   # but uses new parameter names (e.g., OMEGA(8,8) instead of OMEGA(7,7))
+  num_params <- length(param_names)
   data.frame(
     Parameter = param_names,
     Initial = sapply(
       prev_block$parameters,
-      function(p) p$initial_value %||% NA
+      function(p) p$value %||% NA
     ),
-    Lower = sapply(prev_block$parameters, function(p) p$lower_bound %||% NA),
-    Upper = sapply(prev_block$parameters, function(p) p$upper_bound %||% NA),
-    Fixed = sapply(
-      prev_block$parameters,
-      function(p) ifelse(p$is_fixed %||% FALSE, "Yes", "No")
+    Fixed = rep(
+      ifelse(prev_block$fixed %||% FALSE, "Yes", "No"),
+      num_params
     ),
     Parametrization = rep(
-      prev_block$parametrization %||% "",
-      length(param_names)
+      format_parametrization(prev_block$parametrization),
+      num_params
     ),
     Comment = sapply(prev_block$parameters, function(p) p$comment %||% ""),
     stringsAsFactors = FALSE
   )
+}
+
+#' Format a Parametrization enum value for display
+#' @noRd
+format_parametrization <- function(param) {
+  if (is.null(param)) {
+    return("")
+  }
+  if (identical(param, "Cholesky")) {
+    return("Cholesky")
+  }
+  if (is.list(param) && !is.null(param$Axes)) {
+    parts <- c()
+    diag <- param$Axes$diagonal
+    off_diag <- param$Axes$off_diagonal
+    if (!is.null(diag)) {
+      parts <- c(parts, diag)
+    }
+    if (!is.null(off_diag)) {
+      parts <- c(parts, off_diag)
+    }
+    return(paste(parts, collapse = " "))
+  }
+  ""
 }
 
 
@@ -519,21 +510,21 @@ create_blocksame_data <- function(param_names, prev_block) {
 #' @keywords internal
 #' @noRd
 get_theta_parameter_data <- function(x, digits = NULL, theta_names) {
-  if (is.null(x$theta_parameters) || length(x$theta_parameters) == 0) {
+  if (is.null(x$thetas) || length(x$thetas) == 0) {
     return(NULL)
   }
 
   # Build parameter table
   param_data <- data.frame(
     Parameter = theta_names,
-    Initial = sapply(x$theta_parameters, function(p) p$initial_value %||% NA),
-    Lower = sapply(x$theta_parameters, function(p) p$lower_bound %||% NA),
-    Upper = sapply(x$theta_parameters, function(p) p$upper_bound %||% NA),
+    Initial = sapply(x$thetas, function(p) p$init %||% NA),
+    Lower = sapply(x$thetas, function(p) p$lower %||% NA),
+    Upper = sapply(x$thetas, function(p) p$upper %||% NA),
     Fixed = sapply(
-      x$theta_parameters,
-      function(p) ifelse(p$is_fixed %||% FALSE, "Yes", "No")
+      x$thetas,
+      function(p) ifelse(p$fixed %||% FALSE, "Yes", "No")
     ),
-    Comment = sapply(x$theta_parameters, function(p) p$comment %||% ""),
+    Comment = sapply(x$thetas, function(p) p$comment %||% ""),
     stringsAsFactors = FALSE
   )
 
@@ -570,14 +561,15 @@ get_random_effect_parameter_data <- function(
 
       block_data <- data.frame(
         Parameter = param_names[param_idx:(param_idx + num_params - 1)],
-        Initial = sapply(block$parameters, function(p) p$initial_value %||% NA),
-        Lower = sapply(block$parameters, function(p) p$lower_bound %||% NA),
-        Upper = sapply(block$parameters, function(p) p$upper_bound %||% NA),
-        Fixed = sapply(
-          block$parameters,
-          function(p) ifelse(p$is_fixed %||% FALSE, "Yes", "No")
+        Initial = sapply(block$parameters, function(p) p$value %||% NA),
+        Fixed = rep(
+          ifelse(block$fixed %||% FALSE, "Yes", "No"),
+          num_params
         ),
-        Parametrization = rep(block$parametrization %||% "", num_params),
+        Parametrization = rep(
+          format_parametrization(block$parametrization),
+          num_params
+        ),
         Comment = sapply(block$parameters, function(p) p$comment %||% ""),
         stringsAsFactors = FALSE
       )
@@ -659,16 +651,25 @@ format_ignore_condition <- function(ignore_obj) {
     # Format ValueFilter as field.op.value (e.g., "AN01FL.EQ.0")
     field <- ignore_obj$ValueFilter$field %||% NA_character_
     op <- ignore_obj$ValueFilter$op %||% NA_character_
-    value <- ignore_obj$ValueFilter$value %||% NA_character_
+
+    # Unwrap DataValueFilterKind enum (Number(f64) or String(String))
+    raw_value <- ignore_obj$ValueFilter$value
+    if (is.list(raw_value)) {
+      value <- raw_value$Number %||% raw_value$String %||% NA_character_
+    } else {
+      value <- raw_value %||% NA_character_
+    }
 
     # Convert operation names to NONMEM-style operators
     op_map <- c(
       "Equal" = "EQ",
       "NotEqual" = "NE",
       "Greater" = "GT",
-      "GreaterEqual" = "GE",
-      "Less" = "LT",
-      "LessEqual" = "LE"
+      "GreaterOrEqual" = "GE",
+      "Lower" = "LT",
+      "LowerOrEqual" = "LE",
+      "EqualNumeric" = "EQN",
+      "NotEqualNumeric" = "NEN"
     )
     op_symbol <- op_map[op]
     if (is.na(op_symbol) || is.null(op_symbol)) {
@@ -712,26 +713,6 @@ knit_print.hyperion_nonmem_model <- function(x, ...) {
       ""
     )
   }
-
-  if (!is.null(parts$records)) {
-    output <- c(
-      output,
-      paste0(
-        "<strong>Records:</strong> ",
-        parts$records$count,
-        " record blocks"
-      )
-    )
-    if (length(parts$records$types) > 0) {
-      output <- c(output, "<strong>Record Types:</strong>")
-      for (i in seq_along(parts$records$types)) {
-        type <- names(parts$records$types)[i]
-        count <- parts$records$types[i]
-        output <- c(output, paste0("- ", type, ": ", count))
-      }
-    }
-  }
-  output <- c(output, "")
 
   if (!is.null(parts$data$dataset)) {
     output <- c(

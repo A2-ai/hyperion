@@ -260,10 +260,10 @@ extract_comments <- function(mod) {
   parsed <- list()
   raw <- list()
 
-  for (i in seq_along(mod$theta_parameters)) {
+  for (i in seq_along(mod$thetas)) {
     old_name <- paste0("THETA", i)
-    parsed[[old_name]] <- mod$theta_parameters[[i]]$parsed_comment
-    raw[[old_name]] <- mod$theta_parameters[[i]]$comment
+    parsed[[old_name]] <- mod$thetas[[i]]$parsed_comment
+    raw[[old_name]] <- mod$thetas[[i]]$comment
   }
 
   result <- extract_block_comments(parsed, raw, mod$omega_blocks, "OMEGA")
@@ -273,6 +273,16 @@ extract_comments <- function(mod) {
   result <- extract_block_comments(parsed, raw, mod$sigma_blocks, "SIGMA")
 
   list(parsed = result$parsed, raw = result$raw)
+}
+
+#' Unwrap ParsedRaneffComment enum (Omega/Sigma wrapper) to get the inner
+#' parsed comment that the type1/type2 parsing functions expect.
+#' @noRd
+unwrap_raneff_comment <- function(parsed_comment) {
+  if (is.null(parsed_comment)) {
+    return(NULL)
+  }
+  parsed_comment$Omega %||% parsed_comment$Sigma %||% parsed_comment
 }
 
 #' @noRd
@@ -291,7 +301,7 @@ extract_block_comments <- function(parsed, raw, blocks, prefix) {
     if (is_diagonal) {
       for (param in block$parameters) {
         old_name <- sprintf("%s(%d,%d)", prefix, row, row)
-        parsed[[old_name]] <- param$parsed_comment
+        parsed[[old_name]] <- unwrap_raneff_comment(param$parsed_comment)
         raw[[old_name]] <- param$comment
         row <- row + 1
       }
@@ -312,7 +322,9 @@ extract_block_comments <- function(parsed, raw, blocks, prefix) {
             start_row + j - 1
           )
           row_names[j] <- old_name
-          parsed[[old_name]] <- block$parameters[[param_idx]]$parsed_comment
+          parsed[[old_name]] <- unwrap_raneff_comment(
+            block$parameters[[param_idx]]$parsed_comment
+          )
           raw[[old_name]] <- block$parameters[[param_idx]]$comment
           param_idx <- param_idx + 1
         }

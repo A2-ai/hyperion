@@ -37,9 +37,9 @@ fn add_run_status_attr(model_robj: &mut Robj, path: &Path) -> Result<()> {
 #[extendr]
 pub fn read_model_from_lst(path: &str) -> Result<Robj> {
     let path = find_output_file(path, "lst")?;
-    let model =
+    let mut model =
         lst::extract_model(&path).map_to_extendr_err("Failed to extract Model from lst file")?;
-    let mut robj_model = model_to_robj(&model, &path)?;
+    let mut robj_model = model_to_robj(&mut model, &path)?;
     add_run_status_attr(&mut robj_model, &path)?;
 
     Ok(robj_model)

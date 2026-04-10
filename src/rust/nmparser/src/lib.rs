@@ -12,9 +12,24 @@ use hyperion_core::find_config_dir;
 use hyperion_core::{OptionExt, ResultExt, extendr_err};
 use nmparser::Model;
 
+/// Get comment_type from pharos.toml config, if configured.
+fn get_comment_type() -> Option<nmparser::CommentType> {
+    find_config_dir()
+        .ok()
+        .flatten()
+        .map(|dir| dir.join("pharos.toml"))
+        .and_then(|p| config::Config::load(p).ok())
+        .and_then(|c| c.nonmem.as_ref().and_then(|n| n.comments.r#type))
+}
+
 /// Helper to convert Model to Robj for read_model and other model readers.
-pub fn model_to_robj(model: &Model, path: impl AsRef<Path>) -> Result<Robj> {
+pub fn model_to_robj(model: &mut Model, path: impl AsRef<Path>) -> Result<Robj> {
     let path = path.as_ref();
+
+    // Populate parsed_comment fields before serialization
+    if let Some(ct) = get_comment_type() {
+        model.populate_parsed_comments(ct);
+    }
 
     let mut model_robj = to_robj(model).map_to_extendr_err("failed to create Robj from Model")?;
 
@@ -155,7 +170,7 @@ pub fn read_model(path: &str) -> Result<Robj> {
     let mod_path = validate_model_path(path)?;
     let content = fs::read_to_string(&mod_path).map_to_extendr_err("")?;
 
-    let model = match Model::parse(&content) {
+    let mut model = match Model::parse(&content) {
         Ok(model) => model,
         Err(diags) => {
             let msg = diags
@@ -166,7 +181,7 @@ pub fn read_model(path: &str) -> Result<Robj> {
             return Err(extendr_err!("Failed to read model file:\n{msg}"));
         }
     };
-    let robj_model = model_to_robj(&model, mod_path)?;
+    let robj_model = model_to_robj(&mut model, mod_path)?;
     Ok(robj_model)
 }
 

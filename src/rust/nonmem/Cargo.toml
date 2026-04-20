@@ -7,10 +7,10 @@ edition = "2024"
 # R Integration (needed for extendr macros in modules)
 extendr-api = { workspace = true }
 hyperion-core = { path = "../core" }
-hyperion-nmparser = { path = "../nmparser" }
 
 # Pharos components
 nonmem = { workspace = true }
+nmparser = { workspace = true }
 config = { workspace = true }
 
 # Core utilities

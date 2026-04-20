@@ -2,7 +2,6 @@ use extendr_api::Result;
 use extendr_api::prelude::*;
 
 use fs_err as fs;
-use hyperion_nmparser::robj_to_model;
 use std::cmp::Ordering;
 use std::ffi::OsStr;
 use std::path::PathBuf;
@@ -14,6 +13,7 @@ use nonmem::{
 };
 
 use crate::{
+    model::robj_to_model,
     output_files::ext::create_ext_reader,
     output_files::{OMEGA, ParameterRow, ParameterRowBuilder, SIGMA, THETA, build_parameters_df},
     utils::{find_output_file, get_comment_type, path_from_robj},

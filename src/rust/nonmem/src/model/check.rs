@@ -4,8 +4,9 @@ use extendr_api::serializer::to_robj;
 use hyperion_core::{OptionExt, ResultExt};
 
 // pharos config and nonmem crates
-use hyperion_nmparser::robj_to_model;
 use nonmem::{check_dataset as nonmem_check_dataset, check_model};
+
+use crate::model::robj_to_model;
 
 use crate::utils::{from_config_relative, load_nonmem_config, path_from_robj};
 use hyperion_core::extendr_err;

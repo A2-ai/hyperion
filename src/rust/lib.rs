@@ -11,6 +11,5 @@ extendr_module! {
     use init;
     use hyperion_core;
     use hyperion_nonmem;
-    use hyperion_nmparser;
     use hyperion_scheduler;
 }

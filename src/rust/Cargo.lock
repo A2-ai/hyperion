@@ -463,7 +463,6 @@ dependencies = [
  "extendr-api",
  "fs-err",
  "hyperion-core",
- "hyperion-nmparser",
  "hyperion-nonmem",
  "hyperion-scheduler",
  "serde",
@@ -480,17 +479,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hyperion-nmparser"
-version = "0.1.0"
-dependencies = [
- "config",
- "extendr-api",
- "fs-err",
- "hyperion-core",
- "nonmem-parser",
-]
-
-[[package]]
 name = "hyperion-nonmem"
 version = "0.1.0"
 dependencies = [
@@ -498,9 +486,9 @@ dependencies = [
  "extendr-api",
  "fs-err",
  "hyperion-core",
- "hyperion-nmparser",
  "insta",
  "nonmem",
+ "nonmem-parser",
  "serde",
  "tempfile",
 ]

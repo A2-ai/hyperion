@@ -78,11 +78,14 @@ fn add_run_status_attr(model_robj: &mut Robj, path: &Path) -> Result<()> {
 
     Ok(())
 }
-/// Gets model object from lst file (internal)
+/// Read a model from an .lst file (internal)
 ///
-/// @param path path to lst file, model output directory, or metadata.json file.
+/// @param path path to an .lst file, model output directory, or metadata.json file.
 ///
-/// @return hyperion_nonmem_model S3 object with `model_source` attribute for the source file
+/// @return A `hyperion_nonmem_model` S3 object with attributes:
+///   - `filename`: the model stem (e.g. `"run001"`)
+///   - `model_source`: path to the source file, relative to the pharos config dir
+///   - `run_status`: `"run"`, `"running"`, or `"not_run"` determined from output files on disk
 /// @keywords internal
 #[extendr]
 pub fn read_model_from_lst(path: &str) -> Result<Robj> {
@@ -95,11 +98,14 @@ pub fn read_model_from_lst(path: &str) -> Result<Robj> {
     Ok(robj_model)
 }
 
-/// Gets model object
+/// Read a NONMEM model from a .mod or .ctl file
 ///
-/// @param path path to mod or ctl file.
+/// @param path path to a .mod or .ctl file.
 ///
-/// @return hyperion_nonmem_model S3 object with `model_source` attribute
+/// @return A `hyperion_nonmem_model` S3 object with attributes:
+///   - `filename`: the model stem (e.g. `"run001"`)
+///   - `model_source`: path to the source file, relative to the pharos config dir
+///   - `run_status`: `"run"`, `"running"`, or `"not_run"` determined from output files on disk
 /// @export
 ///
 /// @examples \dontrun{

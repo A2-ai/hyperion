@@ -22,11 +22,29 @@ set_panic_message <- function() .Call(wrap__set_panic_message)
 
 find_pharos_config_file <- function() .Call(wrap__find_pharos_config_file)
 
-#' Gets model object from lst file (internal)
+#' Read a NONMEM model from a .mod or .ctl file
 #'
-#' @param path path to lst file, model output directory, or metadata.json file.
+#' @param path path to a .mod or .ctl file.
 #'
-#' @return hyperion_nonmem_model S3 object with `model_source` attribute for the source file
+#' @return A `hyperion_nonmem_model` S3 object with attributes:
+#'   - `filename`: the model stem (e.g. `"run001"`)
+#'   - `model_source`: path to the source file, relative to the pharos config dir
+#'   - `run_status`: `"run"`, `"running"`, or `"not_run"` determined from output files on disk
+#' @export
+#'
+#' @examples \dontrun{
+#' read_model("model/nonmem/run001.mod")
+#' }
+read_model <- function(path) .Call(wrap__read_model, path)
+
+#' Read a model from an .lst file (internal)
+#'
+#' @param path path to an .lst file, model output directory, or metadata.json file.
+#'
+#' @return A `hyperion_nonmem_model` S3 object with attributes:
+#'   - `filename`: the model stem (e.g. `"run001"`)
+#'   - `model_source`: path to the source file, relative to the pharos config dir
+#'   - `run_status`: `"run"`, `"running"`, or `"not_run"` determined from output files on disk
 #' @keywords internal
 read_model_from_lst <- function(path) .Call(wrap__read_model_from_lst, path)
 
@@ -450,18 +468,6 @@ from_config_relative <- function(path) .Call(wrap__from_config_relative_wrap, pa
 #' @keywords internal
 #' @noRd
 to_config_relative <- function(path) .Call(wrap__to_config_relative_wrap, path)
-
-#' Gets model object
-#'
-#' @param path path to mod or ctl file.
-#'
-#' @return hyperion_nonmem_model S3 object with `model_source` attribute
-#' @export
-#'
-#' @examples \dontrun{
-#' read_model("model/nonmem/run001.mod")
-#' }
-read_model <- function(path) .Call(wrap__read_model, path)
 
 #' Submits a NONMEM model to SLURM for execution
 #'

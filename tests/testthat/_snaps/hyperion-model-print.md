@@ -102,12 +102,12 @@
       ────────────  ───────  ─────  ───────────────  ───────────────────────────────────────────
       OMEGA(1,1)    0.04     No                      ETA(1) - CL (diagonal)                     
       OMEGA(2,2)    0.17     No                                                                 
-      OMEGA(3,3)    0.2      No     Corr             ETA(2) - V (SD)                            
-      OMEGA(4,3)    0.3      No     Corr             ETA(2)-ETA(3) correlation, ETA(3) - KA (SD)
-      OMEGA(4,4)    0.15     No     Corr             ETA(2)-ETA(3) correlation, ETA(3) - KA (SD)
-      OMEGA(5,5)    0.2      No     Corr             ETA(2) - V (SD)                            
-      OMEGA(6,5)    0.3      No     Corr             ETA(2)-ETA(3) correlation, ETA(3) - KA (SD)
-      OMEGA(6,6)    0.15     No     Corr             ETA(2)-ETA(3) correlation, ETA(3) - KA (SD)
+      OMEGA(3,3)    0.2      No     Correlation      ETA(2) - V (SD)                            
+      OMEGA(4,3)    0.3      No     Correlation      ETA(2)-ETA(3) correlation, ETA(3) - KA (SD)
+      OMEGA(4,4)    0.15     No     Correlation      ETA(2)-ETA(3) correlation, ETA(3) - KA (SD)
+      OMEGA(5,5)    0.2      No     Correlation      ETA(2) - V (SD)                            
+      OMEGA(6,5)    0.3      No     Correlation      ETA(2)-ETA(3) correlation, ETA(3) - KA (SD)
+      OMEGA(6,6)    0.15     No     Correlation      ETA(2)-ETA(3) correlation, ETA(3) - KA (SD)
       OMEGA(7,7)    0.01121  Yes                                                                
       OMEGA(8,7)    0        Yes                                                                
       OMEGA(8,8)    0.3387   Yes                                                                
@@ -135,18 +135,18 @@
       OMEGA(19,17)  0.01     No                                                                 
       OMEGA(19,18)  0.01     No                                                                 
       OMEGA(19,19)  0.03     No                                                                 
-      OMEGA(20,20)  0.2      No     Corr                                                        
-      OMEGA(21,20)  0.3      No     Corr                                                        
-      OMEGA(21,21)  0.15     No     Corr                                                        
-      OMEGA(22,20)  0.1      No     Corr                                                        
-      OMEGA(22,21)  0.05     No     Corr                                                        
-      OMEGA(22,22)  0.3      No     Corr                                                        
-      OMEGA(23,23)  0.2      No     Corr                                                        
-      OMEGA(24,23)  0.3      No     Corr                                                        
-      OMEGA(24,24)  0.15     No     Corr                                                        
-      OMEGA(25,23)  0.1      No     Corr                                                        
-      OMEGA(25,24)  0.05     No     Corr                                                        
-      OMEGA(25,25)  0.3      No     Corr                                                        
+      OMEGA(20,20)  0.2      No     Correlation                                                 
+      OMEGA(21,20)  0.3      No     Correlation                                                 
+      OMEGA(21,21)  0.15     No     Correlation                                                 
+      OMEGA(22,20)  0.1      No     Correlation                                                 
+      OMEGA(22,21)  0.05     No     Correlation                                                 
+      OMEGA(22,22)  0.3      No     Correlation                                                 
+      OMEGA(23,23)  0.2      No     Correlation                                                 
+      OMEGA(24,23)  0.3      No     Correlation                                                 
+      OMEGA(24,24)  0.15     No     Correlation                                                 
+      OMEGA(25,23)  0.1      No     Correlation                                                 
+      OMEGA(25,24)  0.05     No     Correlation                                                 
+      OMEGA(25,25)  0.3      No     Correlation                                                 
       OMEGA(26,26)  6        Yes                                                                
       OMEGA(27,26)  0.005    Yes                                                                
       OMEGA(27,27)  0.3      Yes                                                                

@@ -28,7 +28,7 @@ pub fn model_to_robj(model: &mut Model, path: impl AsRef<Path>) -> Result<Robj> 
 
     // Populate parsed_comment fields before serialization
     if let Some(ct) = get_comment_type() {
-        model.populate_parsed_comments(ct);
+        model.parse_comments(ct);
     }
 
     let mut model_robj = to_robj(model).map_to_extendr_err("failed to create Robj from Model")?;

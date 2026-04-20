@@ -22,7 +22,7 @@ num_cpus = 4
 timeout = 2147483647
 
 [nonmem.comments]
-type = "type1"
+type = "type2"
 error_on_invalid = false
 
 [nonmem.summary]

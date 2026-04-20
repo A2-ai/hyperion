@@ -76,16 +76,14 @@ build_comment_lookup <- function(model_comments) {
 
 #' @noRd
 resolve_comment <- function(model_comments, nm, kind = NULL) {
-  lookup_nm <- sub(" \\(.*\\)$", "", nm)
-
   resolve_in_kind <- function(kind_name) {
     comments <- S7::prop(model_comments, tolower(kind_name))
-    comment <- comments[[lookup_nm]]
+    comment <- comments[[nm]]
     if (!is.null(comment)) {
       return(comment)
     }
     for (cmt in comments) {
-      if (!is.null(cmt@name) && identical(cmt@name, lookup_nm)) {
+      if (!is.null(cmt@name) && identical(cmt@name, nm)) {
         return(cmt)
       }
     }
@@ -109,7 +107,7 @@ resolve_comment <- function(model_comments, nm, kind = NULL) {
   if (length(matches) > 1) {
     rlang::abort(paste0(
       "Ambiguous parameter name '",
-      lookup_nm,
+      nm,
       "'. Provide kind."
     ))
   }
@@ -256,22 +254,14 @@ get_parameter_names <- function(x, lookup_path = NULL) {
   }
   model_comments <- x
 
-  extract_row <- function(comment, include_associated_theta = FALSE) {
+  extract_row <- function(comment) {
     name_val <- comment@name %||% NA_character_
-    # For omega: build composite name with associated_theta (avoiding duplicates)
     if (
-      include_associated_theta &&
-        !is.null(comment@associated_theta) &&
-        length(comment@associated_theta) > 0
+      is.na(name_val) &&
+        S7::S7_inherits(comment, OmegaComment) &&
+        length(comment@associated_theta %||% character()) > 0
     ) {
-      if (is.na(name_val)) {
-        name_val <- paste(comment@associated_theta, collapse = ", ")
-      } else {
-        name_val <- format_omega_display_name(
-          name_val,
-          comment@associated_theta
-        )
-      }
+      name_val <- paste(comment@associated_theta, collapse = ", ")
     }
     data.frame(
       name = name_val,
@@ -289,13 +279,7 @@ get_parameter_names <- function(x, lookup_path = NULL) {
   }
 
   for (nm in names(model_comments@omega)) {
-    rows <- c(
-      rows,
-      list(extract_row(
-        model_comments@omega[[nm]],
-        include_associated_theta = TRUE
-      ))
-    )
+    rows <- c(rows, list(extract_row(model_comments@omega[[nm]])))
     row_names <- c(row_names, nm)
   }
 

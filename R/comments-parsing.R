@@ -103,79 +103,11 @@ read_model_from_lst_path <- function(mod_path) {
 #'
 #' @return A `ModelComments` object containing theta, omega, and sigma comments.
 #'
-#' @section Comment Parsing Modes:
-#' The parsing behavior is controlled by the `pharos.toml` configuration file.
-#' In the `[nonmem.comments]` section, set `type = "type1"` to enable structured
-#' type1 comment parsing. If this setting is absent or set to any other value,
-#' raw comment parsing is used (the default).
-#'
-#' **type1 mode**: Expects comments in a structured format with explicit field
-#' delimiters. This mode provides more precise extraction but requires comments
-#' to follow the type1 specification.
-#'
-#' **raw mode** (default): Flexibly parses parameter names, units, and
-#' descriptions from free-form comment text. More forgiving but may be less
-#' precise for complex comment structures.
-#'
-#' @section Raw Comment Formats (default):
-#' Applies to text after `;` on lines within `$THETA`, `$OMEGA`, and `$SIGMA`
-#' blocks.
-#'
-#' Parsing pipeline in raw mode:
-#' extract transform -> strip prefix -> extract unit -> extract name.
-#'
-#' **THETA/SIGMA**
-#'
-#' General form:
-#' `[PREFIX] NAME [(UNIT)] [TRANSFORM_SEP TRANSFORM]`
-#'
-#' Common accepted examples:
-#' - `CL`
-#' - `CL (L/HR)`
-#' - `CL [L/HR]`
-#' - `CL ;exp`
-#' - `CL :LOG`
-#' - `CL (L/HR) ;exp`
-#' - `THETA1 CL (L/HR) ;exp`
-#' - `1: CL (L/HR) ;exp`
-#'
-#' Notes:
-#' - Prefixes are case-insensitive; colon after prefix is optional.
-#' - Numeric prefixes like `1`, `1:`, `1-`, `1.` are accepted.
-#' - Units are read from `()` or `[]`, and can appear anywhere in the string.
-#' - Colon transform form requires leading whitespace (e.g., `CL :EXP`).
-#' - THETA strips trailing punctuation from extracted name tokens; SIGMA
-#'   currently does not.
-#' - SIGMA also supports unit in transform segment, e.g.
-#'   `Name ;Transform (unit)`.
-#'
-#' **OMEGA**
-#'
-#' General form:
-#' `[PREFIX] NAME_PART [THETA_REF] [TRANSFORM_SEP TRANSFORM]`
-#'
-#' Common accepted examples:
-#' - `IIV-CL :EXP`
-#' - `IIV CL ;exp`
-#' - `IIV on CL ;exp`
-#' - `Corr CL-V ;normal`
-#' - `11: IIV CL ;exp`
-#' - `OMEGA(1,1): IIV CL ;exp`
-#'
-#' Notes:
-#' - `THETA_REF` may split on `-`, `/`, `:`, `,` into multiple associated
-#'   thetas.
-#' - If full `THETA_REF` matches a known theta name (case-insensitive), it is
-#'   kept whole (for example, `CL/F`).
-#' - Linking words `on`, `for`, `of` are skipped in space-separated forms.
-#'
-#' **Transform keyword mapping** (case-insensitive):
-#' - `exp`, `log`, `lognormal` -> `LogNormal`
-#' - `logit` -> `Logit`
-#' - `add`, `adderr`, `additive` -> `AddErr`
-#' - `logadd`, `logadderr`, `logerr` -> `LogAddErr`
-#' - `prop`, `proportional` -> `Proportional`
-#' - `identity`, `normal`, `none` -> `Identity`
+#' @section Comment Parsing:
+#' Comments are parsed by pharos according to the `[nonmem.comments]` section
+#' of `pharos.toml`. Set `type = "type1"` for strict structured comments, or
+#' `type = "type2"` for a more flexible structured grammar. See pharos
+#' documentation for accepted formats.
 #'
 #' @seealso [get_parameter_transform()], [get_theta_names()], [get_comment()]
 #' @export
@@ -226,13 +158,8 @@ get_model_parameter_info <- function(mod, lookup_path = NULL) {
   }
 
   param_names <- get_model_parameter_names(mod)
-  comments_data <- extract_comments(mod)
-  comments <- parse_comments(
-    param_names,
-    comments_data$parsed,
-    comments_data$raw,
-    mod_path
-  )
+  parsed_comments <- extract_comments(mod)
+  comments <- parse_comments(param_names, parsed_comments, mod_path)
 
   # Split into theta, omega, sigma
   theta_comments <- comments[grepl("^THETA", names(comments))]
@@ -272,7 +199,7 @@ extract_comments <- function(mod) {
 
   result <- extract_block_comments(parsed, raw, mod$sigma_blocks, "SIGMA")
 
-  list(parsed = result$parsed, raw = result$raw)
+  result$parsed
 }
 
 #' Unwrap ParsedRaneffComment enum (Omega/Sigma wrapper) to get the inner
@@ -355,167 +282,9 @@ extract_block_comments <- function(parsed, raw, blocks, prefix) {
   list(parsed = parsed, raw = raw)
 }
 
-#' Parse comments from model based on comment_type setting
+#' Parse structured (typed) comments from model
 #' @noRd
-parse_comments <- function(
-  param_names,
-  parsed_comments,
-  raw_comments,
-  mod_path
-) {
-  comment_type <- get_comment_type()
-
-  if (identical(comment_type, "type1")) {
-    parse_type1_comments(param_names, parsed_comments, raw_comments, mod_path)
-  } else {
-    parse_raw_comments(param_names, raw_comments, mod_path)
-  }
-}
-
-# ==============================================================================
-# Raw comment parsing (no comment_type set, extract from raw text only)
-# ==============================================================================
-
-#' @noRd
-parse_raw_comments <- function(param_names, raw_comments, mod_path) {
-  nonmem_names <- names(param_names)
-
-  # First pass: parse thetas to collect known theta names
-  theta_names <- nonmem_names[grepl("^THETA", nonmem_names)]
-  theta_comments <- lapply(theta_names, function(nonmem_name) {
-    name <- param_names[[nonmem_name]]
-    raw <- raw_comments[[nonmem_name]]
-    parse_raw_theta_comment(nonmem_name, name, raw, mod_path)
-  })
-  names(theta_comments) <- theta_names
-
-  # Collect known theta names for context
-  known_thetas <- vapply(
-    theta_comments,
-    function(c) c@name %||% "",
-    character(1)
-  )
-  known_thetas <- known_thetas[nzchar(known_thetas)]
-
-  # Second pass: parse omega/sigma with known_thetas context
-  other_names <- nonmem_names[!grepl("^THETA", nonmem_names)]
-  other_comments <- lapply(other_names, function(nonmem_name) {
-    name <- param_names[[nonmem_name]]
-    raw <- raw_comments[[nonmem_name]]
-
-    if (grepl("^OMEGA", nonmem_name)) {
-      parse_raw_omega_comment(nonmem_name, name, raw, mod_path, known_thetas)
-    } else if (grepl("^SIGMA", nonmem_name)) {
-      parse_raw_sigma_comment(nonmem_name, name, raw, mod_path)
-    } else {
-      rlang::abort(paste0("Unknown parameter type: ", nonmem_name))
-    }
-  })
-  names(other_comments) <- other_names
-
-  # Combine and preserve original order
-  comments <- c(theta_comments, other_comments)
-  comments[nonmem_names]
-}
-
-#' @noRd
-parse_raw_theta_comment <- function(nonmem_name, name, raw, mod_path = NULL) {
-  name <- normalize_comment_name(name)
-
-  unit <- NULL
-  parameterization <- NULL
-
-  if (!is.null(raw) && nzchar(raw)) {
-    parts <- extract_raw_theta_parts(raw)
-    if (is.null(name)) {
-      name <- parts$name
-    }
-    unit <- parts$unit
-    parameterization <- map_parameterization(parts$parameterization, "THETA")
-  }
-
-  create_comment_with_sources(
-    ThetaComment,
-    theta_fields(),
-    mod_path,
-    nonmem_name = nonmem_name,
-    name = name,
-    unit = unit,
-    parameterization = parameterization
-  )
-}
-
-#' @noRd
-parse_raw_omega_comment <- function(
-  nonmem_name,
-  name,
-  raw,
-  mod_path = NULL,
-  known_thetas = NULL
-) {
-  name <- normalize_comment_name(name)
-
-  parameterization <- NULL
-  associated_theta <- NULL
-
-  if (!is.null(raw) && nzchar(raw)) {
-    parts <- extract_raw_omega_parts(raw, known_thetas)
-    if (is.null(name)) {
-      name <- parts$name
-    }
-    parameterization <- map_parameterization(parts$parameterization, "OMEGA")
-    associated_theta <- parts$associated_theta
-  }
-
-  create_comment_with_sources(
-    OmegaComment,
-    omega_fields(),
-    mod_path,
-    nonmem_name = nonmem_name,
-    name = name,
-    parameterization = parameterization,
-    associated_theta = associated_theta
-  )
-}
-
-#' @noRd
-parse_raw_sigma_comment <- function(nonmem_name, name, raw, mod_path = NULL) {
-  name <- normalize_comment_name(name)
-
-  unit <- NULL
-  parameterization <- NULL
-
-  if (!is.null(raw) && nzchar(raw)) {
-    parts <- extract_raw_sigma_parts(raw)
-    if (is.null(name)) {
-      name <- parts$name
-    }
-    unit <- parts$unit
-    parameterization <- map_parameterization(parts$parameterization, "SIGMA")
-  }
-
-  create_comment_with_sources(
-    SigmaComment,
-    sigma_fields(),
-    mod_path,
-    nonmem_name = nonmem_name,
-    name = name,
-    unit = unit,
-    parameterization = parameterization
-  )
-}
-
-# ==============================================================================
-# Type1 comment parsing
-# ==============================================================================
-
-#' @noRd
-parse_type1_comments <- function(
-  param_names,
-  parsed_comments,
-  raw_comments,
-  mod_path
-) {
+parse_comments <- function(param_names, parsed_comments, mod_path) {
   nonmem_names <- names(param_names)
 
   # First pass: parse thetas to collect known theta names
@@ -523,12 +292,10 @@ parse_type1_comments <- function(
   theta_comments <- lapply(theta_names, function(nonmem_name) {
     name <- param_names[[nonmem_name]]
     parsed <- parsed_comments[[nonmem_name]]
-    raw <- raw_comments[[nonmem_name]]
-    parse_type1_theta_comment(nonmem_name, name, parsed, raw, mod_path)
+    parse_typed_theta_comment(nonmem_name, name, parsed, mod_path)
   })
   names(theta_comments) <- theta_names
 
-  # Collect known theta names for context
   known_thetas <- vapply(
     theta_comments,
     function(c) c@name %||% "",
@@ -541,80 +308,65 @@ parse_type1_comments <- function(
   other_comments <- lapply(other_names, function(nonmem_name) {
     name <- param_names[[nonmem_name]]
     parsed <- parsed_comments[[nonmem_name]]
-    raw <- raw_comments[[nonmem_name]]
 
     if (grepl("^OMEGA", nonmem_name)) {
-      parse_type1_omega_comment(
+      parse_typed_omega_comment(
         nonmem_name,
         name,
         parsed,
-        raw,
         mod_path,
         known_thetas
       )
     } else if (grepl("^SIGMA", nonmem_name)) {
-      parse_type1_sigma_comment(nonmem_name, name, parsed, raw, mod_path)
+      parse_typed_sigma_comment(nonmem_name, name, parsed, mod_path)
     } else {
       rlang::abort(paste0("Unknown parameter type: ", nonmem_name))
     }
   })
   names(other_comments) <- other_names
 
-  # Combine and preserve original order
   comments <- c(theta_comments, other_comments)
   comments[nonmem_names]
 }
 
 #' @noRd
-parse_type1_theta_comment <- function(
-  nonmem_name,
-  name,
-  parsed,
-  raw,
-  mod_path
-) {
+parse_typed_theta_comment <- function(nonmem_name, name, parsed, mod_path) {
   name <- normalize_comment_name(name)
 
   unit <- NULL
   parameterization <- NULL
 
-  # Try to extract from parsed comment
-  if (!is.null(parsed) && !is.null(parsed$Type1)) {
-    type1 <- parsed$Type1
-
-    if (!is.null(type1$WithUnit)) {
-      if (is.null(name)) {
-        name <- type1$WithUnit$parameter
-      }
-      if (is.null(unit)) {
+  if (!is.null(parsed)) {
+    if (!is.null(parsed$Type1)) {
+      type1 <- parsed$Type1
+      if (!is.null(type1$WithUnit)) {
+        if (is.null(name)) {
+          name <- type1$WithUnit$parameter
+        }
         unit <- type1$WithUnit$unit
-      }
-      if (is.null(parameterization)) {
         parameterization <- map_parameterization(
           type1$WithUnit$parametrization,
           "THETA"
         )
-      }
-    } else if (!is.null(type1$Type)) {
-      if (is.null(name)) {
-        name <- type1$Type$typ
-      }
-      if (is.null(parameterization)) {
+      } else if (!is.null(type1$Type)) {
+        if (is.null(name)) {
+          name <- type1$Type$typ
+        }
         parameterization <- map_parameterization(
           type1$Type$parameterization,
           "THETA"
         )
+      } else if (!is.null(type1$Covariate)) {
+        if (is.null(name)) name <- type1$Covariate$parameter
       }
-    } else if (!is.null(type1$Covariate)) {
-      if (is.null(name)) name <- type1$Covariate$parameter
-    } else if (is.character(type1)) {
-      if (is.null(name)) name <- extract_name_from_raw(type1)
+    } else if (!is.null(parsed$Type2)) {
+      type2 <- parsed$Type2
+      if (is.null(name)) {
+        name <- type2$name
+      }
+      unit <- type2$unit
+      parameterization <- type2$parameterization
     }
-  }
-
-  # Fallback: extract from raw comment
-  if (is.null(name) && !is.null(raw) && nzchar(raw)) {
-    name <- extract_name_from_raw(raw)
   }
 
   create_comment_with_sources(
@@ -644,11 +396,10 @@ is_diagonal_omega <- function(nonmem_name) {
 }
 
 #' @noRd
-parse_type1_omega_comment <- function(
+parse_typed_omega_comment <- function(
   nonmem_name,
   name,
   parsed,
-  raw,
   mod_path,
   known_thetas = NULL
 ) {
@@ -657,68 +408,29 @@ parse_type1_omega_comment <- function(
   parameterization <- NULL
   associated_theta <- NULL
 
-  # Parse name format: "OM1 (CL)" to extract associated_theta
+  # Pharos formats @name as "Name (theta_ref)"; keep it verbatim but also
+  # extract associated_theta from the parens for downstream queries.
   if (!is.null(name) && grepl("\\(.*\\)", name)) {
     theta_part <- gsub(".*\\((.+)\\).*", "\\1", name)
-    # Use split_theta_reference for context-aware splitting
     associated_theta <- split_theta_reference(theta_part, known_thetas)
-    name <- trimws(gsub("\\s*\\(.*\\)\\s*$", "", name))
   }
 
-  # Try to extract from parsed comment
-  if (!is.null(parsed) && !is.null(parsed$Type1)) {
-    type1 <- parsed$Type1
-
-    if (is.character(type1)) {
-      # Type1$Unknown: raw string stored directly
-      if (is.null(name)) {
-        parsed_raw <- extract_raw_omega_parts(type1, known_thetas)
-        name <- parsed_raw$name
-        if (is.null(associated_theta)) {
-          associated_theta <- parsed_raw$associated_theta
-        }
-        if (is.null(parameterization)) {
-          parameterization <- map_parameterization(
-            parsed_raw$parameterization,
-            "OMEGA"
-          )
-        }
-      }
-    } else {
-      # Omega style: name, theta_name, parameterization
-      if (is.null(name)) {
-        name <- type1$name
-      }
+  if (!is.null(parsed)) {
+    if (!is.null(parsed$Type1)) {
+      type1 <- parsed$Type1
       if (is.null(associated_theta)) {
         associated_theta <- type1$theta_name
       }
-      if (is.null(parameterization)) {
-        parameterization <- map_parameterization(
-          type1$parameterization,
-          "OMEGA"
-        )
-      }
-    }
-  }
-
-  # Fallback: extract from raw comment
-  if (
-    (is.null(name) || is.null(associated_theta)) &&
-      !is.null(raw) &&
-      nzchar(raw)
-  ) {
-    parsed_raw <- extract_raw_omega_parts(raw, known_thetas)
-    if (is.null(name)) {
-      name <- parsed_raw$name
-    }
-    if (is.null(associated_theta)) {
-      associated_theta <- parsed_raw$associated_theta
-    }
-    if (is.null(parameterization)) {
       parameterization <- map_parameterization(
-        parsed_raw$parameterization,
+        type1$parameterization,
         "OMEGA"
       )
+    } else if (!is.null(parsed$Type2)) {
+      type2 <- parsed$Type2
+      if (is.null(associated_theta)) {
+        associated_theta <- type2$raw_theta_refs
+      }
+      parameterization <- type2$parameterization
     }
   }
 
@@ -734,65 +446,29 @@ parse_type1_omega_comment <- function(
 }
 
 #' @noRd
-parse_type1_sigma_comment <- function(
-  nonmem_name,
-  name,
-  parsed,
-  raw,
-  mod_path
-) {
+parse_typed_sigma_comment <- function(nonmem_name, name, parsed, mod_path) {
   name <- normalize_comment_name(name)
 
   unit <- NULL
   parameterization <- NULL
 
-  # Try to extract from parsed comment
-  if (!is.null(parsed) && !is.null(parsed$Type1)) {
-    type1 <- parsed$Type1
-
-    if (is.character(type1)) {
-      # Type1$Unknown: raw string stored directly
-      parsed_raw <- extract_raw_sigma_parts(type1)
-      if (is.null(name)) {
-        name <- parsed_raw$name
-      }
-      if (is.null(unit)) {
-        unit <- parsed_raw$unit
-      }
-      if (is.null(parameterization)) {
-        parameterization <- map_parameterization(
-          parsed_raw$parameterization,
-          "SIGMA"
-        )
-      }
-    } else {
-      # Sigma style: name, parameterization
+  if (!is.null(parsed)) {
+    if (!is.null(parsed$Type1)) {
+      type1 <- parsed$Type1
       if (is.null(name)) {
         name <- type1$name
       }
-      if (is.null(parameterization)) {
-        parameterization <- map_parameterization(
-          type1$parameterization,
-          "SIGMA"
-        )
-      }
-    }
-  }
-
-  # Fallback: extract from raw comment
-  if (!is.null(raw) && nzchar(raw)) {
-    parsed_raw <- extract_raw_sigma_parts(raw)
-    if (is.null(name)) {
-      name <- parsed_raw$name
-    }
-    if (is.null(unit)) {
-      unit <- parsed_raw$unit
-    }
-    if (is.null(parameterization)) {
       parameterization <- map_parameterization(
-        parsed_raw$parameterization,
+        type1$parameterization,
         "SIGMA"
       )
+    } else if (!is.null(parsed$Type2)) {
+      type2 <- parsed$Type2
+      if (is.null(name)) {
+        name <- type2$name
+      }
+      unit <- type2$unit
+      parameterization <- type2$parameterization
     }
   }
 
@@ -805,255 +481,6 @@ parse_type1_sigma_comment <- function(
     unit = unit,
     parameterization = parameterization
   )
-}
-
-#' Extract name from raw comment string
-#'
-#' Finds the first alphanumeric word, skipping leading pure numbers.
-#'
-#' @param raw Character string of the raw comment
-#' @return Character string of the extracted name, or NULL if none found
-#' @noRd
-extract_name_from_raw <- function(raw) {
-  if (is.null(raw) || !nzchar(trimws(raw))) {
-    return(NULL)
-  }
-
-  words <- strsplit(trimws(raw), "\\s+")[[1]]
-  idx <- find_first_name_idx(words)
-
-  if (!is.na(idx)) {
-    return(words[idx])
-  }
-
-  NULL
-}
-
-#' Extract parameterization suffix from raw comment
-#'
-#' Handles formats: "; exp", ";exp", " :EXP"
-#'
-#' @param raw Character string of the raw comment
-#' @return Named list with remaining raw string and parameterization
-#' @noRd
-extract_parameterization_suffix <- function(raw) {
-  parameterization <- NULL
-
-  if (grepl(";", raw)) {
-    parts <- strsplit(raw, ";")[[1]]
-    raw <- trimws(parts[1])
-    if (length(parts) >= 2) {
-      param_part <- trimws(parts[2])
-      if (nzchar(param_part)) {
-        parameterization <- param_part
-      }
-    }
-  } else if (grepl("\\s+:", raw)) {
-    match <- regmatches(raw, regexec("\\s+:\\s*(.+)\\s*$", raw))[[1]]
-    if (length(match) >= 2) {
-      parameterization <- trimws(match[2])
-      raw <- trimws(sub("\\s+:\\s*.+\\s*$", "", raw))
-    }
-  }
-
-  list(raw = raw, parameterization = parameterization)
-}
-
-#' Strip parameter prefix from raw comment
-#'
-#' Removes THETAn:, OMEGAn:, OMEGA(n,n):, SIGMAn:, SIGMA(n,n): prefixes
-#'
-#' @param raw Character string of the raw comment
-#' @return Character string with prefix removed
-#' @noRd
-strip_param_prefix <- function(raw) {
-  # Colon after parameter identifier is optional
-  raw <- gsub("^THETA\\(\\d+\\):?\\s*", "", raw, ignore.case = TRUE)
-  raw <- gsub("^THETA\\d+:?\\s*", "", raw, ignore.case = TRUE)
-  raw <- gsub("^OMEGA\\d+:?\\s*", "", raw, ignore.case = TRUE)
-  raw <- gsub("^OMEGA\\(\\d+,\\d+\\):?\\s*", "", raw, ignore.case = TRUE)
-  raw <- gsub("^SIGMA\\(\\d+\\):?\\s*", "", raw, ignore.case = TRUE)
-  raw <- gsub("^SIGMA\\d+:?\\s*", "", raw, ignore.case = TRUE)
-  raw <- gsub("^SIGMA\\(\\d+,\\d+\\):?\\s*", "", raw, ignore.case = TRUE)
-  # Also handle bare number prefix like "1:", "1-", "1.", or "1 "
-  raw <- gsub("^\\d+[-:.]?\\s*", "", raw)
-  raw
-}
-
-#' Find first word containing letters
-#'
-#' @param words Character vector of words
-#' @return Index of first word with letters, or NA if none found
-#' @noRd
-find_first_name_idx <- function(words) {
-  for (i in seq_along(words)) {
-    if (grepl("[A-Za-z]", words[i])) {
-      return(i)
-    }
-  }
-  NA_integer_
-}
-
-#' Extract components from raw theta comment string
-#'
-#' Parses comments like "THETA1: CL (L/day) ; exp" or "CL (L/day)"
-#'
-#' @param raw Character string of the raw comment
-#' @return Named list with name, unit, and parameterization
-#' @noRd
-extract_raw_theta_parts <- function(raw) {
-  result <- list(name = NULL, unit = NULL, parameterization = NULL)
-
-  if (is.null(raw) || !nzchar(trimws(raw))) {
-    return(result)
-  }
-
-  raw <- trimws(raw)
-
-  # Extract parameterization suffix
-  extracted <- extract_parameterization_suffix(raw)
-  raw <- extracted$raw
-  result$parameterization <- extracted$parameterization
-
-  # Strip parameter prefix
-  raw <- strip_param_prefix(raw)
-
-  # Extract unit from parentheses or brackets (anywhere in the string)
-  unit_parts <- extract_unit_anywhere(raw)
-  raw <- unit_parts$raw
-  if (is.null(result$unit)) {
-    result$unit <- unit_parts$unit
-  }
-
-  # Find name (first word with letters)
-  if (nzchar(raw)) {
-    words <- strsplit(raw, "\\s+")[[1]]
-    idx <- find_first_name_idx(words)
-    if (!is.na(idx)) {
-      # Strip trailing punctuation (comma, period, etc.)
-      result$name <- gsub("[,.:;]+$", "", words[idx])
-    }
-  }
-
-  result
-}
-
-#' Check if a bracketed string looks like a unit
-#'
-#' @param value Character string inside () or []
-#' @return TRUE if value looks like a unit
-#' @noRd
-is_unit_like <- function(value) {
-  if (is.null(value) || !nzchar(trimws(value))) {
-    return(FALSE)
-  }
-
-  value <- trimws(value)
-
-  if (grepl(",", value, fixed = TRUE)) {
-    return(FALSE)
-  }
-
-  # Allow alphabetic abbreviations like CONC or prop
-  if (grepl("^[A-Za-z0-9_]+$", value)) {
-    return(TRUE)
-  }
-
-  # Allow unit-ish tokens that include separators or digits
-  grepl("[/0-9%^]", value)
-}
-
-#' Find the matching closing delimiter for a balanced segment
-#'
-#' @param raw Character string to scan
-#' @param open_pos Position of the opening delimiter
-#' @param open_char Opening delimiter character
-#' @param close_char Closing delimiter character
-#' @return Integer position of matching closing delimiter, or NA
-#' @noRd
-find_balanced_close <- function(raw, open_pos, open_char, close_char) {
-  raw_len <- nchar(raw)
-  depth <- 0L
-
-  for (i in seq.int(open_pos, raw_len)) {
-    char_i <- substr(raw, i, i)
-    if (identical(char_i, open_char)) {
-      depth <- depth + 1L
-    } else if (identical(char_i, close_char)) {
-      depth <- depth - 1L
-      if (depth == 0L) {
-        return(i)
-      }
-    }
-  }
-
-  NA_integer_
-}
-
-#' Extract unit from parentheses or brackets anywhere in the string
-#'
-#' @param raw Character string of the raw comment
-#' @return Named list with raw (unit removed) and unit
-#' @noRd
-extract_unit_anywhere <- function(raw) {
-  result <- list(raw = raw, unit = NULL)
-
-  if (is.null(raw) || !nzchar(trimws(raw))) {
-    return(result)
-  }
-
-  pos <- 1
-  raw_len <- nchar(raw)
-
-  while (pos <= raw_len) {
-    paren_start <- regexpr("(", substr(raw, pos, raw_len), fixed = TRUE)[1]
-    bracket_start <- regexpr("[", substr(raw, pos, raw_len), fixed = TRUE)[1]
-
-    paren_pos <- if (paren_start == -1) Inf else pos + paren_start - 1
-    bracket_pos <- if (bracket_start == -1) Inf else pos + bracket_start - 1
-
-    if (is.infinite(paren_pos) && is.infinite(bracket_pos)) {
-      return(result)
-    }
-
-    if (paren_pos <= bracket_pos) {
-      close_pos <- find_balanced_close(raw, paren_pos, "(", ")")
-      if (is.na(close_pos)) {
-        return(result)
-      }
-      candidate <- substr(raw, paren_pos + 1, close_pos - 1)
-      if (is_unit_like(candidate)) {
-        result$unit <- candidate
-        result$raw <- trimws(
-          paste0(
-            substr(raw, 1, paren_pos - 1),
-            substr(raw, close_pos + 1, raw_len)
-          )
-        )
-        return(result)
-      }
-      pos <- close_pos + 1
-    } else {
-      close_pos <- find_balanced_close(raw, bracket_pos, "[", "]")
-      if (is.na(close_pos)) {
-        return(result)
-      }
-      candidate <- substr(raw, bracket_pos + 1, close_pos - 1)
-      if (is_unit_like(candidate)) {
-        result$unit <- candidate
-        result$raw <- trimws(
-          paste0(
-            substr(raw, 1, bracket_pos - 1),
-            substr(raw, close_pos + 1, raw_len)
-          )
-        )
-        return(result)
-      }
-      pos <- close_pos + 1
-    }
-  }
-
-  result
 }
 
 #' Split theta reference into associated thetas
@@ -1100,140 +527,4 @@ split_theta_reference <- function(theta_ref, known_thetas = NULL) {
   }
 
   theta_ref
-}
-
-#' Extract components from raw omega comment string
-#'
-#' Parses comments like "OM1 CL", "OM1 CL :EXP", "OMEGA1: CL ; exp", or "OM2,1 CL-VC".
-#' Builds composite names (e.g., "IIV CL" -> "IIV-CL") and extracts associated thetas.
-#'
-#' @param raw Character string of the raw comment
-#' @param known_thetas Character vector of known theta names for context-aware splitting
-#' @return Named list with name, associated_theta (character vector), and parameterization
-#' @noRd
-extract_raw_omega_parts <- function(raw, known_thetas = NULL) {
-  result <- list(name = NULL, associated_theta = NULL, parameterization = NULL)
-
-  if (is.null(raw) || !nzchar(trimws(raw))) {
-    return(result)
-  }
-
-  raw <- trimws(raw)
-
-  # Extract parameterization suffix
-  extracted <- extract_parameterization_suffix(raw)
-  raw <- extracted$raw
-  result$parameterization <- extracted$parameterization
-
-  # Strip parameter prefix
-  raw <- strip_param_prefix(raw)
-
-  # Split remaining into words and find first word with letters
-
-  words <- strsplit(raw, "\\s+")[[1]]
-  idx <- find_first_name_idx(words)
-
-  if (is.na(idx)) {
-    return(result)
-  }
-
-  first_word <- words[idx]
-  prefix <- NULL
-  theta_ref <- NULL
-
-  # First token may itself be an off-diagonal theta pair
-  # (e.g., "CL/F-V2/F", "CL/F:V2/F", or "CL/F,V2/F").
-  pair <- split_theta_reference(first_word, known_thetas)
-  has_known_pair <- !is.null(known_thetas) &&
-    length(known_thetas) > 0 &&
-    length(pair) == 2 &&
-    !any(is.na(pair)) &&
-    all(tolower(pair) %in% tolower(known_thetas))
-
-  if (has_known_pair) {
-    result$associated_theta <- pair
-  } else if (grepl("-", first_word)) {
-    # Check if first word already contains a hyphen (e.g., "IIV-CL", "Corr-CL-V")
-    # Split on first hyphen only to get prefix
-    hyphen_pos <- regexpr("-", first_word)
-    prefix <- substr(first_word, 1, hyphen_pos - 1)
-    theta_ref <- substr(first_word, hyphen_pos + 1, nchar(first_word))
-  } else {
-    # First word is the prefix, look for theta reference in subsequent words
-    prefix <- first_word
-
-    # Find theta reference, skipping linking words like "on", "for"
-    linking_words <- c("on", "for", "of")
-    theta_idx <- idx + 1
-    while (
-      theta_idx <= length(words) &&
-        tolower(words[theta_idx]) %in% linking_words
-    ) {
-      theta_idx <- theta_idx + 1
-    }
-
-    if (theta_idx <= length(words)) {
-      theta_ref <- words[theta_idx]
-    }
-  }
-
-  # Store prefix as name, theta reference separately in associated_theta
-  result$name <- prefix
-  if (
-    is.null(result$associated_theta) && !is.null(theta_ref) && nzchar(theta_ref)
-  ) {
-    result$associated_theta <- split_theta_reference(theta_ref, known_thetas)
-  }
-
-  result
-}
-
-#' Extract components from raw sigma comment string
-#'
-#' Parses comments like "SIG1", "PropErr", "AddErr (ng/mL) :PROP",
-#' or "SIGMA1: PropErr ; prop"
-#'
-#' @param raw Character string of the raw comment
-#' @return Named list with name, unit, and parameterization
-#' @noRd
-extract_raw_sigma_parts <- function(raw) {
-  result <- list(name = NULL, unit = NULL, parameterization = NULL)
-
-  if (is.null(raw) || !nzchar(trimws(raw))) {
-    return(result)
-  }
-
-  raw <- trimws(raw)
-
-  # Extract parameterization suffix using shared helper
-  extracted <- extract_parameterization_suffix(raw)
-  raw <- extracted$raw
-  result$parameterization <- extracted$parameterization
-
-  if (!is.null(result$parameterization) && nzchar(result$parameterization)) {
-    unit_parts <- extract_unit_anywhere(result$parameterization)
-    if (!is.null(unit_parts$unit)) {
-      result$unit <- unit_parts$unit
-      result$parameterization <- unit_parts$raw
-    }
-  }
-
-  # Strip parameter prefix using shared helper
-  raw <- strip_param_prefix(raw)
-
-  # Extract unit from parentheses or brackets (anywhere in the string)
-  unit_parts <- extract_unit_anywhere(raw)
-  raw <- unit_parts$raw
-  if (is.null(result$unit)) {
-    result$unit <- unit_parts$unit
-  }
-
-  # Find name (first word with letters) using shared helper
-  words <- strsplit(raw, "\\s+")[[1]]
-  idx <- find_first_name_idx(words)
-  if (!is.na(idx)) {
-    result$name <- words[idx]
-  }
-
-  result
 }

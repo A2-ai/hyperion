@@ -3,16 +3,6 @@ test_that("get_comment returns NULL for non-parameter names", {
   expect_null(get_comment(info, "OTHER1"))
 })
 
-test_that("resolve_comment strips name suffixes", {
-  theta1 <- ThetaComment(nonmem_name = "THETA1", name = "CL")
-  info <- ModelComments(theta = list(THETA1 = theta1))
-
-  expect_equal(
-    get_parameter_transform(info, "THETA1 (CL)"),
-    "Identity"
-  )
-})
-
 test_that("get_theta_names rejects non-ModelComments input", {
   expect_error(
     get_theta_names(list()),

@@ -84,7 +84,7 @@
 #' \itemize{
 #'   \item [init()] - Initialize pharos with config file path
 #'   \item [get_pharos_config()] - Get current pharos configuration
-#'   \item [get_comment_type()] - Get comment parsing mode (raw or type1)
+#'   \item [get_comment_type()] - Get comment parsing mode (type1 or type2)
 #'   \item [use_type1_comments()] - Configure pharos.toml for type1 comment parsing
 #' }
 #'

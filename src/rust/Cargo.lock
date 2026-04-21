@@ -141,7 +141,7 @@ dependencies = [
 [[package]]
 name = "config"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=parsed-comments#32529d44bbde2cc6545e3f84a821a3f3fb18079b"
+source = "git+https://github.com/a2-ai/pharos?branch=sim-record#c4f0ab12cd97370a02b3e802f7719ac72638fec8"
 dependencies = [
  "anyhow",
  "fs-err",
@@ -711,7 +711,7 @@ checksum = "f8ca58f447f06ed17d5fc4043ce1b10dd205e060fb3ce5b979b8ed8e59ff3f79"
 [[package]]
 name = "nonmem"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=parsed-comments#32529d44bbde2cc6545e3f84a821a3f3fb18079b"
+source = "git+https://github.com/a2-ai/pharos?branch=sim-record#c4f0ab12cd97370a02b3e802f7719ac72638fec8"
 dependencies = [
  "anyhow",
  "blake3",
@@ -737,7 +737,7 @@ dependencies = [
 [[package]]
 name = "nonmem-parser"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=parsed-comments#32529d44bbde2cc6545e3f84a821a3f3fb18079b"
+source = "git+https://github.com/a2-ai/pharos?branch=sim-record#c4f0ab12cd97370a02b3e802f7719ac72638fec8"
 dependencies = [
  "anyhow",
  "distrs",
@@ -1089,7 +1089,7 @@ dependencies = [
 [[package]]
 name = "scheduler"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=parsed-comments#32529d44bbde2cc6545e3f84a821a3f3fb18079b"
+source = "git+https://github.com/a2-ai/pharos?branch=sim-record#c4f0ab12cd97370a02b3e802f7719ac72638fec8"
 dependencies = [
  "anyhow",
  "config",
@@ -1293,7 +1293,7 @@ version = "1.1.2+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2abe9b86193656635d2411dc43050282ca48aa31c2451210f4202550afb7526"
 dependencies = [
- "winnow 1.0.1",
+ "winnow 1.0.2",
 ]
 
 [[package]]
@@ -1335,7 +1335,7 @@ checksum = "ebc1c04c71510c7f702b52b7c350734c9ff1295c464a03335b00bb84fc54f853"
 [[package]]
 name = "utils"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=parsed-comments#32529d44bbde2cc6545e3f84a821a3f3fb18079b"
+source = "git+https://github.com/a2-ai/pharos?branch=sim-record#c4f0ab12cd97370a02b3e802f7719ac72638fec8"
 dependencies = [
  "anyhow",
  "fs-err",
@@ -1557,9 +1557,9 @@ checksum = "df79d97927682d2fd8adb29682d1140b343be4ac0f08fd68b7765d9c059d3945"
 
 [[package]]
 name = "winnow"
-version = "1.0.1"
+version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "09dac053f1cd375980747450bfc7250c264eaae0583872e845c0c7cd578872b5"
+checksum = "2ee1708bef14716a11bae175f579062d4554d95be2c6829f518df847b7b3fdd0"
 
 [[package]]
 name = "wit-bindgen"

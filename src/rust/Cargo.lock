@@ -141,7 +141,7 @@ dependencies = [
 [[package]]
 name = "config"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=sim-record#ce3bae4dc7bf658df1946576b136f1f8fa8edba0"
+source = "git+https://github.com/a2-ai/pharos?branch=sim-record#25f9056382de006ca1e0e37f4bfd3aea309c5672"
 dependencies = [
  "anyhow",
  "fs-err",
@@ -711,7 +711,7 @@ checksum = "f8ca58f447f06ed17d5fc4043ce1b10dd205e060fb3ce5b979b8ed8e59ff3f79"
 [[package]]
 name = "nonmem"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=sim-record#ce3bae4dc7bf658df1946576b136f1f8fa8edba0"
+source = "git+https://github.com/a2-ai/pharos?branch=sim-record#25f9056382de006ca1e0e37f4bfd3aea309c5672"
 dependencies = [
  "anyhow",
  "blake3",
@@ -737,7 +737,7 @@ dependencies = [
 [[package]]
 name = "nonmem-parser"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=sim-record#ce3bae4dc7bf658df1946576b136f1f8fa8edba0"
+source = "git+https://github.com/a2-ai/pharos?branch=sim-record#25f9056382de006ca1e0e37f4bfd3aea309c5672"
 dependencies = [
  "anyhow",
  "distrs",
@@ -1089,7 +1089,7 @@ dependencies = [
 [[package]]
 name = "scheduler"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=sim-record#ce3bae4dc7bf658df1946576b136f1f8fa8edba0"
+source = "git+https://github.com/a2-ai/pharos?branch=sim-record#25f9056382de006ca1e0e37f4bfd3aea309c5672"
 dependencies = [
  "anyhow",
  "config",
@@ -1335,7 +1335,7 @@ checksum = "ebc1c04c71510c7f702b52b7c350734c9ff1295c464a03335b00bb84fc54f853"
 [[package]]
 name = "utils"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=sim-record#ce3bae4dc7bf658df1946576b136f1f8fa8edba0"
+source = "git+https://github.com/a2-ai/pharos?branch=sim-record#25f9056382de006ca1e0e37f4bfd3aea309c5672"
 dependencies = [
  "anyhow",
  "fs-err",

@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use nonmem::estimation;
 use nonmem::output_files::ext::{EstimationTable, ExtReader};
 
-use crate::utils::find_output_file;
+use crate::utils::{find_output_file, to_syntactic_name};
 use hyperion_core::{OptionExt, ResultExt, extendr_err};
 
 /// Extract .ext files from path (single file or directory)
@@ -82,8 +82,12 @@ fn estimation_tables_to_dataframe(tables: Vec<EstimationTable>) -> Result<Robj> 
         return Err(extendr_err!("No tables found in ext file"));
     }
 
-    // Get parameter names from the first table
-    let param_names = tables[0].parameters.clone();
+    // Get parameter names from the first table, sanitized for R syntactic use.
+    let param_names: Vec<String> = tables[0]
+        .parameters
+        .iter()
+        .map(|n| to_syntactic_name(n))
+        .collect();
 
     let flat_data: Vec<(i32, String, Vec<f64>)> = tables
         .into_iter()
@@ -317,10 +321,15 @@ pub fn get_final_estimates(
         return Err(extendr_err!("No tables found in ext file"));
     }
 
-    // Get parameter names from first table (all should be the same)
-    let param_names = if let Some((_, first_tables)) = results.first() {
+    // Get parameter names from first table (all should be the same),
+    // sanitized for R syntactic use.
+    let param_names: Vec<String> = if let Some((_, first_tables)) = results.first() {
         if let Some(first_table) = first_tables.first() {
-            first_table.parameters.clone()
+            first_table
+                .parameters
+                .iter()
+                .map(|n| to_syntactic_name(n))
+                .collect()
         } else {
             return Err(extendr_err!("No tables found in first ext file"));
         }

@@ -4,7 +4,9 @@ use extendr_api::prelude::*;
 //pharos nonmem crate
 use nonmem::{estimation::EstimationMethod, output_files::grd::GrdReader};
 
-use crate::utils::{find_output_file, get_comment_type, path_from_robj, try_parse_model};
+use crate::utils::{
+    find_output_file, get_comment_type, path_from_robj, to_syntactic_name, try_parse_model,
+};
 use hyperion_core::{ResultExt, extendr_err};
 
 /// Turn a pharos-produced gradient column name like `"GRD(IIV (CL))"` into a
@@ -14,17 +16,7 @@ fn sanitize_grd_name(raw: &str) -> String {
         .strip_prefix("GRD(")
         .and_then(|s| s.strip_suffix(')'))
         .unwrap_or(raw);
-
-    let mut out: String = inner
-        .chars()
-        .map(|c| if c.is_ascii_alphanumeric() { c } else { '_' })
-        .collect();
-
-    while out.contains("__") {
-        out = out.replace("__", "_");
-    }
-
-    out.trim_matches('_').to_string()
+    to_syntactic_name(inner)
 }
 
 fn create_grd_reader(only_method: Option<&str>, only_last: Option<bool>) -> Result<GrdReader> {

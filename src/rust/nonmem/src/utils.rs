@@ -257,6 +257,20 @@ pub fn try_parse_model(path: &str) -> Option<Model> {
 
 /// Gets the comment type from pharos.toml configuration
 ///
+/// Map an arbitrary string to an R-syntactic column name by replacing any
+/// non-alphanumeric character with `_`, collapsing runs of `_`, and trimming
+/// leading/trailing `_`. E.g. `"SIGMA(1,1)"` -> `"SIGMA_1_1"`.
+pub(crate) fn to_syntactic_name(s: &str) -> String {
+    let mut out: String = s
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '_' })
+        .collect();
+    while out.contains("__") {
+        out = out.replace("__", "_");
+    }
+    out.trim_matches('_').to_string()
+}
+
 /// @return Option<CommentType> from pharos config, None if not found or config doesn't exist
 pub fn get_comment_type() -> Option<CommentType> {
     find_config_dir()

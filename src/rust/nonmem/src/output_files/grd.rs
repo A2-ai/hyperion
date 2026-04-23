@@ -7,6 +7,26 @@ use nonmem::{estimation::EstimationMethod, output_files::grd::GrdReader};
 use crate::utils::{find_output_file, get_comment_type, path_from_robj, try_parse_model};
 use hyperion_core::{ResultExt, extendr_err};
 
+/// Turn a pharos-produced gradient column name like `"GRD(IIV (CL))"` into a
+/// syntactic R column name like `"IIV_CL"`.
+fn sanitize_grd_name(raw: &str) -> String {
+    let inner = raw
+        .strip_prefix("GRD(")
+        .and_then(|s| s.strip_suffix(')'))
+        .unwrap_or(raw);
+
+    let mut out: String = inner
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '_' })
+        .collect();
+
+    while out.contains("__") {
+        out = out.replace("__", "_");
+    }
+
+    out.trim_matches('_').to_string()
+}
+
 fn create_grd_reader(only_method: Option<&str>, only_last: Option<bool>) -> Result<GrdReader> {
     let mut reader = GrdReader::default();
 
@@ -72,7 +92,12 @@ pub fn get_gradients(
     }
 
     // Get gradient parameter names from the first table (skip ITERATION column)
-    let gradient_names: Vec<String> = tables[0].parameters.iter().skip(1).cloned().collect();
+    let gradient_names: Vec<String> = tables[0]
+        .parameters
+        .iter()
+        .skip(1)
+        .map(|n| sanitize_grd_name(n))
+        .collect();
 
     let flat_data: Vec<(i32, String, Vec<f64>)> = tables
         .into_iter()

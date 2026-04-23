@@ -30,14 +30,16 @@ $THETA
 (0, 41.98)   ;TVV (L)
 (0, 1.24)   ;TVKA (1/hr)
 
+$OMEGA BLOCK(2)
+0.1       ;OM1 TVCL :EXP
+0.0001    ;OM1,2 TVCL:TVV :EXP
+0.1       ;OM2 TVV :EXP
 $OMEGA
-0.126   ;OM1  TVCL
-0.133    ;OM2 TVV
-0.1 FIX   ;OM3 TVKA
+0.1       ;OM3 TVKA :EXP
 
 $SIGMA
-0.0364    ; 1. Proportional error (variance, 20% CV)
-0.01 FIX ; 2. Additive error (variance, 0.01 mg/L SD)
+0.035738    ;SIG1 Proportional error (variance, 20% CV)
+0.006      ;SIG2 Additive error (variance, 0.01 mg/L SD)
 
 $ESTIMATION METHOD=1 INTERACTION MAXEVAL=9999 PRINT=5
 $TABLE ID TIME DV PRED IPRED CWRES NPDE NOAPPEND NOPRINT ONEHEADER FILE=run004.tab

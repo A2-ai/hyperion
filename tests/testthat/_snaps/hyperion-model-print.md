@@ -57,7 +57,7 @@
       -- NONMEM Model: everything ----------------------------------------------------
       Problem: Some header #2
       Run Status: Not Run
-      Dataset: ..\data.csv
+      Dataset: ..\path with spaces\data.csv
       Ignore: #, DVID.EQ.3, ID.EQ.3.14, DVID.EQ.3, AGE.GE.18, AGE.GT.3, AGE.LT.100,
       AGE.LE.65, TYPE.NE.0, TYPE.EQ.1, TYPE.EQN.1, TYPE.NEN.2, TYPE.EQ.1
       Records: 200

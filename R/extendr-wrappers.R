@@ -63,6 +63,7 @@ read_model_from_lst <- function(path) .Call(wrap__read_model_from_lst, path)
 #' Examples: "THETA1" or c("THETA1")
 #' @param seed integer for random number generator seed to ensure reproducible jittering
 #' @param description Description of model in metadata file
+#' @param based_on Character vector of model names/paths that this model is based on
 #' @param no_metadata boolean, if true, does not create metadatafile, default FALSE
 #'
 #' @return path to new model file (invisible) todo
@@ -71,7 +72,7 @@ read_model_from_lst <- function(path) .Call(wrap__read_model_from_lst, path)
 #' @examples \dontrun{
 #' copy_model(from = "model/nonmem/run001.mod", to = "model/nonmem/run002.mod")
 #' }
-copy_model <- function(from, to, overwrite = FALSE, ext_file = NULL, update = 'none', jitter = NULL, jitter_excluded = NULL, seed = NULL, description = NULL, no_metadata = FALSE) .Call(wrap__copy_model_wrap, from, to, overwrite, ext_file, update, jitter, jitter_excluded, seed, description, no_metadata)
+copy_model <- function(from, to, overwrite = FALSE, ext_file = NULL, update = 'none', jitter = NULL, jitter_excluded = NULL, seed = NULL, description = NULL, based_on = NULL, no_metadata = FALSE) .Call(wrap__copy_model_wrap, from, to, overwrite, ext_file, update, jitter, jitter_excluded, seed, description, based_on, no_metadata)
 
 #' Gets model run summary (internal implementation)
 #'
@@ -180,6 +181,7 @@ get_model_parameter_names <- function(model) .Call(wrap__get_model_parameter_nam
 #' @param description Optional description of the model and its purpose
 #' @param tags Character vector of tags to categorize or label the model
 #' @param based_on Character vector of model names/paths that this model is based on
+#' @param copied_from Optional model name/path this model was mechanically copied from
 #'
 #' @return Returns invisibly after creating the metadata file
 #' @export
@@ -201,7 +203,7 @@ get_model_parameter_names <- function(model) .Call(wrap__get_model_parameter_nam
 #'   based_on = c("run001.mod")
 #' )
 #' }
-set_metadata_file <- function(model_path, description = NULL, tags = NULL, based_on = NULL) .Call(wrap__set_metadata_file, model_path, description, tags, based_on)
+set_metadata_file <- function(model_path, description = NULL, tags = NULL, based_on = NULL, copied_from = NULL) .Call(wrap__set_metadata_file, model_path, description, tags, based_on, copied_from)
 
 #' Updates a metadatafile
 #'
@@ -244,6 +246,27 @@ update_metadata_file <- function(model_path, description = NULL, tags = NULL, ba
 #' meta$based_on
 #' }
 get_model_metadata <- function(model) .Call(wrap__load_model_metadata, model)
+
+#' Clear fields in a model's metadata file
+#'
+#' Selectively clears the `based_on`, `copied_from`, and/or `tags` fields in
+#' the metadata file associated with a model. Fields not selected are left
+#' unchanged.
+#'
+#' @param model_path Path to the NONMEM model file, or a hyperion_nonmem_model object
+#' @param based_on If TRUE, clear the based_on field. Default FALSE.
+#' @param copied_from If TRUE, clear the copied_from field. Default FALSE.
+#' @param tags If TRUE, clear the tags field. Default FALSE.
+#'
+#' @return Returns invisibly after updating the metadata file
+#' @export
+#'
+#' @examples \dontrun{
+#' clear_metadata_file("model/nonmem/run001.mod", tags = TRUE)
+#' model <- read_model("model/nonmem/run001.mod")
+#' clear_metadata_file(model, based_on = TRUE, copied_from = TRUE)
+#' }
+clear_metadata_file <- function(model_path, based_on = FALSE, copied_from = FALSE, tags = FALSE) .Call(wrap__clear_metadata_file_wrap, model_path, based_on, copied_from, tags)
 
 #' Determine run status for a model path, run directory, or model object.
 #'

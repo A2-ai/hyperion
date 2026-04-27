@@ -14,6 +14,7 @@ copy_model(
   jitter_excluded = NULL,
   seed = NULL,
   description = NULL,
+  based_on = NULL,
   no_metadata = FALSE
 )
 }
@@ -39,6 +40,8 @@ Examples: "THETA1" or c("THETA1")}
 \item{seed}{integer for random number generator seed to ensure reproducible jittering}
 
 \item{description}{Description of model in metadata file}
+
+\item{based_on}{Character vector of model names/paths that this model is based on}
 
 \item{no_metadata}{boolean, if true, does not create metadatafile, default FALSE}
 }

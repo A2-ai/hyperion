@@ -4,10 +4,12 @@ use extendr_api::serializer::to_robj;
 
 use nonmem::ModelMetadata;
 //pharos nonmem crate
-use nonmem::update_metadata_file;
+use nonmem::{clear_metadata_file, update_metadata_file};
 
 use crate::utils::path_from_robj;
-use hyperion_core::{ResultExt, extendr_err};
+use hyperion_core::{OptionExt, ResultExt, extendr_err};
+
+const METADATA_FILENAME_SUFFIX: &str = "_metadata.json";
 
 /// Creates a metadata file for a NONMEM model
 ///
@@ -19,6 +21,7 @@ use hyperion_core::{ResultExt, extendr_err};
 /// @param description Optional description of the model and its purpose
 /// @param tags Character vector of tags to categorize or label the model
 /// @param based_on Character vector of model names/paths that this model is based on
+/// @param copied_from Optional model name/path this model was mechanically copied from
 ///
 /// @return Returns invisibly after creating the metadata file
 /// @export
@@ -46,6 +49,7 @@ pub fn set_metadata_file(
     #[extendr(default = "NULL")] description: Option<String>,
     #[extendr(default = "NULL")] tags: Option<Vec<String>>,
     #[extendr(default = "NULL")] based_on: Option<Vec<String>>,
+    #[extendr(default = "NULL")] copied_from: Option<String>,
 ) -> Result<()> {
     if let Some(d) = &description
         && d.trim().is_empty()
@@ -60,7 +64,7 @@ pub fn set_metadata_file(
     let tags = tags.unwrap_or_default();
     let based_on = based_on.unwrap_or_default();
 
-    update_metadata_file(model_path, description, tags, based_on, true)
+    update_metadata_file(model_path, description, tags, based_on, copied_from, true)
         .map_to_extendr_err("Failed to create metadata file")?;
 
     Ok(())
@@ -94,7 +98,7 @@ pub fn append_to_metadata_file(
     let tags = tags.unwrap_or_default();
     let based_on = based_on.unwrap_or_default();
 
-    update_metadata_file(path, description, tags, based_on, false)
+    update_metadata_file(path, description, tags, based_on, None, false)
         .map_to_extendr_err("Failed to update metadata file")?;
 
     Ok(())
@@ -139,10 +143,70 @@ pub fn load_model_metadata(model: Robj) -> Result<Robj> {
     Ok(result.to_owned())
 }
 
+/// Clear fields in a model's metadata file
+///
+/// Selectively clears the `based_on`, `copied_from`, and/or `tags` fields in
+/// the metadata file associated with a model. Fields not selected are left
+/// unchanged.
+///
+/// @param model_path Path to the NONMEM model file, or a hyperion_nonmem_model object
+/// @param based_on If TRUE, clear the based_on field. Default FALSE.
+/// @param copied_from If TRUE, clear the copied_from field. Default FALSE.
+/// @param tags If TRUE, clear the tags field. Default FALSE.
+///
+/// @return Returns invisibly after updating the metadata file
+/// @export
+///
+/// @examples \dontrun{
+/// clear_metadata_file("model/nonmem/run001.mod", tags = TRUE)
+/// model <- read_model("model/nonmem/run001.mod")
+/// clear_metadata_file(model, based_on = TRUE, copied_from = TRUE)
+/// }
+#[extendr(r_name = "clear_metadata_file")]
+pub fn clear_metadata_file_wrap(
+    model_path: Robj,
+    #[extendr(default = "FALSE")] based_on: bool,
+    #[extendr(default = "FALSE")] copied_from: bool,
+    #[extendr(default = "FALSE")] tags: bool,
+) -> Result<()> {
+    let model_path = path_from_robj(&model_path, true)?;
+
+    let model_name = model_path
+        .file_stem()
+        .ok_or_extendr_err("Could not determine model file stem")?
+        .to_string_lossy()
+        .to_string();
+    let model_dir = model_path
+        .parent()
+        .ok_or_extendr_err("Could not determine model directory")?
+        .to_path_buf();
+    let metadata_path = model_dir.join(format!("{model_name}{METADATA_FILENAME_SUFFIX}"));
+
+    if !metadata_path.exists() {
+        return Err(extendr_err!(
+            "Metadata file does not exist: {}",
+            metadata_path.display()
+        ));
+    }
+
+    clear_metadata_file(
+        model_name,
+        &model_dir,
+        &metadata_path,
+        based_on,
+        copied_from,
+        tags,
+    )
+    .map_to_extendr_err("Failed to clear metadata file")?;
+
+    Ok(())
+}
+
 extendr_module! {
     mod metadata;
 
     fn set_metadata_file;
     fn append_to_metadata_file;
     fn load_model_metadata;
+    fn clear_metadata_file_wrap;
 }

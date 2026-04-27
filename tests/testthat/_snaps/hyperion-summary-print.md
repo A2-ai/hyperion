@@ -268,7 +268,7 @@
     Output
        
        
-      iteration  method  TVCL       TVV      TVKA        OM1_TVCL    OM1_2_TVCL_TVV  OM2_TVV     OM3_TVKA    EPS1       EPS2      
+      iteration  method  TVCL       TVV      TVKA        OM1_TVCL    OM1_2_TVCL_TVV  OM2_TVV     OM3_TVKA    SIGMA_1_1  SIGMA_2_2 
       ─────────  ──────  ─────────  ───────  ──────────  ──────────  ──────────────  ──────────  ──────────  ─────────  ──────────
       0          FOCE    73.89      -28.82   -39.24      -19.1       -0.2895         -15.42      -3.366      -25.08     -1.02     
       5          FOCE    0.726      -0.4298  1.646       -1.356      -0.1662         -1.269      -1.461      -5.953     -0.471    
@@ -324,7 +324,7 @@
     Output
        
        
-      iteration  method  TVCL       TVV      TVKA        OM1_TVCL    OM1_2_TVCL_TVV  OM2_TVV     OM3_TVKA    EPS1       EPS2      
+      iteration  method  TVCL       TVV      TVKA        OM1_TVCL    OM1_2_TVCL_TVV  OM2_TVV     OM3_TVKA    SIGMA_1_1  SIGMA_2_2 
       ─────────  ──────  ─────────  ───────  ──────────  ──────────  ──────────────  ──────────  ──────────  ─────────  ──────────
       0          FOCE    73.89      -28.82   -39.24      -19.1       -0.2895         -15.42      -3.366      -25.08     -1.02     
       5          FOCE    0.726      -0.4298  1.646       -1.356      -0.1662         -1.269      -1.461      -5.953     -0.471    

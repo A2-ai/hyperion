@@ -91,6 +91,7 @@ fn parse_update_robj(update: Robj) -> Result<Vec<UpdateType>> {
 /// Examples: "THETA1" or c("THETA1")
 /// @param seed integer for random number generator seed to ensure reproducible jittering
 /// @param description Description of model in metadata file
+/// @param based_on Character vector of model names/paths that this model is based on
 /// @param no_metadata boolean, if true, does not create metadatafile, default FALSE
 ///
 /// @return path to new model file (invisible) todo
@@ -113,6 +114,7 @@ pub fn copy_model_wrap(
     #[extendr(default = "NULL")] jitter_excluded: Option<&Robj>,
     #[extendr(default = "NULL")] seed: Option<u64>,
     #[extendr(default = "NULL")] description: String,
+    #[extendr(default = "NULL")] based_on: Option<Vec<String>>,
     #[extendr(default = "FALSE")] no_metadata: bool,
 ) -> Result<()> {
     // Parse input parameters
@@ -130,6 +132,7 @@ pub fn copy_model_wrap(
         seed,
         jitter_excluded: jitter_excluded_parsed,
         description,
+        based_on: based_on.unwrap_or_default(),
         no_metadata,
     };
 

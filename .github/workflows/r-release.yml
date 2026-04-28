@@ -85,7 +85,7 @@ jobs:
           # FIXME: Add more entries for other platforms into the JSON array.
           MATRIX_JSON=$(cat <<'JSON'
           [
-            {"os":"ubuntu-latest", "os_name":"almalinux8", "arch":"x86_64", "r":"4.4", "container":"almalinux:8"},
+            {"os":"ubuntu-latest", "os_name":"almalinux8", "arch":"x86_64", "r":"4.4", "container":"almalinux:8"}
           ]
           JSON
           )
@@ -313,7 +313,7 @@ jobs:
       # -- MacOS prep
       - name: Prepare macOS for static linking
         if: matrix.os == 'macos'
-        uses: ./.github/actions/macos-prep
+        uses: a2-ai/r-gh-mac-build/prep@main
         with:
           r-version: ${{ matrix.r_version }}
 

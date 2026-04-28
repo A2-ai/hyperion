@@ -312,10 +312,10 @@ jobs:
 
       # -- MacOS prep
       - name: Prepare macOS for static linking
-        if: matrix.os == 'macos'
+        if: matrix.config.os == 'macos'
         uses: a2-ai/r-gh-mac-build/prep@main
         with:
-          r-version: ${{ matrix.r_version }}
+          r-version: ${{ matrix.config.r_version }}
 
       # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
       # TODO: If your package requires a compiled-language toolchain, add

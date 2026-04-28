@@ -283,7 +283,7 @@ jobs:
   build-bin-bare:
     name: build-bin-bare (${{ matrix.config.os_name }} (${{ matrix.config.arch }}) / R ${{ matrix.config.r }})
     needs: [build-primary, plan-matrices, determine-tag]
-    runs-on: ${{ matrix.config.os }}
+    runs-on: ${{ matrix.config.runner }}
     if: needs['plan-matrices'].outputs.matrix_bare != '[]'
     strategy:
       fail-fast: false

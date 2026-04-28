@@ -69,8 +69,8 @@ jobs:
           # FIXME: Add more entries for other platforms into the JSON array.
           MATRIX_JSON=$(cat <<'JSON'
           [
-            {"runner": "macos-14", "os": "macos", "arch": "arm64", "r_version": "4.4"}, 
-            {"runner": "macos-14", "os": "macos", "arch": "arm64", "r_version": "4.5"}
+            {"runner": "macos-14", "os": "macos", "arch": "arm64", "r": "4.4"}, 
+            {"runner": "macos-14", "os": "macos", "arch": "arm64", "r": "4.5"}
           ]
           JSON
           )

@@ -160,12 +160,12 @@
       
     Output
        
-      Parameter         Random Effect  Estimate  SE       RSE (%)  Shrinkage (%)  Fixed
-      ────────────────  ─────────────  ────────  ───────  ───────  ─────────────  ─────
-      OM1 (TVCL)        ETA1           0.1223    0.05036  41.16    13.14          No   
-      OM1,2 (TVCL:TVV)  ETA1:ETA2      0.07454   0.03134  42.04    NA             No   
-      OM2 (TVV)         ETA2           0.1239    0.03675  29.66    4.631          No   
-      OM3 (TVKA)        ETA3           0.1224    0.05628  45.97    24.34          No   
+      Parameter          Random Effect  Estimate  SE       RSE (%)  Shrinkage (%)  Fixed
+      ─────────────────  ─────────────  ────────  ───────  ───────  ─────────────  ─────
+      OM1 (TVCL)         ETA1           0.1223    0.05036  41.16    13.14          No   
+      OM1,2 (TVCL, TVV)  ETA1:ETA2      0.07454   0.03134  42.04    NA             No   
+      OM2 (TVV)          ETA2           0.1239    0.03675  29.66    4.631          No   
+      OM3 (TVKA)         ETA3           0.1224    0.05628  45.97    24.34          No   
        
     Message
       -- Sigma Parameters --
@@ -221,12 +221,12 @@
       
     Output
        
-      Parameter         Random Effect  Estimate  Shrinkage (%)  Fixed
-      ────────────────  ─────────────  ────────  ─────────────  ─────
-      OM1 (TVCL)        ETA1           0.1233    13.66          No   
-      OM1,2 (TVCL:TVV)  ETA1:ETA2      0.07218   NA             No   
-      OM2 (TVV)         ETA2           0.1246    4.625          No   
-      OM3 (TVKA)        ETA3           0.1239    24.36          No   
+      Parameter          Random Effect  Estimate  Shrinkage (%)  Fixed
+      ─────────────────  ─────────────  ────────  ─────────────  ─────
+      OM1 (TVCL)         ETA1           0.1233    13.66          No   
+      OM1,2 (TVCL, TVV)  ETA1:ETA2      0.07218   NA             No   
+      OM2 (TVV)          ETA2           0.1246    4.625          No   
+      OM3 (TVKA)         ETA3           0.1239    24.36          No   
        
     Message
       -- Sigma Parameters --

@@ -31,11 +31,11 @@
       
     Output
        
-      Parameter   Initial  Fixed  Comment    
-      ──────────  ───────  ─────  ───────────
-      OMEGA(1,1)  0.1      No     OM1 CL :EXP
-      OMEGA(2,2)  0.1      No     OM2 VC :EXP
-      OMEGA(3,3)  0.1      No     OM3 KA :EXP
+      Parameter   Initial  Fixed  Comment      
+      ──────────  ───────  ─────  ─────────────
+      OMEGA(1,1)  0.1      No     OM1 CL/F :EXP
+      OMEGA(2,2)  0.1      No     OM2 VC/F :EXP
+      OMEGA(3,3)  0.1      No     OM3 KA :EXP  
        
     Message
       -- Sigma Parameters --

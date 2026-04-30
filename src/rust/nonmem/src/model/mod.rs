@@ -12,6 +12,7 @@ use crate::utils::{find_output_file, get_comment_type, to_config_relative, valid
 use hyperion_core::{ResultExt, extendr_err};
 
 pub mod check;
+pub mod comment_info;
 pub mod copy;
 pub mod lineage;
 pub mod metadata;
@@ -140,6 +141,7 @@ extendr_module! {
     use check;
     use lineage;
     use parameters;
+    use comment_info;
     use metadata;
     use run_status;
 

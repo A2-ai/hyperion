@@ -25,11 +25,11 @@
       
     Output
        
-      parameter   name        display  description  parameterization  associated_theta
-      ──────────  ──────────  ───────  ───────────  ────────────────  ────────────────
-      OMEGA(1,1)  OM1 (TVCL)  NA       NA           LogNormal         TVCL            
-      OMEGA(2,2)  OM2 (TVV)   NA       NA           LogNormal         TVV             
-      OMEGA(3,3)  OM3 (TVKA)  NA       NA           LogNormal         TVKA            
+      parameter   name  display  description  parameterization  associated_theta
+      ──────────  ────  ───────  ───────────  ────────────────  ────────────────
+      OMEGA(1,1)  OM1   NA       NA           LogNormal         TVCL            
+      OMEGA(2,2)  OM2   NA       NA           LogNormal         TVV             
+      OMEGA(3,3)  OM3   NA       NA           LogNormal         TVKA            
        
     Message
       -- Sigma Parameters --
@@ -68,11 +68,11 @@
       
     Output
        
-      parameter   name        display  description  parameterization  associated_theta
-      ──────────  ──────────  ───────  ───────────  ────────────────  ────────────────
-      OMEGA(1,1)  OM1 (TVCL)  NA       NA           LogNormal         TVCL            
-      OMEGA(2,2)  OM2 (TVV)   NA       NA           LogNormal         TVV             
-      OMEGA(3,3)  OM3 (TVKA)  NA       NA           LogNormal         TVKA            
+      parameter   name  display  description  parameterization  associated_theta
+      ──────────  ────  ───────  ───────────  ────────────────  ────────────────
+      OMEGA(1,1)  OM1   NA       NA           LogNormal         TVCL            
+      OMEGA(2,2)  OM2   NA       NA           LogNormal         TVV             
+      OMEGA(3,3)  OM3   NA       NA           LogNormal         TVKA            
        
     Message
       -- Sigma Parameters --
@@ -111,12 +111,12 @@
       
     Output
        
-      parameter   name              display  description  parameterization  associated_theta
-      ──────────  ────────────────  ───────  ───────────  ────────────────  ────────────────
-      OMEGA(1,1)  OM1 (TVCL)        NA       NA           LogNormal         TVCL            
-      OMEGA(2,1)  OM1,2 (TVCL:TVV)  NA       NA           LogNormal         TVCL, TVV       
-      OMEGA(2,2)  OM2 (TVV)         NA       NA           LogNormal         TVV             
-      OMEGA(3,3)  OM3 (TVKA)        NA       NA           LogNormal         TVKA            
+      parameter   name   display  description  parameterization  associated_theta
+      ──────────  ─────  ───────  ───────────  ────────────────  ────────────────
+      OMEGA(1,1)  OM1    NA       NA           LogNormal         TVCL            
+      OMEGA(2,1)  OM1,2  NA       NA           LogNormal         TVCL, TVV       
+      OMEGA(2,2)  OM2    NA       NA           LogNormal         TVV             
+      OMEGA(3,3)  OM3    NA       NA           LogNormal         TVKA            
        
     Message
       -- Sigma Parameters --
@@ -156,12 +156,12 @@
       
     Output
        
-      parameter   name              display  description  parameterization  associated_theta
-      ──────────  ────────────────  ───────  ───────────  ────────────────  ────────────────
-      OMEGA(1,1)  OM1 (TVCL)        NA       NA           LogNormal         TVCL            
-      OMEGA(2,1)  OM1,2 (TVCL:TVV)  NA       NA           LogNormal         TVCL, TVV       
-      OMEGA(2,2)  OM2 (TVV)         NA       NA           LogNormal         TVV             
-      OMEGA(3,3)  OM3 (TVKA)        NA       NA           LogNormal         TVKA            
+      parameter   name   display  description  parameterization  associated_theta
+      ──────────  ─────  ───────  ───────────  ────────────────  ────────────────
+      OMEGA(1,1)  OM1    NA       NA           LogNormal         TVCL            
+      OMEGA(2,1)  OM1,2  NA       NA           LogNormal         TVCL, TVV       
+      OMEGA(2,2)  OM2    NA       NA           LogNormal         TVV             
+      OMEGA(3,3)  OM3    NA       NA           LogNormal         TVKA            
        
     Message
       -- Sigma Parameters --
@@ -201,11 +201,11 @@
       
     Output
        
-      parameter   name      display  description  parameterization  associated_theta
-      ──────────  ────────  ───────  ───────────  ────────────────  ────────────────
-      OMEGA(1,1)  OM1 (CL)  NA       NA           LogNormal         CL/F            
-      OMEGA(2,2)  OM2 (VC)  NA       NA           LogNormal         VC/F            
-      OMEGA(3,3)  OM3 (KA)  NA       NA           LogNormal         KA              
+      parameter   name  display  description  parameterization  associated_theta
+      ──────────  ────  ───────  ───────────  ────────────────  ────────────────
+      OMEGA(1,1)  OM1   NA       NA           LogNormal         CL/F            
+      OMEGA(2,2)  OM2   NA       NA           LogNormal         VC/F            
+      OMEGA(3,3)  OM3   NA       NA           LogNormal         KA              
        
     Message
       -- Sigma Parameters --

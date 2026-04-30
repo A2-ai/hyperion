@@ -113,7 +113,7 @@ pub fn copy_model_wrap(
     // This should move to Option<Robj>
     #[extendr(default = "NULL")] jitter_excluded: Option<&Robj>,
     #[extendr(default = "NULL")] seed: Option<u64>,
-    #[extendr(default = "NULL")] description: String,
+    description: String,
     #[extendr(default = "NULL")] based_on: Option<Vec<String>>,
     #[extendr(default = "FALSE")] no_metadata: bool,
 ) -> Result<()> {

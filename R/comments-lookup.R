@@ -97,15 +97,8 @@ apply_lookup_defaults <- function(comment, lookup_path) {
 
   if (is.null(comment@parameterization) && !is.null(entry$parameterization)) {
     if (entry$parameterization != "none") {
-      kind <- if (is_theta) {
-        "THETA"
-      } else if (is_omega) {
-        "OMEGA"
-      } else {
-        "SIGMA"
-      }
-      mapped <- map_parameterization(entry$parameterization, kind)
-      if (!is.null(mapped)) {
+      mapped <- map_parameterization(entry$parameterization)
+      if (!is.na(mapped)) {
         comment@parameterization <- mapped
         attr(comment, "sources")$parameterization <- lookup_path
       }
@@ -192,8 +185,8 @@ add_parameter_to_lookup <- function(
 
   # Validate parameterization if provided
   if (!is.null(parameterization)) {
-    mapped <- map_parameterization(parameterization, "THETA")
-    if (is.null(mapped)) {
+    mapped <- map_parameterization(parameterization)
+    if (is.na(mapped)) {
       rlang::abort(paste0(
         "Invalid parameterization: ",
         parameterization,

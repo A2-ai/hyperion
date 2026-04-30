@@ -35,13 +35,13 @@ serde = { workspace = true }
 
 [workspace.dependencies]
 # R Integration
-extendr-api = { git = "https://github.com/extendr/extendr", branch = "main", features = ["serde"] }
+extendr-api = { version = "0.9.0", features = ["serde"] }
 
 # Pharos components
-nonmem = { git = "https://github.com/a2-ai/pharos", package = "nonmem", branch = "metadata-update" }
-nmparser = { git = "https://github.com/a2-ai/pharos", package = "nonmem-parser", branch = "metadata-update" }
-config = { git = "https://github.com/a2-ai/pharos", package = "config", branch = "metadata-update" }
-scheduler = { git = "https://github.com/a2-ai/pharos", package = "scheduler", branch = "metadata-update" }
+nonmem = { git = "https://github.com/a2-ai/pharos", package = "nonmem", branch = "parsed-comment-pub" }
+nmparser = { git = "https://github.com/a2-ai/pharos", package = "nonmem-parser", branch = "parsed-comment-pub" }
+config = { git = "https://github.com/a2-ai/pharos", package = "config", branch = "parsed-comment-pub" }
+scheduler = { git = "https://github.com/a2-ai/pharos", package = "scheduler", branch = "parsed-comment-pub" }
 
 # Core utilities
 anyhow = "1.0.100"

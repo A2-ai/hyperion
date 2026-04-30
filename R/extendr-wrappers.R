@@ -72,7 +72,7 @@ read_model_from_lst <- function(path) .Call(wrap__read_model_from_lst, path)
 #' @examples \dontrun{
 #' copy_model(from = "model/nonmem/run001.mod", to = "model/nonmem/run002.mod")
 #' }
-copy_model <- function(from, to, overwrite = FALSE, ext_file = NULL, update = 'none', jitter = NULL, jitter_excluded = NULL, seed = NULL, description = NULL, based_on = NULL, no_metadata = FALSE) .Call(wrap__copy_model_wrap, from, to, overwrite, ext_file, update, jitter, jitter_excluded, seed, description, based_on, no_metadata)
+copy_model <- function(from, to, overwrite = FALSE, ext_file = NULL, update = 'none', jitter = NULL, jitter_excluded = NULL, seed = NULL, description, based_on = NULL, no_metadata = FALSE) .Call(wrap__copy_model_wrap, from, to, overwrite, ext_file, update, jitter, jitter_excluded, seed, description, based_on, no_metadata)
 
 #' Gets model run summary (internal implementation)
 #'
@@ -170,6 +170,23 @@ get_parameters <- function(path, hide_off_diagonal_params = FALSE, only_method =
 #' @return Named character vector with NONMEM names as names and user-friendly names as values
 #' @keywords internal
 get_model_parameter_names <- function(model) .Call(wrap__get_model_parameter_names, model)
+
+#' Build per-parameter comment info from a model object (internal)
+#'
+#' @param model hyperion_nonmem_model object from read_model()
+#'
+#' @return list with `thetas`, `omegas`, `sigmas` entries; each is a list of
+#'   length-2 lists `(coordinate, info)` in numeric coordinate order.
+#' @keywords internal
+get_model_comment_info <- function(model) .Call(wrap__get_model_comment_info, model)
+
+#' Canonicalize a parameterization alias to its PascalCase form.
+#'
+#' @param raw Parameterization alias (e.g. `"EXP"`, `"lognormal"`, `"PROP"`).
+#' @return Canonical name (`"LogNormal"`, `"Proportional"`, ...) or `NULL`
+#'   if `raw` is not a recognized alias.
+#' @keywords internal
+map_parameterization <- function(raw) .Call(wrap__map_parameterization, raw)
 
 #' Creates a metadata file for a NONMEM model
 #'

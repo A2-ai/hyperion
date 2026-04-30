@@ -37,53 +37,33 @@ get_comment <- function(model_comments, nonmem_name) {
   NULL
 }
 
+#' Check if an omega parameter is diagonal (variance) vs off-diagonal (covariance)
 #' @noRd
-build_comment_lookup <- function(model_comments) {
-  all_comments <- c(
-    model_comments@theta,
-    model_comments@omega,
-    model_comments@sigma
-  )
-
-  by_user_name <- list()
-  comments_by_kind <- list(
-    THETA = model_comments@theta,
-    OMEGA = model_comments@omega,
-    SIGMA = model_comments@sigma
-  )
-  for (kind in names(comments_by_kind)) {
-    for (comment in comments_by_kind[[kind]]) {
-      if (!is.null(comment@name)) {
-        if (is.null(by_user_name[[comment@name]])) {
-          by_user_name[[comment@name]] <- comment
-        } else {
-          rlang::warn(
-            paste0(
-              "Duplicate parameter name '",
-              comment@name,
-              "' across parameter kinds; using first occurrence (",
-              kind,
-              ")."
-            )
-          )
-        }
-      }
-    }
+is_diagonal_omega <- function(nonmem_name) {
+  # Parse OMEGA(i,j) format
+  match <- regmatches(
+    nonmem_name,
+    regexec("OMEGA\\((\\d+),(\\d+)\\)", nonmem_name)
+  )[[1]]
+  if (length(match) == 3) {
+    return(match[2] == match[3])
   }
-
-  list(by_nonmem_name = all_comments, by_user_name = by_user_name)
+  # If we can't parse, assume diagonal
+  TRUE
 }
 
 #' @noRd
 resolve_comment <- function(model_comments, nm, kind = NULL) {
+  lookup_nm <- sub(" \\(.*\\)$", "", nm)
+
   resolve_in_kind <- function(kind_name) {
     comments <- S7::prop(model_comments, tolower(kind_name))
-    comment <- comments[[nm]]
+    comment <- comments[[lookup_nm]]
     if (!is.null(comment)) {
       return(comment)
     }
     for (cmt in comments) {
-      if (!is.null(cmt@name) && identical(cmt@name, nm)) {
+      if (!is.null(cmt@name) && identical(cmt@name, lookup_nm)) {
         return(cmt)
       }
     }
@@ -107,7 +87,7 @@ resolve_comment <- function(model_comments, nm, kind = NULL) {
   if (length(matches) > 1) {
     rlang::abort(paste0(
       "Ambiguous parameter name '",
-      nm,
+      lookup_nm,
       "'. Provide kind."
     ))
   }

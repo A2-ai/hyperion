@@ -48,3 +48,48 @@ build_comment_tables <- function(comments_list, fields_list, value_resolver) {
   }
   tables
 }
+
+#' Make a path relative to project root (pharos.toml directory)
+#' @noRd
+relative_path <- function(path) {
+  if (is.null(path) || path == "default" || path == "user supplied") {
+    return(path)
+  }
+  tryCatch(
+    {
+      config_path <- find_pharos_config_file()
+      if (grepl("No pharos.toml", config_path)) {
+        return(path)
+      }
+      root <- fs::path_dir(config_path)
+      as.character(fs::path_rel(path, start = root))
+    },
+    error = function(e) path
+  )
+}
+
+#' Set source paths for comment fields
+#'
+#' Always initializes the sources attribute to mark object as "initialized".
+#' Fields with non-NULL values get source_path; NULL fields get "default".
+#' @noRd
+set_sources <- function(comment, fields, source_path) {
+  source_path <- relative_path(source_path)
+  sources <- list()
+  for (f in fields) {
+    val <- S7::prop(comment, f)
+    if (!is.null(val)) {
+      sources[[f]] <- source_path
+    } else {
+      sources[[f]] <- "default"
+    }
+  }
+  attr(comment, "sources") <- sources
+  comment
+}
+
+#' @noRd
+create_comment_with_sources <- function(constructor, fields, mod_path, ...) {
+  comment <- constructor(...)
+  set_sources(comment, fields, mod_path)
+}

@@ -65,7 +65,7 @@ fn extract_param_sort_key(name: &str) -> (u32, u32, u8) {
 }
 
 /// Compare two parameter names for numeric sorting.
-fn compare_param_names(a: &str, b: &str) -> Ordering {
+pub(crate) fn compare_param_names(a: &str, b: &str) -> Ordering {
     let key_a = extract_param_sort_key(a);
     let key_b = extract_param_sort_key(b);
 

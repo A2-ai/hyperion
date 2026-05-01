@@ -8,7 +8,7 @@ use nonmem::{check_dataset as nonmem_check_dataset, check_model};
 
 use crate::model::robj_to_model;
 
-use crate::utils::{from_config_relative, load_nonmem_config, path_from_robj};
+use crate::utils::{load_nonmem_config, path_from_robj};
 use hyperion_core::extendr_err;
 
 /// Checks mod file for nmtran errors
@@ -56,12 +56,7 @@ pub fn check_model_wrap(model_path: Robj) -> Result<i32> {
 /// @export
 #[extendr]
 pub fn check_dataset(model: Robj) -> Result<Robj> {
-    let source = model
-        .get_attrib("model_source")
-        .ok_or_extendr_err("Model object is missing model_source attribute")?
-        .as_str()
-        .ok_or_extendr_err("model_source attribute must be a character")?;
-    let model_path = from_config_relative(source)?;
+    let model_path = path_from_robj(&model, false)?;
     let model_dir = model_path
         .parent()
         .ok_or_extendr_err("Could not determine model directory")?;

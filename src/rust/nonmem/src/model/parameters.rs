@@ -230,7 +230,7 @@ pub fn get_parameters(
 ///
 /// @param model hyperion_nonmem_model object from read_model()
 ///
-/// @return Named character vector with NONMEM names as names and user-friendly names as values
+/// @return Named list with NONMEM names as names and user-friendly names as character values
 /// @keywords internal
 #[extendr]
 pub fn get_model_parameter_names(model: Robj) -> Result<Robj> {

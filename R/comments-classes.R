@@ -366,20 +366,36 @@ find_parameter <- function(info, parameter, kind = NULL) {
     # 2. Match by @name property
     for (key in names(comments)) {
       if (identical(comments[[key]]@name, parameter)) {
-        matches <- c(
-          matches,
-          list(list(slot = slot, key = key, obj = comments[[key]]))
-        )
+        if (
+          !any(vapply(
+            matches,
+            function(m) m$slot == slot && m$key == key,
+            logical(1)
+          ))
+        ) {
+          matches <- c(
+            matches,
+            list(list(slot = slot, key = key, obj = comments[[key]]))
+          )
+        }
       }
     }
 
     # 3. Match by @display property
     for (key in names(comments)) {
       if (identical(comments[[key]]@display, parameter)) {
-        matches <- c(
-          matches,
-          list(list(slot = slot, key = key, obj = comments[[key]]))
-        )
+        if (
+          !any(vapply(
+            matches,
+            function(m) m$slot == slot && m$key == key,
+            logical(1)
+          ))
+        ) {
+          matches <- c(
+            matches,
+            list(list(slot = slot, key = key, obj = comments[[key]]))
+          )
+        }
       }
     }
   }
@@ -449,7 +465,16 @@ update_param_info <- function(
     param_obj@description <- description
   }
   if (!is.null(parameterization)) {
-    param_obj@parameterization <- parameterization
+    mapped <- map_parameterization(parameterization)
+    if (is.na(mapped)) {
+      rlang::abort(paste0(
+        "Invalid parameterization: ",
+        parameterization,
+        ". Valid values: ",
+        paste(valid_parameterizations(), collapse = ", ")
+      ))
+    }
+    param_obj@parameterization <- mapped
   }
 
   # THETA/SIGMA: unit

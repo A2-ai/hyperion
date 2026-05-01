@@ -95,7 +95,11 @@ apply_lookup_defaults <- function(comment, lookup_path) {
     }
   }
 
-  if (is.null(comment@parameterization) && !is.null(entry$parameterization)) {
+  if (
+    is.null(comment@parameterization) &&
+      !is.null(entry$parameterization) &&
+      !is.na(entry$parameterization)
+  ) {
     if (entry$parameterization != "none") {
       mapped <- map_parameterization(entry$parameterization)
       if (!is.na(mapped)) {
@@ -181,6 +185,16 @@ add_parameter_to_lookup <- function(
 ) {
   if (missing(name) || !nzchar(name)) {
     rlang::abort("name is required")
+  }
+
+  # Treat NA the same as NULL (no value supplied)
+  if (!is.null(parameterization) && is.na(parameterization)) {
+    parameterization <- NULL
+  }
+
+  # Treat "none" as "skip this field", symmetric with unit = "none" handling
+  if (!is.null(parameterization) && identical(parameterization, "none")) {
+    parameterization <- NULL
   }
 
   # Validate parameterization if provided

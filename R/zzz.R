@@ -1,6 +1,6 @@
 .onLoad <- function(libname, pkgname) {
   S7::methods_register()
-  set_panic_message()
+  silence_panic_output()
 
   # Set default hyperion options if not already set
   if (is.null(getOption("hyperion.significant_number_display"))) {

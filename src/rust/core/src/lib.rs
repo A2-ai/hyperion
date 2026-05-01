@@ -39,7 +39,7 @@ pub fn find_config_dir() -> Result<Option<PathBuf>> {
 }
 
 #[extendr]
-pub fn set_panic_message() {
+pub fn silence_panic_output() {
     std::panic::set_hook(Box::new(|_| {}));
 }
 
@@ -59,6 +59,6 @@ pub fn find_pharos_config_file() -> Result<Robj> {
 extendr_module! {
     mod hyperion_core;
 
-    fn set_panic_message;
+    fn silence_panic_output;
     fn find_pharos_config_file;
 }

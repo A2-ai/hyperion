@@ -10,7 +10,7 @@ map_parameterization(raw)
 \item{raw}{Parameterization alias (e.g. \code{"EXP"}, \code{"lognormal"}, \code{"PROP"}).}
 }
 \value{
-Canonical name (\code{"LogNormal"}, \code{"Proportional"}, ...) or \code{NULL}
+Canonical name (\code{"LogNormal"}, \code{"Proportional"}, ...) or \code{NA_character_}
 if \code{raw} is not a recognized alias.
 }
 \description{

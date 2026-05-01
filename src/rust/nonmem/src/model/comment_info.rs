@@ -42,11 +42,6 @@ pub struct ModelCommentInfo {
     pub sigmas: Vec<(String, SigmaCommentInfo)>,
 }
 
-/// Canonicalize a Type1 raw parameterization string via pharos's `Transform::FromStr`.
-fn map_parameterization_str(raw: &str) -> Option<String> {
-    raw.parse::<Transform>().ok().map(|t| t.to_string())
-}
-
 fn build_theta_info(parsed: Option<&ParsedThetaComment>) -> ThetaCommentInfo {
     match parsed {
         Some(ParsedThetaComment::Type1(Type1Theta::WithUnit {
@@ -56,9 +51,7 @@ fn build_theta_info(parsed: Option<&ParsedThetaComment>) -> ThetaCommentInfo {
         })) => ThetaCommentInfo {
             name: Some(parameter.clone()),
             unit: Some(unit.clone()),
-            parameterization: parametrization
-                .as_deref()
-                .and_then(map_parameterization_str),
+            parameterization: parametrization.as_deref().and_then(map_parameterization),
         },
         Some(ParsedThetaComment::Type1(Type1Theta::Covariate { parameter })) => ThetaCommentInfo {
             name: Some(parameter.clone()),
@@ -71,7 +64,7 @@ fn build_theta_info(parsed: Option<&ParsedThetaComment>) -> ThetaCommentInfo {
         })) => ThetaCommentInfo {
             name: Some(typ.clone()),
             unit: None,
-            parameterization: map_parameterization_str(parameterization),
+            parameterization: map_parameterization(parameterization),
         },
         Some(ParsedThetaComment::Type2(t)) => ThetaCommentInfo {
             name: Some(t.name.clone()),
@@ -99,7 +92,7 @@ fn build_omega_info(param: &OmegaSigmaParam) -> OmegaCommentInfo {
         Some(ParsedOmegaComment::Type1(o)) => OmegaCommentInfo {
             name: Some(o.name.clone()),
             associated_theta: vec![o.theta_name.clone()],
-            parameterization: map_parameterization_str(&o.parameterization),
+            parameterization: map_parameterization(&o.parameterization),
         },
         Some(ParsedOmegaComment::Type2(o)) => OmegaCommentInfo {
             name: Some(o.name.clone()),
@@ -127,10 +120,7 @@ fn build_sigma_info(param: &OmegaSigmaParam) -> SigmaCommentInfo {
         Some(ParsedSigmaComment::Type1(s)) => SigmaCommentInfo {
             name: Some(s.name.clone()),
             unit: None,
-            parameterization: s
-                .parameterization
-                .as_deref()
-                .and_then(map_parameterization_str),
+            parameterization: s.parameterization.as_deref().and_then(map_parameterization),
         },
         Some(ParsedSigmaComment::Type2(s)) => SigmaCommentInfo {
             name: Some(s.name.clone()),
@@ -199,12 +189,12 @@ pub fn get_model_comment_info(model: Robj) -> Result<Robj> {
 /// Canonicalize a parameterization alias to its PascalCase form.
 ///
 /// @param raw Parameterization alias (e.g. `"EXP"`, `"lognormal"`, `"PROP"`).
-/// @return Canonical name (`"LogNormal"`, `"Proportional"`, ...) or `NULL`
+/// @return Canonical name (`"LogNormal"`, `"Proportional"`, ...) or `NA_character_`
 ///   if `raw` is not a recognized alias.
 /// @keywords internal
 #[extendr]
 pub fn map_parameterization(raw: &str) -> Option<String> {
-    map_parameterization_str(raw)
+    raw.parse::<Transform>().ok().map(|t| t.to_string())
 }
 
 extendr_module! {

@@ -18,7 +18,7 @@ NULL
 #' }
 init <- function(config_path) .Call(wrap__init, config_path)
 
-set_panic_message <- function() .Call(wrap__set_panic_message)
+silence_panic_output <- function() .Call(wrap__silence_panic_output)
 
 find_pharos_config_file <- function() .Call(wrap__find_pharos_config_file)
 
@@ -167,7 +167,7 @@ get_parameters <- function(path, hide_off_diagonal_params = FALSE, only_method =
 #'
 #' @param model hyperion_nonmem_model object from read_model()
 #'
-#' @return Named character vector with NONMEM names as names and user-friendly names as values
+#' @return Named list with NONMEM names as names and user-friendly names as character values
 #' @keywords internal
 get_model_parameter_names <- function(model) .Call(wrap__get_model_parameter_names, model)
 
@@ -183,7 +183,7 @@ get_model_comment_info <- function(model) .Call(wrap__get_model_comment_info, mo
 #' Canonicalize a parameterization alias to its PascalCase form.
 #'
 #' @param raw Parameterization alias (e.g. `"EXP"`, `"lognormal"`, `"PROP"`).
-#' @return Canonical name (`"LogNormal"`, `"Proportional"`, ...) or `NULL`
+#' @return Canonical name (`"LogNormal"`, `"Proportional"`, ...) or `NA_character_`
 #'   if `raw` is not a recognized alias.
 #' @keywords internal
 map_parameterization <- function(raw) .Call(wrap__map_parameterization, raw)

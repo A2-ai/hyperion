@@ -123,8 +123,8 @@ build_running_summary <- function(object, n_iterations) {
   model_path <- from_config_relative(attr(object, "model_source"))
 
   # Derive expected output file paths to check existence before calling Rust.
-  # Rust panics print error messages via the panic hook before tryCatch can
-  # suppress them, so we must avoid calling Rust when files don't exist.
+  # Rust panics abort the R session; tryCatch cannot recover, so guard with
+  # file.exists() before calling Rust on missing files.
   base_name <- tools::file_path_sans_ext(basename(model_path))
   output_dir <- file.path(dirname(model_path), base_name)
 

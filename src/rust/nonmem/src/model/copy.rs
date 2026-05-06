@@ -115,6 +115,7 @@ pub fn copy_model_wrap(
     #[extendr(default = "NULL")] seed: Option<u64>,
     description: String,
     #[extendr(default = "NULL")] based_on: Option<Vec<String>>,
+    #[extendr(default = "NULL")] tags: Option<Vec<String>>,
     #[extendr(default = "FALSE")] no_metadata: bool,
 ) -> Result<()> {
     // Parse input parameters
@@ -133,6 +134,7 @@ pub fn copy_model_wrap(
         jitter_excluded: jitter_excluded_parsed,
         description,
         based_on: based_on.unwrap_or_default(),
+        tags: tags.unwrap_or_default(),
         no_metadata,
     };
 

@@ -72,7 +72,7 @@ read_model_from_lst <- function(path) .Call(wrap__read_model_from_lst, path)
 #' @examples \dontrun{
 #' copy_model(from = "model/nonmem/run001.mod", to = "model/nonmem/run002.mod")
 #' }
-copy_model <- function(from, to, overwrite = FALSE, ext_file = NULL, update = 'none', jitter = NULL, jitter_excluded = NULL, seed = NULL, description, based_on = NULL, no_metadata = FALSE) .Call(wrap__copy_model_wrap, from, to, overwrite, ext_file, update, jitter, jitter_excluded, seed, description, based_on, no_metadata)
+copy_model <- function(from, to, overwrite = FALSE, ext_file = NULL, update = 'none', jitter = NULL, jitter_excluded = NULL, seed = NULL, description, based_on = NULL, tags = NULL, no_metadata = FALSE) .Call(wrap__copy_model_wrap, from, to, overwrite, ext_file, update, jitter, jitter_excluded, seed, description, based_on, tags, no_metadata)
 
 #' Gets model run summary (internal implementation)
 #'
@@ -124,18 +124,26 @@ check_dataset <- function(model) .Call(wrap__check_dataset, model)
 
 #' Get's model lineage
 #'
-#' @param model_dir path to directory containing all models, or a hyperion_nonmem_model object
-#' (uses the model's parent directory)
+#' @param model_or_dir a hyperion_nonmem_model object (or a path to a `.mod`/`.ctl`
+#' file), or a path to a directory. When a model is supplied the result is
+#' filtered to that model and its ancestors only (chain leading up to the
+#' model). When a directory is supplied no filter is applied.
+#' @param scope `"project"` (default) walks the entire pharos project rooted at
+#' `pharos.toml`; `"directory"` walks only the directory inferred from
+#' `model_or_dir`. Node keys are always relative to the pharos config dir so
+#' `based_on` references resolve consistently.
 #'
 #' @return hyperion_nonmem_tree S3 object
 #' @export
 #'
 #' @examples \dontrun{
-#' get_model_lineage("model/nonmem/")
 #' model <- read_model("model/nonmem/run001.mod")
-#' get_model_lineage(model)
+#' get_model_lineage(model)                          # ancestors of run001
+#' get_model_lineage(model, scope = "directory")     # ancestors, walking only model's dir
+#' get_model_lineage("model/nonmem/")                # full project tree
+#' get_model_lineage("model/nonmem/", scope = "directory")  # only models under that dir
 #' }
-get_model_lineage <- function(model_dir) .Call(wrap__get_model_lineage, model_dir)
+get_model_lineage <- function(model_or_dir, scope = "project") .Call(wrap__get_model_lineage, model_or_dir, scope)
 
 #' Gets parameter estimates from model run
 #'

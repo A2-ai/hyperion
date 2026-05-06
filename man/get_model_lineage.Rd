@@ -4,11 +4,18 @@
 \alias{get_model_lineage}
 \title{Get's model lineage}
 \usage{
-get_model_lineage(model_dir)
+get_model_lineage(model_or_dir, scope = "project")
 }
 \arguments{
-\item{model_dir}{path to directory containing all models, or a hyperion_nonmem_model object
-(uses the model's parent directory)}
+\item{model_or_dir}{a hyperion_nonmem_model object (or a path to a \code{.mod}/\code{.ctl}
+file), or a path to a directory. When a model is supplied the result is
+filtered to that model and its ancestors only (chain leading up to the
+model). When a directory is supplied no filter is applied.}
+
+\item{scope}{\code{"project"} (default) walks the entire pharos project rooted at
+\code{pharos.toml}; \code{"directory"} walks only the directory inferred from
+\code{model_or_dir}. Node keys are always relative to the pharos config dir so
+\code{based_on} references resolve consistently.}
 }
 \value{
 hyperion_nonmem_tree S3 object
@@ -18,8 +25,10 @@ Get's model lineage
 }
 \examples{
 \dontrun{
-get_model_lineage("model/nonmem/")
 model <- read_model("model/nonmem/run001.mod")
-get_model_lineage(model)
+get_model_lineage(model)                          # ancestors of run001
+get_model_lineage(model, scope = "directory")     # ancestors, walking only model's dir
+get_model_lineage("model/nonmem/")                # full project tree
+get_model_lineage("model/nonmem/", scope = "directory")  # only models under that dir
 }
 }

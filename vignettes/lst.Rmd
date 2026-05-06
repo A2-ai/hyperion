@@ -12,19 +12,18 @@ knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>"
 )
+knitr::opts_knit$set(root.dir = system.file("extdata", package = "hyperion"))
 ```
 
 ```{r setup}
 library(hyperion)
-
-test_data_dir <- system.file("extdata", package = "hyperion")
 ```
 
 # Parse lst
 ```{r}
 get_run_info(
 	read_model(	
-		file.path(test_data_dir, "models", "onecmt", "run001.mod")
+		file.path("models", "onecmt", "run001.mod")
 	)
 )
 ```
@@ -32,7 +31,7 @@ get_run_info(
 ```{r}
 get_run_info(
 	read_model(	
-		file.path(test_data_dir, "models", "onecmt", "run003b1.mod")
+		file.path("models", "onecmt", "run003b1.mod")
 	)
 )
 ```
@@ -40,7 +39,7 @@ get_run_info(
 ```{r}
 mod_sum <- summary(
 	read_model(
-		file.path(test_data_dir, "models", "onecmt", "run002.mod")
+		file.path("models", "onecmt", "run002.mod")
 	)
 )
 
@@ -49,7 +48,7 @@ mod_sum
 ```{r}
 mod_sum <- summary(
 	read_model(
-		file.path(test_data_dir, "models", "onecmt", "run003b1.mod")
+		file.path("models", "onecmt", "run003b1.mod")
 	)
 )
 

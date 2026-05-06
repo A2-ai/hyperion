@@ -100,6 +100,8 @@ ThetaComment <- S7::new_class(
 #'
 #' @param nonmem_name Character. The NONMEM parameter name (e.g., "OMEGA(1,1)").
 #' @param name Character or NULL. User-defined parameter name (e.g., "IIV-CL").
+#' @param raw_name Character or NULL. Raw user label before pharos composition;
+#'   e.g. `"IIV"` when `name` is `"IIV (CL)"`.
 #' @param display Character or NULL. Display name for tables/output.
 #' @param description Character or NULL. Description of the parameter.
 #' @param parameterization Character or NULL. Transformation type.
@@ -109,6 +111,8 @@ ThetaComment <- S7::new_class(
 #' \describe{
 #'   \item{nonmem_name}{The NONMEM parameter identifier.}
 #'   \item{name}{User-friendly name parsed from comments.}
+#'   \item{raw_name}{Raw user label before pharos composition; e.g. `"IIV"`
+#'     when `name` is `"IIV (CL)"`.}
 #'   \item{display}{Display name for tables. Falls back to `name` if NULL.}
 #'   \item{description}{Longer description of what the parameter represents.}
 #'   \item{parameterization}{Transformation type. Valid values:
@@ -124,6 +128,7 @@ OmegaComment <- S7::new_class(
   parent = ParameterComment,
   properties = list(
     name = make_tracked_property("name"),
+    raw_name = make_tracked_property("raw_name"),
     display = make_tracked_property("display"),
     description = make_tracked_property("description"),
     parameterization = make_tracked_property(

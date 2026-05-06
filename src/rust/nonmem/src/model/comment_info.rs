@@ -24,6 +24,7 @@ pub struct ThetaCommentInfo {
 #[derive(Debug, Clone, Serialize)]
 pub struct OmegaCommentInfo {
     pub name: Option<String>,
+    pub raw_name: Option<String>,
     pub associated_theta: Vec<String>,
     pub parameterization: Option<String>,
 }
@@ -89,18 +90,21 @@ fn build_omega_info(param: &OmegaSigmaParam) -> OmegaCommentInfo {
     };
 
     match inner {
-        Some(ParsedOmegaComment::Type1(o)) => OmegaCommentInfo {
-            name: Some(o.name.clone()),
+        Some(parsed @ ParsedOmegaComment::Type1(o)) => OmegaCommentInfo {
+            name: parsed.name(),
+            raw_name: Some(o.name.clone()),
             associated_theta: vec![o.theta_name.clone()],
             parameterization: map_parameterization(&o.parameterization),
         },
-        Some(ParsedOmegaComment::Type2(o)) => OmegaCommentInfo {
-            name: Some(o.name.clone()),
+        Some(parsed @ ParsedOmegaComment::Type2(o)) => OmegaCommentInfo {
+            name: parsed.name(),
+            raw_name: Some(o.name.clone()),
             associated_theta: o.raw_theta_refs.clone(),
             parameterization: o.parameterization.as_ref().map(ToString::to_string),
         },
         None => OmegaCommentInfo {
             name: None,
+            raw_name: None,
             associated_theta: Vec::new(),
             parameterization: None,
         },

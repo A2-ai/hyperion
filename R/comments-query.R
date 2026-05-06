@@ -66,6 +66,13 @@ resolve_comment <- function(model_comments, nm, kind = NULL) {
       if (!is.null(cmt@name) && identical(cmt@name, lookup_nm)) {
         return(cmt)
       }
+      if (
+        S7::S7_inherits(cmt, OmegaComment) &&
+          !is.null(cmt@raw_name) &&
+          identical(cmt@raw_name, lookup_nm)
+      ) {
+        return(cmt)
+      }
     }
     NULL
   }
@@ -235,16 +242,8 @@ get_parameter_names <- function(x, lookup_path = NULL) {
   model_comments <- x
 
   extract_row <- function(comment) {
-    name_val <- comment@name %||% NA_character_
-    if (
-      is.na(name_val) &&
-        S7::S7_inherits(comment, OmegaComment) &&
-        length(comment@associated_theta %||% character()) > 0
-    ) {
-      name_val <- paste(comment@associated_theta, collapse = ", ")
-    }
     data.frame(
-      name = name_val,
+      name = comment@name %||% NA_character_,
       display = comment@display %||% NA_character_,
       stringsAsFactors = FALSE
     )

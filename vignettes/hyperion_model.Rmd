@@ -12,27 +12,38 @@ knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>"
 )
+
+vignette_root <- tempfile("hyperion-vignette-")
+dir.create(vignette_root, recursive = TRUE)
+file.copy(
+  list.files(system.file("extdata", package = "hyperion"), full.names = TRUE),
+  vignette_root,
+  recursive = TRUE
+)
+file.copy(
+  system.file("pharos.toml", package = "hyperion"),
+  vignette_root
+)
+knitr::opts_knit$set(root.dir = vignette_root)
 ```
 
 ```{r setup}
 library(hyperion)
-
-test_data_dir <- system.file("extdata", package = "hyperion")
 ```
 
 # Hyperion Model object
 
 ```{r}
-mod <- read_model(file.path(test_data_dir, "mod", "1001.mod"))
+mod <- read_model(file.path("mod", "1001.mod"))
 mod
 
-mod <- read_model(file.path(test_data_dir, "models", "onecmt", "run002b001.mod"))
+mod <- read_model(file.path("models", "onecmt", "run002b001.mod"))
 mod
 
-mod_nm <- read_model(file.path(test_data_dir, "mod", "nmexample.mod"))
+mod_nm <- read_model(file.path("mod", "nmexample.mod"))
 mod_nm
 
-mod_e <- read_model(file.path(test_data_dir, "mod", "everything.mod"))
+mod_e <- read_model(file.path("mod", "everything.mod"))
 mod_e
 ```
 
@@ -43,19 +54,19 @@ attributes(mod) |> names()
 ```
 
 ```{r}
-read_model(file.path(test_data_dir, "models", "onecmt", "run001.mod")) |>
-  check_dataset() 
-
-read_model(file.path(test_data_dir, "models", "onecmt", "run002.mod")) |>
+read_model(file.path("models", "onecmt", "run001.mod")) |>
   check_dataset()
 
-read_model(file.path(test_data_dir, "models", "onecmt", "run003.mod")) |>
+read_model(file.path("models", "onecmt", "run002.mod")) |>
+  check_dataset()
+
+read_model(file.path("models", "onecmt", "run003.mod")) |>
   check_dataset()
 ```
 
 
 ```{r}
-read_model(file.path(test_data_dir, "models", "onecmt", "run001.mod")) |>
+read_model(file.path("models", "onecmt", "run001.mod")) |>
   check_model()
 ```
 
@@ -63,7 +74,7 @@ read_model(file.path(test_data_dir, "models", "onecmt", "run001.mod")) |>
 ## model summary can be generated from model object
 
 ```{r}
-mod <- read_model(file.path(test_data_dir, "models", "onecmt", "run003.mod"))
+mod <- read_model(file.path("models", "onecmt", "run003.mod"))
 mod |>
 	summary()
 ```
@@ -88,8 +99,8 @@ mod |> get_model_parameter_info() |> audit_parameter_info()
 # Copy model
 ```{r}
 copy_model(
-  from = file.path(test_data_dir, "models", "onecmt", "run003.mod"),
-  to = file.path(test_data_dir, "models", "onecmt", "run003b2.mod"), #copies run003 to run003b1 with jittered parameters
+  from = file.path("models", "onecmt", "run003.mod"),
+  to = file.path("models", "onecmt", "run003b2.mod"), #copies run003 to run003b1 with jittered parameters
   description = "Updating run003 to 003b1 with jittered params",
   jitter = 0.1,
   overwrite = TRUE,
@@ -99,11 +110,11 @@ copy_model(
 
 ## Copy model accepts hyperion model object
 ```{r}
-mod <- read_model(file.path(test_data_dir, "models", "onecmt", "run003.mod"))
+mod <- read_model(file.path("models", "onecmt", "run003.mod"))
 
-mod |> 
+mod |>
 	copy_model(
-		to = file.path(test_data_dir, "models", "onecmt", "run003b2.mod"),
+		to = file.path("models", "onecmt", "run003b2.mod"),
 		update = "all",
 		description = "Updating run003 with mod object",
 		overwrite = TRUE,
@@ -115,7 +126,7 @@ mod |>
 # Model Lineage
 
 ```{r}
-example_tree <- get_model_lineage(file.path(test_data_dir, "models", "onecmt"))
+example_tree <- get_model_lineage(file.path("models", "onecmt"))
 
 example_tree
 ```

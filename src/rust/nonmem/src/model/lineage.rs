@@ -8,7 +8,7 @@ use std::collections::{HashMap, HashSet};
 use nonmem::{LineageTree, ModelMetadata, OutputFileHash, RunEndFile, RunStartFile};
 
 use crate::utils::{path_from_robj, to_config_relative};
-use hyperion_core::{OptionExt, ResultExt};
+use hyperion_core::{OptionExt, ResultExt, extendr_err, find_config_dir};
 
 /// R-compatible version of RunEndFile with u128 -> f64 conversion
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -71,32 +71,99 @@ impl From<LineageTree> for RLineageTree {
 
 /// Get's model lineage
 ///
-/// @param model_dir path to directory containing all models, or a hyperion_nonmem_model object
-/// (uses the model's parent directory)
+/// @param model_or_dir a hyperion_nonmem_model object (or a path to a `.mod`/`.ctl`
+/// file), or a path to a directory. When a model is supplied the result is
+/// filtered to that model and its ancestors only (chain leading up to the
+/// model). When a directory is supplied no filter is applied.
+/// @param scope `"project"` (default) walks the entire pharos project rooted at
+/// `pharos.toml`; `"directory"` walks only the directory inferred from
+/// `model_or_dir`. Node keys are always relative to the pharos config dir so
+/// `based_on` references resolve consistently.
 ///
 /// @return hyperion_nonmem_tree S3 object
 /// @export
 ///
 /// @examples \dontrun{
-/// get_model_lineage("model/nonmem/")
 /// model <- read_model("model/nonmem/run001.mod")
-/// get_model_lineage(model)
+/// get_model_lineage(model)                          # ancestors of run001
+/// get_model_lineage(model, scope = "directory")     # ancestors, walking only model's dir
+/// get_model_lineage("model/nonmem/")                # full project tree
+/// get_model_lineage("model/nonmem/", scope = "directory")  # only models under that dir
 /// }
 #[extendr]
-pub fn get_model_lineage(model_dir: Robj) -> Result<Robj> {
-    let path = path_from_robj(&model_dir, false)?;
+pub fn get_model_lineage(
+    model_or_dir: Robj,
+    #[extendr(default = "\"project\"")] scope: &str,
+) -> Result<Robj> {
+    let path = path_from_robj(&model_or_dir, false)?;
+    let user_passed_model = path.is_file();
     // If it's a file, use parent directory; if directory, use as-is
-    let model_dir = if path.is_file() {
+    let model_dir = if user_passed_model {
         path.parent()
             .ok_or_extendr_err("Could not determine model directory")?
             .to_path_buf()
     } else {
-        path
+        path.clone()
     };
 
-    // Create lineage tree from folder
-    let lineage = LineageTree::from_folder(&model_dir)
+    // Use the pharos config dir as project_root so node keys are
+    // config-relative, matching how `based_on` is stored. Without this, a
+    // model under e.g. `struct/` walked in isolation would key as `1001.mod`
+    // while based_on says `struct/1001.mod` and parent links never resolve.
+    // Falls back to model_dir for projects without a pharos.toml.
+    let project_root = find_config_dir()?.unwrap_or_else(|| model_dir.clone());
+
+    let start = match scope {
+        "project" => project_root.clone(),
+        "directory" => model_dir.clone(),
+        other => {
+            return Err(extendr_err!(
+                "Invalid scope '{}': must be 'project' or 'directory'",
+                other
+            ));
+        }
+    };
+
+    let lineage = LineageTree::build(&start, &project_root, true)
         .map_to_extendr_err("Pharos failed to create lineage tree")?;
+
+    // When the user passes a model file, filter the tree to just that model
+    // and its ancestors (the chain leading up to it). Mirrors `pharos nonmem
+    // lineage --to <model>`.
+    let lineage = if user_passed_model {
+        let abs_path =
+            std::fs::canonicalize(&path).map_to_extendr_err("Failed to canonicalize model path")?;
+        let abs_root = std::fs::canonicalize(&project_root)
+            .map_to_extendr_err("Failed to canonicalize project root")?;
+        let model_key = abs_path
+            .strip_prefix(&abs_root)
+            .map_err(|_| {
+                extendr_err!(
+                    "Model '{}' is outside the project root '{}'",
+                    abs_path.display(),
+                    abs_root.display()
+                )
+            })?
+            .to_string_lossy()
+            .to_string();
+
+        let chain = lineage.get_tree_up_to(&model_key);
+        let chain_keys: HashSet<String> = chain.iter().map(|(k, _)| k.clone()).collect();
+        LineageTree {
+            nodes: lineage
+                .nodes
+                .into_iter()
+                .filter(|(k, _)| chain_keys.contains(k))
+                .collect(),
+            metadata: lineage
+                .metadata
+                .into_iter()
+                .filter(|(k, _)| chain_keys.contains(k))
+                .collect(),
+        }
+    } else {
+        lineage
+    };
 
     // Convert to R-compatible version (u128 -> f64) and attach source directory (relative to pharos.toml)
     let source_dir = to_config_relative(&model_dir)?;

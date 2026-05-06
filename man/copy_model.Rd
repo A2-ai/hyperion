@@ -15,6 +15,7 @@ copy_model(
   seed = NULL,
   description,
   based_on = NULL,
+  tags = NULL,
   no_metadata = FALSE
 )
 }

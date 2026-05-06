@@ -92,6 +92,7 @@ fn parse_update_robj(update: Robj) -> Result<Vec<UpdateType>> {
 /// @param seed integer for random number generator seed to ensure reproducible jittering
 /// @param description Description of model in metadata file
 /// @param based_on Character vector of model names/paths that this model is based on
+/// @param tags Character vector of tags to attach to the model in metadata
 /// @param no_metadata boolean, if true, does not create metadatafile, default FALSE
 ///
 /// @return path to new model file (invisible) todo

@@ -44,6 +44,8 @@ Examples: "THETA1" or c("THETA1")}
 
 \item{based_on}{Character vector of model names/paths that this model is based on}
 
+\item{tags}{Character vector of tags to attach to the model in metadata}
+
 \item{no_metadata}{boolean, if true, does not create metadatafile, default FALSE}
 }
 \value{

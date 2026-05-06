@@ -12,7 +12,19 @@ knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>"
 )
-knitr::opts_knit$set(root.dir = system.file("extdata", package = "hyperion"))
+
+vignette_root <- tempfile("hyperion-vignette-")
+dir.create(vignette_root, recursive = TRUE)
+file.copy(
+  list.files(system.file("extdata", package = "hyperion"), full.names = TRUE),
+  vignette_root,
+  recursive = TRUE
+)
+file.copy(
+  system.file("pharos.toml", package = "hyperion"),
+  vignette_root
+)
+knitr::opts_knit$set(root.dir = vignette_root)
 ```
 
 ```{r setup}

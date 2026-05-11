@@ -3,11 +3,10 @@ use extendr_api::prelude::*;
 use extendr_api::serializer::to_robj;
 
 use fs_err as fs;
-use std::path::Component;
 use std::path::{Path, PathBuf};
 
 // pharos config and nonmem crate
-use config::{CONFIG_FILENAME, CommentType, Config, NonmemConfig};
+use config::{CONFIG_FILENAME, CommentType, Config, NonmemConfig, to_root_relative};
 use nonmem::Model;
 
 // hyperion core
@@ -148,15 +147,26 @@ pub fn validate_model_path(input_path: impl AsRef<Path>) -> Result<PathBuf> {
     Err(extendr_err!("File not found: {}", path.display()))
 }
 
-/// Convert an absolute path to be relative to the pharos config directory.
+/// Convert a path to a project-relative identifier (forward-slash form).
+///
+/// Delegates the actual prefix-stripping to pharos's `to_root_relative` for
+/// consistency with how the rest of pharos generates project-relative keys.
+/// We can't call pharos's `to_config_relative` directly because it uses
+/// pharos's own `find_config_dir` and so wouldn't honor the
+/// `hyperion.config_dir` R option override. Canonicalizes both sides
+/// here so relative inputs (resolved against CWD) line up with the
+/// canonical config root before stripping.
+///
 /// Returns the original path if no config directory is found.
 pub fn to_config_relative(path: impl AsRef<Path>) -> Result<String> {
     let path = path.as_ref();
     let config_dir = find_config_dir().map_to_extendr_err("Failed to find config dir")?;
 
     if let Some(dir) = config_dir {
-        let rel = make_relative_path(&dir, path);
-        return Ok(rel.to_string_lossy().to_string());
+        let canonical_path = fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+        let canonical_dir = fs::canonicalize(&dir).unwrap_or(dir);
+        return to_root_relative(&canonical_path, &canonical_dir)
+            .map_to_extendr_err("Failed to make path config-relative");
     }
 
     Ok(path.to_string_lossy().to_string())
@@ -207,31 +217,6 @@ pub fn path_from_robj(input: &Robj, validate_model: bool) -> Result<PathBuf> {
     } else {
         Ok(path)
     }
-}
-
-fn make_relative_path(base: &Path, target: &Path) -> PathBuf {
-    let base_components: Vec<Component<'_>> = base.components().collect();
-    let target_components: Vec<Component<'_>> = target.components().collect();
-
-    if base_components.first() != target_components.first() {
-        return target.to_path_buf();
-    }
-
-    let mut idx = 0;
-    let max = base_components.len().min(target_components.len());
-    while idx < max && base_components[idx] == target_components[idx] {
-        idx += 1;
-    }
-
-    let mut rel = PathBuf::new();
-    for _ in idx..base_components.len() {
-        rel.push("..");
-    }
-    for comp in target_components.iter().skip(idx) {
-        rel.push(comp.as_os_str());
-    }
-
-    rel
 }
 
 /// Gives Some(Model) if model path is found

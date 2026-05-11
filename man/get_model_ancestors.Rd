@@ -4,17 +4,18 @@
 \alias{get_model_ancestors}
 \title{Get a model's ancestors}
 \usage{
-get_model_ancestors(lineage, model_name)
+get_model_ancestors(mod)
 }
 \arguments{
-\item{lineage}{A hyperion_nonmem_tree object from \code{get_model_lineage()}}
-
-\item{model_name}{Character, model name (e.g., "run001" or "run001.mod")}
+\item{mod}{A \code{hyperion_nonmem_model} object or a path to a \code{.mod}/\code{.ctl}
+file.}
 }
 \value{
-Character vector of ancestor names (without .mod suffix),
-ordered from parent to root. Returns empty vector if no ancestors.
+Character vector of ancestor project-relative paths (with
+extension, e.g., \code{"models/onecmt/run001.mod"}). Includes \code{mod} itself
+alongside its ancestors. Returns empty vector if the lineage has no
+ancestors.
 }
 \description{
-Walk up the based_on chain to find all ancestors of a model.
+Get a model's ancestors
 }

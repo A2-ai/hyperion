@@ -38,10 +38,10 @@ serde = { workspace = true }
 extendr-api = { version = "0.9.0", features = ["serde"] }
 
 # Pharos components
-nonmem = { git = "https://github.com/a2-ai/pharos", package = "nonmem", branch = "lineage-update" }
-nmparser = { git = "https://github.com/a2-ai/pharos", package = "nonmem-parser", branch = "lineage-update" }
-config = { git = "https://github.com/a2-ai/pharos", package = "config", branch = "lineage-update" }
-scheduler = { git = "https://github.com/a2-ai/pharos", package = "scheduler", branch = "lineage-update" }
+nonmem = { git = "https://github.com/a2-ai/pharos", package = "nonmem", branch = "lineage-rework" }
+nmparser = { git = "https://github.com/a2-ai/pharos", package = "nonmem-parser", branch = "lineage-rework" }
+config = { git = "https://github.com/a2-ai/pharos", package = "config", branch = "lineage-rework" }
+scheduler = { git = "https://github.com/a2-ai/pharos", package = "scheduler", branch = "lineage-rework" }
 
 # Core utilities
 anyhow = "1.0.100"

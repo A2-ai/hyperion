@@ -126,7 +126,7 @@ mod |>
 # Model Lineage
 
 ```{r}
-example_tree <- get_model_lineage(file.path("models", "onecmt"))
+example_tree <- get_model_lineage()
 
 example_tree
 ```

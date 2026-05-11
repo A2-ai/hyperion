@@ -2,17 +2,32 @@ test_that("hyperion_nonmem_tree knit_print works", {
   tree <- structure(
     list(
       nodes = list(
-        "base.mod" = list(
-          based_on = list(),
-          description = "Base population PK model"
+        list(
+          name = "base.mod",
+          model = list(
+            based_on = list(),
+            description = "Base population PK model",
+            tags = list()
+          ),
+          run = NULL
         ),
-        "run001.mod" = list(
-          based_on = list("base.mod"),
-          description = "Run 1"
+        list(
+          name = "run001.mod",
+          model = list(
+            based_on = list("base.mod"),
+            description = "Run 1",
+            tags = list()
+          ),
+          run = NULL
         ),
-        "run002.mod" = list(
-          based_on = list("run001.mod"),
-          description = "Run 2 with covariate effects"
+        list(
+          name = "run002.mod",
+          model = list(
+            based_on = list("run001.mod"),
+            description = "Run 2 with covariate effects",
+            tags = list()
+          ),
+          run = NULL
         )
       )
     ),

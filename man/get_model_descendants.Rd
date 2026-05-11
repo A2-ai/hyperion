@@ -4,16 +4,17 @@
 \alias{get_model_descendants}
 \title{Get a model's descendants}
 \usage{
-get_model_descendants(lineage, model_name)
+get_model_descendants(mod)
 }
 \arguments{
-\item{lineage}{A hyperion_nonmem_tree object from \code{get_model_lineage()}}
-
-\item{model_name}{Character, model name (e.g., "run001" or "run001.mod")}
+\item{mod}{A \code{hyperion_nonmem_model} object or a path to a \code{.mod}/\code{.ctl}
+file.}
 }
 \value{
-Character vector of descendant names (without .mod suffix)
+Character vector of descendant project-relative paths (with
+extension, e.g., \code{"models/onecmt/run002.mod"}). Does not include
+\code{mod} itself.
 }
 \description{
-Find all models whose based_on chain includes the given model.
+Get a model's descendants
 }

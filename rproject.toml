@@ -12,7 +12,7 @@ repositories = [
 
 dependencies = [
   "devtools",
-  { name = "rextendr", git = "https://github.com/extendr/rextendr", branch = "main" },
+  { name = "rextendr", git = "https://github.com/extendr/rextendr", tag = "v0.5.0" },
   { name = "covr", install_suggestions = true },
   #{ name = "starlightr", git = "https://github.com/a2-ai/starlightr", branch = "main" },
 

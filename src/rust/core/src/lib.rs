@@ -34,8 +34,25 @@ macro_rules! extendr_err {
     };
 }
 
+/// Name of the R option that overrides pharos's CWD-walk for the project
+/// root. When set to a non-empty string, `find_config_dir` returns that
+/// path verbatim — `pharos.toml` is not required to live there. Useful
+/// for tests and scripts that don't want hyperion to depend on CWD.
+pub const CONFIG_DIR_OPTION: &str = "hyperion.config_dir";
+
 pub fn find_config_dir() -> Result<Option<PathBuf>> {
+    if let Some(path) = config_dir_from_option() {
+        return Ok(Some(path));
+    }
     pharos_find_config_dir().map_to_extendr_err("Failed to find config dir")
+}
+
+/// Read the `hyperion.config_dir` R option. Returns `None` when the
+/// option is unset, NULL, or an empty string.
+fn config_dir_from_option() -> Option<PathBuf> {
+    let opt = call!("getOption", CONFIG_DIR_OPTION).ok()?;
+    let s = opt.as_str().filter(|s| !s.is_empty())?;
+    Some(PathBuf::from(s))
 }
 
 #[extendr]

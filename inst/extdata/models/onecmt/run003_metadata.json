@@ -1,6 +1,6 @@
 {
   "based_on": [
-    "run002.mod"
+    "extdata/models/onecmt/run002.mod"
   ],
   "description": "Jittering initial estimates",
   "tags": [

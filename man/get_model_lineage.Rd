@@ -2,33 +2,38 @@
 % Please edit documentation in R/extendr-wrappers.R
 \name{get_model_lineage}
 \alias{get_model_lineage}
-\title{Get's model lineage}
+\title{Show model lineage and relationships.}
 \usage{
-get_model_lineage(model_or_dir, scope = "project")
+get_model_lineage(model = NULL, from = NULL, to = NULL)
 }
 \arguments{
-\item{model_or_dir}{a hyperion_nonmem_model object (or a path to a \code{.mod}/\code{.ctl}
-file), or a path to a directory. When a model is supplied the result is
-filtered to that model and its ancestors only (chain leading up to the
-model). When a directory is supplied no filter is applied.}
+\item{model}{Optional \code{hyperion_nonmem_model} object or model file path.
+Returns the model's full lineage (ancestors and descendants). Conflicts
+with \code{from}/\code{to}.}
 
-\item{scope}{\code{"project"} (default) walks the entire pharos project rooted at
-\code{pharos.toml}; \code{"directory"} walks only the directory inferred from
-\code{model_or_dir}. Node keys are always relative to the pharos config dir so
-\code{based_on} references resolve consistently.}
+\item{from}{Filter the tree to this model and everything downstream.
+Accepts a \code{hyperion_nonmem_model} object or a model file path.}
+
+\item{to}{Filter the tree to this model and everything upstream.
+Accepts a \code{hyperion_nonmem_model} object or a model file path.}
 }
 \value{
 hyperion_nonmem_tree S3 object
 }
 \description{
-Get's model lineage
+With no arguments, returns the full project lineage tree. Supplying a
+model path returns that model's full lineage (ancestors and descendants).
+The \code{from} and \code{to} arguments filter the tree from a model downward, up
+to a model, or to the slice between two models. The project is always
+rooted at the directory containing \code{pharos.toml}.
 }
 \examples{
 \dontrun{
-model <- read_model("model/nonmem/run001.mod")
-get_model_lineage(model)                          # ancestors of run001
-get_model_lineage(model, scope = "directory")     # ancestors, walking only model's dir
-get_model_lineage("model/nonmem/")                # full project tree
-get_model_lineage("model/nonmem/", scope = "directory")  # only models under that dir
+get_model_lineage()                                            # whole project
+get_model_lineage("model/nonmem/run003.mod")                   # full lineage of run003
+get_model_lineage(from = "model/nonmem/run001.mod")            # run001 and descendants
+get_model_lineage(to = "model/nonmem/run003.mod")              # run003 and ancestors
+get_model_lineage(from = "model/nonmem/run001.mod",
+                  to   = "model/nonmem/run003.mod")            # slice between two models
 }
 }

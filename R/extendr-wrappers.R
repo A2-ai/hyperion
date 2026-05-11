@@ -123,28 +123,34 @@ check_model <- function(model_path) .Call(wrap__check_model_wrap, model_path)
 #' @export
 check_dataset <- function(model) .Call(wrap__check_dataset, model)
 
-#' Get's model lineage
+#' Show model lineage and relationships.
 #'
-#' @param model_or_dir a hyperion_nonmem_model object (or a path to a `.mod`/`.ctl`
-#' file), or a path to a directory. When a model is supplied the result is
-#' filtered to that model and its ancestors only (chain leading up to the
-#' model). When a directory is supplied no filter is applied.
-#' @param scope `"project"` (default) walks the entire pharos project rooted at
-#' `pharos.toml`; `"directory"` walks only the directory inferred from
-#' `model_or_dir`. Node keys are always relative to the pharos config dir so
-#' `based_on` references resolve consistently.
+#' With no arguments, returns the full project lineage tree. Supplying a
+#' model path returns that model's full lineage (ancestors and descendants).
+#' The `from` and `to` arguments filter the tree from a model downward, up
+#' to a model, or to the slice between two models. The project is always
+#' rooted at the directory containing `pharos.toml`.
+#'
+#' @param model Optional `hyperion_nonmem_model` object or model file path.
+#' Returns the model's full lineage (ancestors and descendants). Conflicts
+#' with `from`/`to`.
+#' @param from Filter the tree to this model and everything downstream.
+#' Accepts a `hyperion_nonmem_model` object or a model file path.
+#' @param to Filter the tree to this model and everything upstream.
+#' Accepts a `hyperion_nonmem_model` object or a model file path.
 #'
 #' @return hyperion_nonmem_tree S3 object
 #' @export
 #'
 #' @examples \dontrun{
-#' model <- read_model("model/nonmem/run001.mod")
-#' get_model_lineage(model)                          # ancestors of run001
-#' get_model_lineage(model, scope = "directory")     # ancestors, walking only model's dir
-#' get_model_lineage("model/nonmem/")                # full project tree
-#' get_model_lineage("model/nonmem/", scope = "directory")  # only models under that dir
+#' get_model_lineage()                                            # whole project
+#' get_model_lineage("model/nonmem/run003.mod")                   # full lineage of run003
+#' get_model_lineage(from = "model/nonmem/run001.mod")            # run001 and descendants
+#' get_model_lineage(to = "model/nonmem/run003.mod")              # run003 and ancestors
+#' get_model_lineage(from = "model/nonmem/run001.mod",
+#'                   to   = "model/nonmem/run003.mod")            # slice between two models
 #' }
-get_model_lineage <- function(model_or_dir, scope = "project") .Call(wrap__get_model_lineage, model_or_dir, scope)
+get_model_lineage <- function(model = NULL, from = NULL, to = NULL) .Call(wrap__get_model_lineage, model, from, to)
 
 #' Gets parameter estimates from model run
 #'

@@ -1,7 +1,11 @@
 {
   "based_on": [
-    "run002.mod"
+    "extdata/models/onecmt/run002.mod"
   ],
+  "copied_from": "",
   "description": "Jittering initial sigma estimates, using theta/omega final estimates. Adding covariate",
-  "tags": []
+  "tags": [
+    "not run",
+    "2cmt"
+  ]
 }

@@ -89,26 +89,24 @@ summary.hyperion_nonmem_model <- function(
 
   run_status <- refresh_run_status(object)
 
-  # Handle "not_run" status - return informative summary instead of error
-  if (identical(run_status, "not_run")) {
-    return(build_not_run_summary(object))
-  }
-
-  if (identical(run_status, "running")) {
-    return(build_running_summary(object, n_iterations))
-  }
-
-  if (!identical(run_status, "run")) {
+  result <- if (identical(run_status, "not_run")) {
+    build_not_run_summary(object)
+  } else if (identical(run_status, "running")) {
+    build_running_summary(object, n_iterations)
+  } else if (identical(run_status, "run")) {
+    get_model_summary(
+      object,
+      hide_off_diagonal_params = hide_off_diagonal_params
+    )
+  } else {
     rlang::abort(paste0(
       "model run_status must be 'run', 'running', or 'not_run', got: ",
       run_status
     ))
   }
 
-  get_model_summary(
-    object,
-    hide_off_diagonal_params = hide_off_diagonal_params
-  )
+  result$model_file <- from_config_relative(attr(object, "model_source"))
+  result
 }
 
 #' Build summary object for a running model

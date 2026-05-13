@@ -123,10 +123,81 @@ mod |>
 ```
 
 
-# Model Lineage
+# Managing metadata and lineage
+
+## Set and read metadata
+
+`set_metadata_file()` writes a JSON metadata sidecar next to a model. The
+`description`, `tags`, `based_on`, and `copied_from` fields are stored
+separately so model provenance can be tracked explicitly.
 
 ```{r}
-example_tree <- get_model_lineage()
+set_metadata_file(
+  file.path("models", "onecmt", "run003.mod"),
+  description = "Base one-compartment oral absorption model",
+  tags = c("base", "key"),
+  based_on = c("run002.mod")
+)
 
-example_tree
+read_model(file.path("models", "onecmt", "run003.mod")) |>
+  get_model_metadata()
+```
+
+## Populate metadata at copy time
+
+`copy_model()` accepts `based_on` and `tags` so the new model's metadata is
+populated as part of the copy.
+
+```{r}
+copy_model(
+  from = file.path("models", "onecmt", "run003.mod"),
+  to = file.path("models", "onecmt", "run003b2.mod"),
+  description = "run003 with jittered params, exploring WT on V",
+  based_on = c("run003.mod"),
+  tags = c("exploratory", "wt-on-v"),
+  jitter = 0.1,
+  overwrite = TRUE,
+  seed = 804
+)
+```
+
+## Clear metadata fields
+
+`clear_metadata_file()` selectively clears `based_on`, `copied_from`, and/or
+`tags`. Fields not selected are preserved.
+
+```{r}
+clear_metadata_file(
+  file.path("models", "onecmt", "run003b2.mod"),
+  tags = TRUE
+)
+```
+
+## Lineage queries
+
+`get_model_lineage()` returns the project lineage tree. With no arguments
+it returns every model rooted at the directory containing `pharos.toml`.
+
+```{r}
+get_model_lineage()
+```
+
+Pass a model to get its full lineage (ancestors and descendants):
+
+```{r}
+get_model_lineage(file.path("models", "onecmt", "run003.mod"))
+```
+
+Use `from` and `to` to filter the tree downward, upward, or to the slice
+between two models:
+
+```{r}
+get_model_lineage(from = file.path("models", "onecmt", "run001.mod"))
+
+get_model_lineage(to = file.path("models", "onecmt", "run003b1.mod"))
+
+get_model_lineage(
+  from = file.path("models", "onecmt", "run001.mod"),
+  to   = file.path("models", "onecmt", "run003b1.mod")
+)
 ```

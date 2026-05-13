@@ -1,13 +1,15 @@
 use std::fmt;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use extendr_api::Result;
 use extendr_api::prelude::*;
+use fs_err as fs;
 
 use hyperion_core::{OptionExt, extendr_err};
+use nonmem::Model;
 use nonmem::output_files::ext::ExtReader;
 
-use crate::utils::{find_output_file, path_from_robj};
+use crate::utils::{find_output_file, path_from_robj, resolve_ext_path};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RunStatus {
@@ -46,7 +48,7 @@ pub fn determine_run_status(path: impl AsRef<Path>) -> Result<RunStatus> {
         return Ok(RunStatus::NotRun);
     }
 
-    let ext_path = run_dir.join(format!("{}.ext", stem));
+    let ext_path = resolved_ext_for_run(path, &run_dir, &stem);
     let lst_path = run_dir.join(format!("{}.lst", stem));
 
     let ext_exists = ext_path.exists();
@@ -66,6 +68,37 @@ pub fn determine_run_status(path: impl AsRef<Path>) -> Result<RunStatus> {
     }
 
     Ok(RunStatus::Running)
+}
+
+/// Resolve the .ext path for a run, honoring `$EST FILE=` when the source
+/// model can be parsed. Falls back to `{stem}.ext` in `run_dir` otherwise.
+fn resolved_ext_for_run(input_path: &Path, run_dir: &Path, stem: &str) -> PathBuf {
+    let default = run_dir.join(format!("{stem}.ext"));
+
+    // Locate the source .mod/.ctl. For .mod/.ctl input use it directly; for
+    // .lst input (which lives inside run_dir) the source is one level up.
+    let source = match input_path.extension().and_then(|e| e.to_str()) {
+        Some("mod") | Some("ctl") => input_path.to_path_buf(),
+        _ => match run_dir.parent() {
+            Some(p) => {
+                let mod_candidate = p.join(format!("{stem}.mod"));
+                if mod_candidate.exists() {
+                    mod_candidate
+                } else {
+                    p.join(format!("{stem}.ctl"))
+                }
+            }
+            None => return default,
+        },
+    };
+
+    let Ok(content) = fs::read_to_string(&source) else {
+        return default;
+    };
+    let Ok(model) = Model::parse(&content) else {
+        return default;
+    };
+    resolve_ext_path(&model, run_dir, stem)
 }
 
 /// Determine run status for a model path, run directory, or model object.

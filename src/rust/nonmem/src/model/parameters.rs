@@ -16,9 +16,9 @@ use crate::{
     model::robj_to_model,
     output_files::ext::create_ext_reader,
     output_files::{OMEGA, ParameterRow, ParameterRowBuilder, SIGMA, THETA, build_parameters_df},
-    utils::{find_output_file, get_comment_type, path_from_robj},
+    utils::{find_output_file, get_comment_type, path_from_robj, resolve_ext_path},
 };
-use hyperion_core::{ResultExt, extendr_err};
+use hyperion_core::{OptionExt, ResultExt, extendr_err};
 
 /// Extract numeric indices from a parameter name for sorting.
 ///
@@ -133,7 +133,6 @@ pub fn get_parameters(
         Err(_) => Vec::new(),
     };
 
-    let ext_path = find_output_file(&search_path, "ext")?;
     let model_path =
         find_output_file(&search_path, "mod").or_else(|_| find_output_file(&search_path, "ctl"))?;
     let content = fs::read_to_string(&model_path).map_to_extendr_err("")?;
@@ -149,6 +148,27 @@ pub fn get_parameters(
             return Err(extendr_err!("Failed to read model file:\n{msg}"));
         }
     };
+
+    let stem = model_path
+        .file_stem()
+        .ok_or_extendr_err("Could not determine model file stem")?
+        .to_string_lossy()
+        .to_string();
+    let run_dir = if search_path.is_dir() {
+        search_path.clone()
+    } else {
+        search_path
+            .parent()
+            .ok_or_extendr_err("Could not determine parent directory")?
+            .join(&stem)
+    };
+    let ext_path = resolve_ext_path(&model, &run_dir, &stem);
+    if !ext_path.exists() {
+        return Err(extendr_err!(
+            "Output file not found: {}",
+            ext_path.display()
+        ));
+    }
 
     let comment_type = get_comment_type();
     let parameter_names = model

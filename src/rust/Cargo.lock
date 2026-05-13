@@ -141,7 +141,7 @@ dependencies = [
 [[package]]
 name = "config"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=lineage-rework#1ea2bc36eec55f6f5da24c837bbd906fc79061ef"
+source = "git+https://github.com/a2-ai/pharos?branch=copy-ext#4f942e66afc5f6d39fa5af416bf556f40c3945c3"
 dependencies = [
  "anyhow",
  "fs-err",
@@ -741,7 +741,7 @@ checksum = "f8ca58f447f06ed17d5fc4043ce1b10dd205e060fb3ce5b979b8ed8e59ff3f79"
 [[package]]
 name = "nonmem"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=lineage-rework#1ea2bc36eec55f6f5da24c837bbd906fc79061ef"
+source = "git+https://github.com/a2-ai/pharos?branch=copy-ext#4f942e66afc5f6d39fa5af416bf556f40c3945c3"
 dependencies = [
  "anyhow",
  "blake3",
@@ -766,7 +766,7 @@ dependencies = [
 [[package]]
 name = "nonmem-parser"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=lineage-rework#1ea2bc36eec55f6f5da24c837bbd906fc79061ef"
+source = "git+https://github.com/a2-ai/pharos?branch=copy-ext#4f942e66afc5f6d39fa5af416bf556f40c3945c3"
 dependencies = [
  "anyhow",
  "distrs",
@@ -1125,7 +1125,7 @@ dependencies = [
 [[package]]
 name = "scheduler"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=lineage-rework#1ea2bc36eec55f6f5da24c837bbd906fc79061ef"
+source = "git+https://github.com/a2-ai/pharos?branch=copy-ext#4f942e66afc5f6d39fa5af416bf556f40c3945c3"
 dependencies = [
  "anyhow",
  "config",
@@ -1377,7 +1377,7 @@ checksum = "ebc1c04c71510c7f702b52b7c350734c9ff1295c464a03335b00bb84fc54f853"
 [[package]]
 name = "utils"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=lineage-rework#1ea2bc36eec55f6f5da24c837bbd906fc79061ef"
+source = "git+https://github.com/a2-ai/pharos?branch=copy-ext#4f942e66afc5f6d39fa5af416bf556f40c3945c3"
 dependencies = [
  "anyhow",
  "fs-err",

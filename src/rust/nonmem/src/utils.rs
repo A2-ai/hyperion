@@ -97,6 +97,19 @@ pub fn find_output_file(input_path: impl AsRef<Path>, extension: &str) -> Result
     }
 }
 
+/// Resolve the final `.ext` file path for a model, honoring `$EST FILE=`.
+///
+/// Returns the `.ext` path that the *last* `$EST` writes to, after applying
+/// NONMEM's inheritance rule (an `$EST` without `FILE=` continues writing to
+/// the previous `$EST`'s file). Falls back to `{stem}.ext` in `run_dir` when
+/// the model has no `$EST FILE=` overrides.
+pub fn resolve_ext_path(model: &Model, run_dir: &Path, stem: &str) -> PathBuf {
+    let default = run_dir.join(format!("{stem}.ext"));
+    nonmem::output_files::resolve_estimation_files(model, run_dir, &default)
+        .pop()
+        .unwrap_or(default)
+}
+
 /// Validate and resolve a model input path (.mod or .ctl).
 /// Returns error if path is not a .mod/.ctl file or doesn't exist.
 pub fn validate_model_path(input_path: impl AsRef<Path>) -> Result<PathBuf> {

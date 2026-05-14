@@ -9,15 +9,15 @@
       i Models: 9
       
     Output
-      extdata/models/onecmt/run001 base | Base model
+      extdata/models/onecmt/run001 Base model
       +-extdata/models/onecmt/run002 Adding COV step, unfixing eps(2)
-      | +-extdata/models/onecmt/run002a Some description about what makes run002a diffe...
-      | +-extdata/models/onecmt/run002b001 not run, 2cmt | Jittering initial sigma estimates, using theta/...
-      | \-extdata/models/onecmt/run003 key | Jittering initial estimates
-      |   +-extdata/models/onecmt/run003b1 Updating run003 to 003b1 with jittered params. ...
+      | +-extdata/models/onecmt/run002a Some description about what makes run002a ...
+      | +-extdata/models/onecmt/run002b001 Jittering initial sigma estimates, usin...
+      | \-extdata/models/onecmt/run003 Jittering initial estimates
+      |   +-extdata/models/onecmt/run003b1 Updating run003 to 003b1 with jittered ...
       |   \-extdata/models/onecmt/run003b2 Updating run003 with mod object
-      +-extdata/models/onecmt/run004 Updating run001 to run004 with jittered params ...
-      \-extdata/models/onecmt/run005 Updating run001 to run004 with jittered params ...
+      +-extdata/models/onecmt/run004 Updating run001 to run004 with jittered param...
+      \-extdata/models/onecmt/run005 Updating run001 to run004 with jittered param...
 
 # get_model_lineage(model) returns the model's full lineage
 
@@ -30,10 +30,10 @@
       i Models: 5
       
     Output
-      extdata/models/onecmt/run001 base | Base model
+      extdata/models/onecmt/run001 Base model
       \-extdata/models/onecmt/run002 Adding COV step, unfixing eps(2)
-        \-extdata/models/onecmt/run003 key | Jittering initial estimates
-          +-extdata/models/onecmt/run003b1 Updating run003 to 003b1 with jittered params. ...
+        \-extdata/models/onecmt/run003 Jittering initial estimates
+          +-extdata/models/onecmt/run003b1 Updating run003 to 003b1 with jittered ...
           \-extdata/models/onecmt/run003b2 Updating run003 with mod object
 
 # get_model_lineage(from, to) slices between two models
@@ -47,10 +47,10 @@
       i Models: 4
       
     Output
-      extdata/models/onecmt/run001 base | Base model
+      extdata/models/onecmt/run001 Base model
       \-extdata/models/onecmt/run002 Adding COV step, unfixing eps(2)
-        \-extdata/models/onecmt/run003 key | Jittering initial estimates
-          \-extdata/models/onecmt/run003b1 Updating run003 to 003b1 with jittered params. ...
+        \-extdata/models/onecmt/run003 Jittering initial estimates
+          \-extdata/models/onecmt/run003b1 Updating run003 to 003b1 with jittered ...
 
 # lineage helpers return project-relative paths
 

@@ -3,7 +3,7 @@
 #' @param x A hyperion_model_metadata object
 #' @param ... Additional arguments (ignored)
 #' @return Invisible copy of x
-#' @rawNamespace S3method(base::print, hyperion_model_metadata)
+#' @exportS3Method base::print hyperion_model_metadata
 print.hyperion_model_metadata <- function(x, ...) {
   description <- x$description %||% ""
   tags <- x$tags %||% character(0)

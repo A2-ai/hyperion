@@ -4,7 +4,7 @@
 #' @param digits Number of significant digits (uses global option if NULL)
 #' @param ... Additional arguments (ignored)
 #' @return Invisible copy of x
-#' @rawNamespace S3method(base::print, hyperion_nonmem_model)
+#' @exportS3Method base::print hyperion_nonmem_model
 print.hyperion_nonmem_model <- function(x, digits = NULL, ...) {
   parts <- build_model_display_parts(x, digits)
 
@@ -78,7 +78,7 @@ print.hyperion_nonmem_model <- function(x, digits = NULL, ...) {
 #'   Default is 10.
 #' @param ... Additional arguments (currently unused)
 #' @return A hyperion_nonmem_summary object
-#' @rawNamespace S3method(base::summary, hyperion_nonmem_model)
+#' @exportS3Method base::summary hyperion_nonmem_model
 summary.hyperion_nonmem_model <- function(
   object,
   hide_off_diagonal_params = FALSE,
@@ -252,7 +252,7 @@ validate_n_iterations <- function(n_iterations) {
 #' @param object A hyperion_nonmem_model object
 #' @param ... Additional arguments passed to str
 #' @return Invisible NULL (called for side effects)
-#' @rawNamespace S3method(utils::str, hyperion_nonmem_model)
+#' @exportS3Method utils::str hyperion_nonmem_model
 str.hyperion_nonmem_model <- function(object, ...) {
   class(object) <- "list"
   object$source <- NULL
@@ -266,7 +266,7 @@ str.hyperion_nonmem_model <- function(object, ...) {
 #' @param x A hyperion_nonmem_model object
 #' @param name The element name to access
 #' @return The element value, or NULL for restricted fields
-#' @rawNamespace S3method(base::`$`, hyperion_nonmem_model)
+#' @exportS3Method base::`$` hyperion_nonmem_model
 `$.hyperion_nonmem_model` <- function(x, name) {
   if (name %in% c("source")) {
     return(NULL)
@@ -274,7 +274,7 @@ str.hyperion_nonmem_model <- function(object, ...) {
   .subset2(x, name)
 }
 
-#' @rawNamespace S3method(base::`[[`, hyperion_nonmem_model)
+#' @exportS3Method base::`[[` hyperion_nonmem_model
 `[[.hyperion_nonmem_model` <- function(x, i, ...) {
   if (is.character(i) && i %in% c("source")) {
     return(NULL)
@@ -282,7 +282,7 @@ str.hyperion_nonmem_model <- function(object, ...) {
   NextMethod("[[")
 }
 
-#' @rawNamespace S3method(base::names, hyperion_nonmem_model)
+#' @exportS3Method base::names hyperion_nonmem_model
 names.hyperion_nonmem_model <- function(x) {
   n <- NextMethod("names")
   setdiff(n, c("source"))

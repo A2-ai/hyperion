@@ -4,10 +4,13 @@
 \alias{print.hyperion_nonmem_tree}
 \title{Print Method for Hyperion Tree Objects}
 \usage{
-\method{print}{hyperion_nonmem_tree}(x, ...)
+\method{print}{hyperion_nonmem_tree}(x, verbose = isTRUE(attr(x, "verbose")), ...)
 }
 \arguments{
 \item{x}{A hyperion_nonmem_tree object}
+
+\item{verbose}{Logical; if \code{TRUE}, render a flat table with model,
+description, and tags columns instead of the tree view.}
 
 \item{...}{Additional arguments (currently unused)}
 }
@@ -16,5 +19,7 @@ Invisibly returns the input object
 }
 \description{
 Displays a hyperion_nonmem_tree in a readable tree format using cli::tree().
-Shows the hierarchical relationships between models with Unicode tree characters.
+Shows the hierarchical relationships between models with Unicode tree
+characters. The default compact view shows only the model description; pass
+\code{verbose = TRUE} for a flat table that also includes tags.
 }

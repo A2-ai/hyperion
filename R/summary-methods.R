@@ -334,7 +334,7 @@ print_not_run_summary <- function(x) {
 #' @param digits Number of significant digits (uses global option if NULL)
 #' @param ... Additional arguments (ignored)
 #' @return Invisible copy of x
-#' @rawNamespace S3method(base::print, hyperion_nonmem_summary_running)
+#' @exportS3Method base::print hyperion_nonmem_summary_running
 print.hyperion_nonmem_summary_running <- function(x, digits = NULL, ...) {
   print_running_summary(x, digits)
   invisible(x)
@@ -345,7 +345,7 @@ print.hyperion_nonmem_summary_running <- function(x, digits = NULL, ...) {
 #' @param x A hyperion_nonmem_summary_not_run object
 #' @param ... Additional arguments (ignored)
 #' @return Invisible copy of x
-#' @rawNamespace S3method(base::print, hyperion_nonmem_summary_not_run)
+#' @exportS3Method base::print hyperion_nonmem_summary_not_run
 print.hyperion_nonmem_summary_not_run <- function(x, ...) {
   print_not_run_summary(x)
   invisible(x)
@@ -357,7 +357,7 @@ print.hyperion_nonmem_summary_not_run <- function(x, ...) {
 #' @param digits Number of significant digits (uses global option if NULL)
 #' @param ... Additional arguments (ignored)
 #' @return Invisible copy of x
-#' @rawNamespace S3method(base::print, hyperion_nonmem_summary)
+#' @exportS3Method base::print hyperion_nonmem_summary
 print.hyperion_nonmem_summary <- function(x, digits = NULL, ...) {
   parts <- build_summary_display_parts(x, digits)
 

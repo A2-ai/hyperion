@@ -37,14 +37,22 @@ build_tree_display_parts <- function(x) {
 #' Print Method for Hyperion Tree Objects
 #'
 #' Displays a hyperion_nonmem_tree in a readable tree format using cli::tree().
-#' Shows the hierarchical relationships between models with Unicode tree characters.
+#' Shows the hierarchical relationships between models with Unicode tree
+#' characters. The default compact view shows only the model description; pass
+#' `verbose = TRUE` for a flat table that also includes tags.
 #'
 #' @param x A hyperion_nonmem_tree object
+#' @param verbose Logical; if `TRUE`, render a flat table with model,
+#'   description, and tags columns instead of the tree view.
 #' @param ... Additional arguments (currently unused)
 #'
 #' @return Invisibly returns the input object
-#' @rawNamespace S3method(base::print, hyperion_nonmem_tree)
-print.hyperion_nonmem_tree <- function(x, ...) {
+#' @exportS3Method base::print hyperion_nonmem_tree
+print.hyperion_nonmem_tree <- function(
+  x,
+  verbose = isTRUE(attr(x, "verbose")),
+  ...
+) {
   cli::cli_text("")
   parts <- build_tree_display_parts(x)
 
@@ -58,6 +66,25 @@ print.hyperion_nonmem_tree <- function(x, ...) {
   cli::cli_alert_info("Models: {parts$total_models}")
   cli::cli_text("")
 
+  if (verbose) {
+    print_tree_table(parts)
+  } else {
+    print_tree_compact(parts)
+  }
+
+  invisible(x)
+}
+
+# Look up a node's model record by stripped name.
+tree_node_model <- function(parts, node_name) {
+  mod_key <- paste0(node_name, ".mod")
+  ctl_key <- paste0(node_name, ".ctl")
+  node_key <- if (mod_key %in% names(parts$nodes)) mod_key else ctl_key
+  parts$nodes[[node_key]]$model
+}
+
+print_tree_compact <- function(parts) {
+  width <- cli::console_width()
   final_output <- character()
 
   for (root_idx in seq_along(parts$root_nodes)) {
@@ -67,9 +94,6 @@ print.hyperion_nonmem_tree <- function(x, ...) {
     for (i in seq_along(tree_output)) {
       line <- tree_output[i]
       node_name <- gsub("^[^a-zA-Z0-9._]*", "", line)
-      mod_key <- paste0(node_name, ".mod")
-      ctl_key <- paste0(node_name, ".ctl")
-      node_key <- if (mod_key %in% names(parts$nodes)) mod_key else ctl_key
 
       is_root <- (node_name %in% parts$root_nodes)
       children <- parts$tree_data$children[
@@ -92,25 +116,19 @@ print.hyperion_nonmem_tree <- function(x, ...) {
         cli::col_yellow(display_name)
       }
 
-      node_model <- parts$nodes[[node_key]]$model
-      has_tags <- !is.null(node_model) && length(node_model$tags) > 0
+      node_model <- tree_node_model(parts, node_name)
       has_desc <- !is.null(node_model) &&
         !is.null(node_model$description) &&
         nzchar(node_model$description)
       suffix <- ""
-      if (has_tags) {
-        suffix <- paste0(
-          " ",
-          cli::col_cyan(paste(node_model$tags, collapse = ", "))
-        )
-      }
       if (has_desc) {
+        used <- cli::ansi_nchar(tree_prefix) + nchar(node_name) + 1
+        budget <- max(30, width - used - 1)
         desc_text <- node_model$description
-        if (nchar(desc_text) > 50) {
-          desc_text <- paste0(substr(desc_text, 1, 47), "...")
+        if (nchar(desc_text) > budget) {
+          desc_text <- paste0(substr(desc_text, 1, budget - 3), "...")
         }
-        sep <- if (has_tags) cli::style_dim(" | ") else " "
-        suffix <- paste0(suffix, sep, cli::style_dim(desc_text))
+        suffix <- paste0(" ", cli::style_dim(desc_text))
       }
       final_output <- c(final_output, paste0(tree_prefix, colored_node, suffix))
     }
@@ -121,7 +139,138 @@ print.hyperion_nonmem_tree <- function(x, ...) {
   }
 
   cat(final_output, sep = "\n")
-  invisible(x)
+}
+
+format_hash <- function(h) {
+  if (is.null(h) || !is.character(h) || !nzchar(h)) {
+    return("")
+  }
+  if (nchar(h) > 8) paste0(substr(h, 1, 8), "...") else h
+}
+
+# Full node record (not just $model) for hash lookups.
+tree_node_record <- function(parts, node_name) {
+  mod_key <- paste0(node_name, ".mod")
+  ctl_key <- paste0(node_name, ".ctl")
+  node_key <- if (mod_key %in% names(parts$nodes)) mod_key else ctl_key
+  parts$nodes[[node_key]]
+}
+
+# Hard upper bounds for content-sized columns; columns shrink to fit content
+# when the longest value is shorter.
+MAX_DESC_WIDTH <- 60
+MAX_TAGS_WIDTH <- 80
+
+print_tree_table <- function(parts) {
+  # Collect rows in DFS (tree) order so the table reads top-to-bottom like the
+  # tree view. Parent column preserves lineage info that the flat layout loses.
+  rows <- list()
+  for (root_node in parts$root_nodes) {
+    tree_output <- cli::tree(parts$tree_data, root = root_node)
+    for (line in tree_output) {
+      node_name <- gsub("^[^a-zA-Z0-9._]*", "", line)
+      node <- tree_node_record(parts, node_name)
+      node_model <- node$model
+      node_run <- node$run
+
+      parent <- if (
+        !is.null(node_model$based_on) &&
+          length(node_model$based_on) > 0
+      ) {
+        gsub("\\.(mod|ctl)$", "", node_model$based_on[[1]])
+      } else {
+        ""
+      }
+      desc <- if (!is.null(node_model$description)) {
+        node_model$description
+      } else {
+        ""
+      }
+      tags <- if (length(node_model$tags) > 0) {
+        paste(node_model$tags, collapse = ", ")
+      } else {
+        ""
+      }
+      model_hash <- format_hash(node_run$start$model_hashes$blake3)
+      dataset_hash <- format_hash(node_run$start$dataset_hashes$blake3)
+
+      rows[[length(rows) + 1]] <- list(
+        model = node_name,
+        parent = parent,
+        description = desc,
+        tags = tags,
+        model_hash = model_hash,
+        dataset_hash = dataset_hash
+      )
+    }
+  }
+
+  col_w <- function(col, label) {
+    max(c(nchar(label), vapply(rows, function(r) nchar(r[[col]]), integer(1))))
+  }
+  model_w <- col_w("model", "Model")
+  parent_w <- col_w("parent", "Parent")
+  desc_w <- min(col_w("description", "Description"), MAX_DESC_WIDTH)
+  tags_w <- min(col_w("tags", "Tags"), MAX_TAGS_WIDTH)
+  model_hash_w <- col_w("model_hash", "Model Hash")
+  dataset_hash_w <- col_w("dataset_hash", "Dataset Hash")
+
+  truncate <- function(s, w) {
+    if (nchar(s) > w) paste0(substr(s, 1, w - 3), "...") else s
+  }
+  fmt_row <- function(model, parent, desc, tags, mh, dh) {
+    sprintf(
+      "%-*s  %-*s  %-*s  %-*s  %-*s  %-*s",
+      model_w,
+      model,
+      parent_w,
+      parent,
+      desc_w,
+      truncate(desc, desc_w),
+      tags_w,
+      truncate(tags, tags_w),
+      model_hash_w,
+      mh,
+      dataset_hash_w,
+      dh
+    )
+  }
+
+  # 2 spaces between 6 cols = 10 separator chars.
+  total_w <- model_w +
+    parent_w +
+    desc_w +
+    tags_w +
+    model_hash_w +
+    dataset_hash_w +
+    10
+  cat(
+    cli::style_bold(fmt_row(
+      "Model",
+      "Parent",
+      "Description",
+      "Tags",
+      "Model Hash",
+      "Dataset Hash"
+    )),
+    "\n",
+    sep = ""
+  )
+  cat(strrep("\u2500", total_w), "\n", sep = "")
+  for (r in rows) {
+    cat(
+      fmt_row(
+        r$model,
+        r$parent,
+        r$description,
+        r$tags,
+        r$model_hash,
+        r$dataset_hash
+      ),
+      "\n",
+      sep = ""
+    )
+  }
 }
 
 #' Build Tree Data for cli::tree()
@@ -175,7 +324,9 @@ build_cli_tree_data <- function(nodes_by_name) {
 }
 
 #' Knit print method for hyperion_nonmem_tree objects (for Quarto/R Markdown)
-#' @param x A hyperion_nonmem_tree object
+#' @param x A hyperion_nonmem_tree object. If the object carries a `"verbose"`
+#'   attribute (set by `get_model_lineage(verbose = TRUE)`), the flat table
+#'   layout is rendered instead of the tree view.
 #' @param ... Additional arguments (ignored)
 #' @return HTML/markdown output for rendered documents
 #' @exportS3Method knitr::knit_print
@@ -206,23 +357,86 @@ knit_print.hyperion_nonmem_tree <- function(x, ...) {
     ""
   )
 
-  for (root_idx in seq_along(parts$root_nodes)) {
-    root_node <- parts$root_nodes[root_idx]
-    tree_lines <- knit_print_tree_node(
-      root_node,
-      parts$tree_data,
-      parts$nodes,
-      parts$focal_display,
-      level = 0
-    )
-    output <- c(output, tree_lines)
+  if (isTRUE(attr(x, "verbose"))) {
+    output <- c(output, knit_print_tree_table(parts))
+  } else {
+    for (root_idx in seq_along(parts$root_nodes)) {
+      root_node <- parts$root_nodes[root_idx]
+      tree_lines <- knit_print_tree_node(
+        root_node,
+        parts$tree_data,
+        parts$nodes,
+        parts$focal_display,
+        level = 0
+      )
+      output <- c(output, tree_lines)
 
-    if (root_idx < length(parts$root_nodes)) {
-      output <- c(output, "")
+      if (root_idx < length(parts$root_nodes)) {
+        output <- c(output, "")
+      }
     }
   }
 
   knitr::asis_output(paste(output, collapse = "\n"))
+}
+
+# Markdown table renderer for knit_print verbose mode. Mirrors the columns in
+# print_tree_table so the two views are consistent.
+knit_print_tree_table <- function(parts) {
+  rows <- list()
+  for (root_node in parts$root_nodes) {
+    tree_output <- cli::tree(parts$tree_data, root = root_node)
+    for (line in tree_output) {
+      node_name <- gsub("^[^a-zA-Z0-9._]*", "", line)
+      node <- tree_node_record(parts, node_name)
+      node_model <- node$model
+      node_run <- node$run
+
+      parent <- if (
+        !is.null(node_model$based_on) &&
+          length(node_model$based_on) > 0
+      ) {
+        gsub("\\.(mod|ctl)$", "", node_model$based_on[[1]])
+      } else {
+        ""
+      }
+      desc <- if (!is.null(node_model$description)) {
+        node_model$description
+      } else {
+        ""
+      }
+      tags <- if (length(node_model$tags) > 0) {
+        paste(node_model$tags, collapse = ", ")
+      } else {
+        ""
+      }
+      model_hash <- format_hash(node_run$start$model_hashes$blake3)
+      dataset_hash <- format_hash(node_run$start$dataset_hashes$blake3)
+
+      rows[[length(rows) + 1]] <- c(
+        node_name,
+        parent,
+        desc,
+        tags,
+        model_hash,
+        dataset_hash
+      )
+    }
+  }
+
+  header <- c(
+    "| Model | Parent | Description | Tags | Model Hash | Dataset Hash |",
+    "|---|---|---|---|---|---|"
+  )
+  body <- vapply(
+    rows,
+    function(r) {
+      paste0("| ", paste(r, collapse = " | "), " |")
+    },
+    character(1)
+  )
+
+  c(header, body)
 }
 
 #' Helper function to recursively build tree structure in markdown
@@ -380,3 +594,24 @@ are_models_in_lineage <- function(m1, m2) {
   length(get_model_lineage(from = m1, to = m2)$nodes) > 0 ||
     length(get_model_lineage(from = m2, to = m1)$nodes) > 0
 }
+
+# Override the extendr-generated `get_model_lineage` to accept `verbose` and
+# stash it on the returned tree as an attribute. Both `print()` and
+# `knit_print()` read this attribute, so `get_model_lineage(verbose = TRUE)`
+# at the REPL or in a knitr chunk renders the flat-table view without the
+# caller having to remember the print-time flag.
+#'
+#' @rdname get_model_lineage
+#' @param verbose Logical; if `TRUE`, the returned tree carries a
+#'   `"verbose"` attribute that causes `print()` and `knit_print()` to render
+#'   a flat 6-column table (Model, Parent, Description, Tags, Model Hash,
+#'   Dataset Hash) instead of the tree view.
+#' @export
+get_model_lineage <- (function() {
+  raw <- get_model_lineage
+  function(model = NULL, from = NULL, to = NULL, verbose = FALSE) {
+    tree <- raw(model = model, from = from, to = to)
+    attr(tree, "verbose") <- isTRUE(verbose)
+    tree
+  }
+})()

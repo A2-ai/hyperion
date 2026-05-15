@@ -14,14 +14,48 @@ use crate::model::parameters::compare_param_names;
 use crate::model::robj_to_model;
 use hyperion_core::ResultExt;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Default, Serialize)]
 pub struct ThetaCommentInfo {
     pub name: Option<String>,
     pub unit: Option<String>,
     pub parameterization: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+impl From<&ParsedThetaComment> for ThetaCommentInfo {
+    fn from(parsed: &ParsedThetaComment) -> Self {
+        match parsed {
+            ParsedThetaComment::Type1(Type1Theta::WithUnit {
+                parameter,
+                unit,
+                parametrization,
+            }) => ThetaCommentInfo {
+                name: Some(parameter.clone()),
+                unit: Some(unit.clone()),
+                parameterization: parametrization.as_deref().and_then(map_parameterization),
+            },
+            ParsedThetaComment::Type1(Type1Theta::Covariate { parameter }) => ThetaCommentInfo {
+                name: Some(parameter.clone()),
+                unit: None,
+                parameterization: None,
+            },
+            ParsedThetaComment::Type1(Type1Theta::Type {
+                typ,
+                parameterization,
+            }) => ThetaCommentInfo {
+                name: Some(typ.clone()),
+                unit: None,
+                parameterization: map_parameterization(parameterization),
+            },
+            ParsedThetaComment::Type2(t) => ThetaCommentInfo {
+                name: Some(t.name.clone()),
+                unit: t.unit.clone(),
+                parameterization: t.parameterization.as_ref().map(ToString::to_string),
+            },
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize)]
 pub struct OmegaCommentInfo {
     pub name: Option<String>,
     pub raw_name: Option<String>,
@@ -29,11 +63,47 @@ pub struct OmegaCommentInfo {
     pub parameterization: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+impl From<&ParsedOmegaComment> for OmegaCommentInfo {
+    fn from(parsed: &ParsedOmegaComment) -> Self {
+        match parsed {
+            ParsedOmegaComment::Type1(o) => OmegaCommentInfo {
+                name: parsed.name(),
+                raw_name: Some(o.name.clone()),
+                associated_theta: vec![o.theta_name.clone()],
+                parameterization: map_parameterization(&o.parameterization),
+            },
+            ParsedOmegaComment::Type2(o) => OmegaCommentInfo {
+                name: parsed.name(),
+                raw_name: Some(o.name.clone()),
+                associated_theta: o.raw_theta_refs.clone(),
+                parameterization: o.parameterization.as_ref().map(ToString::to_string),
+            },
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize)]
 pub struct SigmaCommentInfo {
     pub name: Option<String>,
     pub unit: Option<String>,
     pub parameterization: Option<String>,
+}
+
+impl From<&ParsedSigmaComment> for SigmaCommentInfo {
+    fn from(parsed: &ParsedSigmaComment) -> Self {
+        match parsed {
+            ParsedSigmaComment::Type1(s) => SigmaCommentInfo {
+                name: Some(s.name.clone()),
+                unit: None,
+                parameterization: s.parameterization.as_deref().and_then(map_parameterization),
+            },
+            ParsedSigmaComment::Type2(s) => SigmaCommentInfo {
+                name: Some(s.name.clone()),
+                unit: s.unit.clone(),
+                parameterization: s.parameterization.as_ref().map(ToString::to_string),
+            },
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -44,40 +114,7 @@ pub struct ModelCommentInfo {
 }
 
 fn build_theta_info(parsed: Option<&ParsedThetaComment>) -> ThetaCommentInfo {
-    match parsed {
-        Some(ParsedThetaComment::Type1(Type1Theta::WithUnit {
-            parameter,
-            unit,
-            parametrization,
-        })) => ThetaCommentInfo {
-            name: Some(parameter.clone()),
-            unit: Some(unit.clone()),
-            parameterization: parametrization.as_deref().and_then(map_parameterization),
-        },
-        Some(ParsedThetaComment::Type1(Type1Theta::Covariate { parameter })) => ThetaCommentInfo {
-            name: Some(parameter.clone()),
-            unit: None,
-            parameterization: None,
-        },
-        Some(ParsedThetaComment::Type1(Type1Theta::Type {
-            typ,
-            parameterization,
-        })) => ThetaCommentInfo {
-            name: Some(typ.clone()),
-            unit: None,
-            parameterization: map_parameterization(parameterization),
-        },
-        Some(ParsedThetaComment::Type2(t)) => ThetaCommentInfo {
-            name: Some(t.name.clone()),
-            unit: t.unit.clone(),
-            parameterization: t.parameterization.as_ref().map(ToString::to_string),
-        },
-        None => ThetaCommentInfo {
-            name: None,
-            unit: None,
-            parameterization: None,
-        },
-    }
+    parsed.map(ThetaCommentInfo::from).unwrap_or_default()
 }
 
 fn build_omega_info(param: &OmegaSigmaParam) -> OmegaCommentInfo {
@@ -89,26 +126,7 @@ fn build_omega_info(param: &OmegaSigmaParam) -> OmegaCommentInfo {
         None => None,
     };
 
-    match inner {
-        Some(parsed @ ParsedOmegaComment::Type1(o)) => OmegaCommentInfo {
-            name: parsed.name(),
-            raw_name: Some(o.name.clone()),
-            associated_theta: vec![o.theta_name.clone()],
-            parameterization: map_parameterization(&o.parameterization),
-        },
-        Some(parsed @ ParsedOmegaComment::Type2(o)) => OmegaCommentInfo {
-            name: parsed.name(),
-            raw_name: Some(o.name.clone()),
-            associated_theta: o.raw_theta_refs.clone(),
-            parameterization: o.parameterization.as_ref().map(ToString::to_string),
-        },
-        None => OmegaCommentInfo {
-            name: None,
-            raw_name: None,
-            associated_theta: Vec::new(),
-            parameterization: None,
-        },
-    }
+    inner.map(OmegaCommentInfo::from).unwrap_or_default()
 }
 
 fn build_sigma_info(param: &OmegaSigmaParam) -> SigmaCommentInfo {
@@ -120,23 +138,7 @@ fn build_sigma_info(param: &OmegaSigmaParam) -> SigmaCommentInfo {
         None => None,
     };
 
-    match inner {
-        Some(ParsedSigmaComment::Type1(s)) => SigmaCommentInfo {
-            name: Some(s.name.clone()),
-            unit: None,
-            parameterization: s.parameterization.as_deref().and_then(map_parameterization),
-        },
-        Some(ParsedSigmaComment::Type2(s)) => SigmaCommentInfo {
-            name: Some(s.name.clone()),
-            unit: s.unit.clone(),
-            parameterization: s.parameterization.as_ref().map(ToString::to_string),
-        },
-        None => SigmaCommentInfo {
-            name: None,
-            unit: None,
-            parameterization: None,
-        },
-    }
+    inner.map(SigmaCommentInfo::from).unwrap_or_default()
 }
 
 fn sort_entries<T>(entries: BTreeMap<String, T>) -> Vec<(String, T)> {

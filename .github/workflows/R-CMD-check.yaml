@@ -39,10 +39,24 @@ jobs:
         run: |
           git config --global url."https://${{ secrets.PRIVATE_REPO_ACCESS_TOKEN }}@github.com/".insteadOf "https://github.com/"
 
-      - uses: dtolnay/rust-toolchain@master
+      - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ matrix.config.rust-version }}
           targets: ${{ matrix.config.rust-target }}
+
+      - name: Ensure rustup cargo bin is first on PATH
+        if: runner.os != 'Windows'
+        run: echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Verify Rust toolchain
+        if: runner.os != 'Windows'
+        run: |
+          which rustup
+          which rustc
+          which cargo
+          rustup show
+          rustc --version
+          cargo --version
 
       # Add rust-cache for faster builds
       - name: Cache Rust dependencies
@@ -95,7 +109,7 @@ jobs:
             echo "All system dependencies are present"
           fi
       - name: rv-sync
-        run: rv sync
+        run: rv sync -vvv
         if: runner.os != 'Windows'
 
       - name: rv-sync (Windows)

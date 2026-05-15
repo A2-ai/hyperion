@@ -55,17 +55,7 @@ relative_path <- function(path) {
   if (is.null(path) || path == "default" || path == "user supplied") {
     return(path)
   }
-  tryCatch(
-    {
-      config_path <- find_pharos_config_file()
-      if (grepl("No pharos.toml", config_path)) {
-        return(path)
-      }
-      root <- fs::path_dir(config_path)
-      as.character(fs::path_rel(path, start = root))
-    },
-    error = function(e) path
-  )
+  tryCatch(to_config_relative(path), error = function(e) path)
 }
 
 #' Set source paths for comment fields

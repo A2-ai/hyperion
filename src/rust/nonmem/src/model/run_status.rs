@@ -1,15 +1,13 @@
 use std::fmt;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use extendr_api::Result;
 use extendr_api::prelude::*;
 use fs_err as fs;
 
 use hyperion_core::{OptionExt, extendr_err};
-use nonmem::Model;
-use nonmem::output_files::ext::ExtReader;
 
-use crate::utils::{find_output_file, path_from_robj, resolve_ext_path};
+use crate::utils::{find_output_file, path_from_robj};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RunStatus {
@@ -29,76 +27,34 @@ impl fmt::Display for RunStatus {
     }
 }
 
-pub fn determine_run_status(path: impl AsRef<Path>) -> Result<RunStatus> {
-    let path = path.as_ref();
-    let stem = path
-        .file_stem()
-        .ok_or_extendr_err("Could not determine model file stem")?
-        .to_string_lossy()
-        .to_string();
-    let parent = path
-        .parent()
-        .ok_or_extendr_err("Could not determine model file parent directory")?;
-    let run_dir = match path.extension().and_then(|e| e.to_str()) {
-        Some("lst") => parent.to_path_buf(),
-        _ => parent.join(&stem),
-    };
-
+/// Determine the run status from on-disk outputs.
+///
+/// `Run` requires the `.lst` to contain NONMEM's "Stop Time:" marker, which is
+/// written at run termination regardless of whether estimation or covariance
+/// succeeded. `Running` means the `.lst` exists but the marker is absent.
+/// `NotRun` means neither the run directory nor the `.lst` exists.
+pub fn determine_run_status(run_dir: &Path, stem: &str) -> Result<RunStatus> {
     if !run_dir.exists() {
         return Ok(RunStatus::NotRun);
     }
-
-    let ext_path = resolved_ext_for_run(path, &run_dir, &stem);
-    let lst_path = run_dir.join(format!("{}.lst", stem));
-
-    let ext_exists = ext_path.exists();
-    let lst_exists = lst_path.exists();
-
-    if !ext_exists && !lst_exists {
+    let lst_path = run_dir.join(format!("{stem}.lst"));
+    if !lst_path.exists() {
         return Ok(RunStatus::NotRun);
     }
-
-    if ext_exists && lst_exists {
-        let ext_reader = ExtReader::default().final_estimates_only();
-        if let Ok(tables) = ext_reader.parse_file(&ext_path)
-            && tables.iter().any(|t| !t.rows.is_empty())
-        {
-            return Ok(RunStatus::Run);
-        }
+    if lst_indicates_completion(&lst_path) {
+        return Ok(RunStatus::Run);
     }
-
     Ok(RunStatus::Running)
 }
 
-/// Resolve the .ext path for a run, honoring `$EST FILE=` when the source
-/// model can be parsed. Falls back to `{stem}.ext` in `run_dir` otherwise.
-fn resolved_ext_for_run(input_path: &Path, run_dir: &Path, stem: &str) -> PathBuf {
-    let default = run_dir.join(format!("{stem}.ext"));
-
-    // Locate the source .mod/.ctl. For .mod/.ctl input use it directly; for
-    // .lst input (which lives inside run_dir) the source is one level up.
-    let source = match input_path.extension().and_then(|e| e.to_str()) {
-        Some("mod") | Some("ctl") => input_path.to_path_buf(),
-        _ => match run_dir.parent() {
-            Some(p) => {
-                let mod_candidate = p.join(format!("{stem}.mod"));
-                if mod_candidate.exists() {
-                    mod_candidate
-                } else {
-                    p.join(format!("{stem}.ctl"))
-                }
-            }
-            None => return default,
-        },
+fn lst_indicates_completion(lst_path: &Path) -> bool {
+    let Ok(content) = fs::read_to_string(lst_path) else {
+        return false;
     };
-
-    let Ok(content) = fs::read_to_string(&source) else {
-        return default;
-    };
-    let Ok(model) = Model::parse(&content) else {
-        return default;
-    };
-    resolve_ext_path(&model, run_dir, stem)
+    content
+        .lines()
+        .rev()
+        .any(|line| line.trim_start().starts_with("Stop Time:"))
 }
 
 /// Determine run status for a model path, run directory, or model object.
@@ -127,7 +83,20 @@ pub fn get_run_status(input: Robj) -> Result<Robj> {
         }
     }
 
-    let status = determine_run_status(&path)?;
+    let stem = path
+        .file_stem()
+        .ok_or_extendr_err("Could not determine model file stem")?
+        .to_string_lossy()
+        .to_string();
+    let parent = path
+        .parent()
+        .ok_or_extendr_err("Could not determine model file parent directory")?;
+    let run_dir = match path.extension().and_then(|e| e.to_str()) {
+        Some("lst") => parent.to_path_buf(),
+        _ => parent.join(&stem),
+    };
+
+    let status = determine_run_status(&run_dir, &stem)?;
     Ok(status.to_string().into_robj())
 }
 
@@ -150,54 +119,45 @@ mod tests {
 
     #[test]
     fn test_determine_run_status_run() {
-        let lst_file = test_data_dir().join("run001/run001.lst");
-        let status = determine_run_status(&lst_file).unwrap();
+        let run_dir = test_data_dir().join("run001");
+        let status = determine_run_status(&run_dir, "run001").unwrap();
         assert_eq!(status, RunStatus::Run);
     }
 
     #[test]
     fn test_determine_run_status_running() {
-        let lst_file = test_data_dir().join("run001-running/run001.lst");
-        let status = determine_run_status(&lst_file).unwrap();
+        let run_dir = test_data_dir().join("run001-running");
+        let status = determine_run_status(&run_dir, "run001").unwrap();
         assert_eq!(status, RunStatus::Running);
     }
 
     #[test]
     fn test_determine_run_status_not_run() {
+        // run_dir doesn't exist
         let temp_dir = TempDir::new().unwrap();
-        let mod_file = temp_dir.path().join("run001.mod");
-        fs::write(&mod_file, "test content").unwrap();
-
-        let status = determine_run_status(&mod_file).unwrap();
+        let run_dir = temp_dir.path().join("run001");
+        let status = determine_run_status(&run_dir, "run001").unwrap();
         assert_eq!(status, RunStatus::NotRun);
     }
 
     #[test]
     fn test_determine_run_status_running_early() {
-        // NONMEM creates .lst before .ext during early execution
+        // .lst exists without "Stop Time:" => still running
         let temp_dir = TempDir::new().unwrap();
-        let mod_file = temp_dir.path().join("run001.mod");
-        fs::write(&mod_file, "test content").unwrap();
-
         let run_dir = temp_dir.path().join("run001");
         fs::create_dir(&run_dir).unwrap();
-        fs::write(run_dir.join("run001.lst"), "lst content").unwrap();
-
-        let status = determine_run_status(&mod_file).unwrap();
+        fs::write(run_dir.join("run001.lst"), "partial lst content\n").unwrap();
+        let status = determine_run_status(&run_dir, "run001").unwrap();
         assert_eq!(status, RunStatus::Running);
     }
 
     #[test]
     fn test_determine_run_status_not_run_empty_run_dir() {
-        // Run directory exists but contains no output files
+        // run_dir exists but no .lst inside
         let temp_dir = TempDir::new().unwrap();
-        let mod_file = temp_dir.path().join("run001.mod");
-        fs::write(&mod_file, "test content").unwrap();
-
         let run_dir = temp_dir.path().join("run001");
         fs::create_dir(&run_dir).unwrap();
-
-        let status = determine_run_status(&mod_file).unwrap();
+        let status = determine_run_status(&run_dir, "run001").unwrap();
         assert_eq!(status, RunStatus::NotRun);
     }
 }

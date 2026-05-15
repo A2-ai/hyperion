@@ -69,7 +69,8 @@ jobs:
           # FIXME: Add more entries for other platforms into the JSON array.
           MATRIX_JSON=$(cat <<'JSON'
           [
-
+            {"runner": "macos-14", "os": "macos", "arch": "arm64", "r": "4.4"}, 
+            {"runner": "macos-14", "os": "macos", "arch": "arm64", "r": "4.5"}
           ]
           JSON
           )
@@ -282,7 +283,7 @@ jobs:
   build-bin-bare:
     name: build-bin-bare (${{ matrix.config.os_name }} (${{ matrix.config.arch }}) / R ${{ matrix.config.r }})
     needs: [build-primary, plan-matrices, determine-tag]
-    runs-on: ${{ matrix.config.os }}
+    runs-on: ${{ matrix.config.runner }}
     if: needs['plan-matrices'].outputs.matrix_bare != '[]'
     strategy:
       fail-fast: false
@@ -309,6 +310,13 @@ jobs:
       - name: Install the latest version of rv
         uses: a2-ai/setup-rv@main
 
+      # -- MacOS prep
+      - name: Prepare macOS for static linking
+        if: matrix.config.os == 'macos'
+        uses: a2-ai/r-gh-mac-build/prep@main
+        with:
+          r-version: ${{ matrix.config.r }}
+
       # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
       # TODO: If your package requires a compiled-language toolchain, add
       # the installation steps here.
@@ -324,6 +332,16 @@ jobs:
       # NOTE: remember to add steps for each OS type required 
       # by the platforms specified in the matrix.
       # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Add Rust target
+        run: |
+          . "$HOME/.cargo/env"
+          rustup target add x86_64-unknown-linux-gnu
 
       - name: replace-rversion
         run: |

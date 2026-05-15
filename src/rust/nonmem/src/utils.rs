@@ -1,4 +1,5 @@
 use extendr_api::Result;
+use extendr_api::deserializer::from_robj;
 use extendr_api::prelude::*;
 use extendr_api::serializer::to_robj;
 
@@ -8,6 +9,7 @@ use std::path::{Path, PathBuf};
 // pharos config and nonmem crate
 use config::{CONFIG_FILENAME, CommentType, Config, NonmemConfig, to_root_relative};
 use nonmem::Model;
+use nonmem::output_files::resolve_estimation_files;
 
 // hyperion core
 use hyperion_core::{OptionExt, ResultExt, extendr_err, find_config_dir};
@@ -97,6 +99,103 @@ pub fn find_output_file(input_path: impl AsRef<Path>, extension: &str) -> Result
     }
 }
 
+/// Parsed model bundled with its on-disk locations, returned by
+/// [`load_model_from_input`].
+pub struct ModelLocation {
+    pub model: Model,
+    /// The `.mod`/`.ctl` file on disk that was parsed.
+    pub source: PathBuf,
+    /// The run output directory (containing `.lst`, `.ext`, etc.).
+    pub run_dir: PathBuf,
+    /// The model's stem (e.g. `"run001"`).
+    pub stem: String,
+}
+
+/// Resolve a polymorphic input to a parsed Model plus its on-disk locations.
+///
+/// Accepted inputs:
+/// - `hyperion_nonmem_model` Robj (uses its `model_source` attribute).
+/// - String path to a `.mod` or `.ctl` file.
+/// - String path to a run directory, or any file inside a run directory
+///   (e.g. `.ext`, `.lst`, `_metadata.json`). The model copy in the run
+///   directory is used as the source.
+pub fn load_model_from_input(input: &Robj) -> Result<ModelLocation> {
+    if input.inherits("hyperion_nonmem_model") {
+        let model: Model = from_robj(input)?;
+        let source = path_from_robj(input, false)?;
+        return assemble_top_level(model, source);
+    }
+    if let Some(s) = input.as_str() {
+        let path = Path::new(s);
+        // Direct .mod or .ctl file input.
+        if let Some(ext) = path.extension().and_then(|e| e.to_str())
+            && (ext == "mod" || ext == "ctl")
+            && path.exists()
+        {
+            let model = parse_model_from_disk(path)?;
+            return assemble_top_level(model, path.to_path_buf());
+        }
+        // Anything else (directory, _metadata.json, .lst, .ext, etc.): locate
+        // the in-run-dir model copy. `find_output_file` handles directories
+        // and files adjacent to the run dir (like `_metadata.json`); for files
+        // that live *inside* the run dir (`.lst`, `.ext`), it would compute a
+        // doubly-nested wrong path, so fall back to using the file's parent
+        // as the run dir.
+        let source = find_output_file(path, "mod")
+            .or_else(|_| find_output_file(path, "ctl"))
+            .or_else(|_| {
+                let parent = path
+                    .parent()
+                    .ok_or_extendr_err("Could not determine parent directory")?;
+                find_output_file(parent, "mod").or_else(|_| find_output_file(parent, "ctl"))
+            })?;
+        let stem = source
+            .file_stem()
+            .ok_or_extendr_err("Could not determine model file stem")?
+            .to_string_lossy()
+            .to_string();
+        let run_dir = source
+            .parent()
+            .ok_or_extendr_err("Could not determine run directory")?
+            .to_path_buf();
+        let model = parse_model_from_disk(&source)?;
+        return Ok(ModelLocation {
+            model,
+            source,
+            run_dir,
+            stem,
+        });
+    }
+    Err(extendr_err!(
+        "Expected a hyperion_nonmem_model object or a path to a model file/directory"
+    ))
+}
+
+/// Assemble a `ModelLocation` for a source path adjacent to its run dir
+/// (the conventional `parent/stem.mod` + `parent/stem/` layout).
+fn assemble_top_level(model: Model, source: PathBuf) -> Result<ModelLocation> {
+    let stem = source
+        .file_stem()
+        .ok_or_extendr_err("Could not determine model file stem")?
+        .to_string_lossy()
+        .to_string();
+    let run_dir = source
+        .parent()
+        .ok_or_extendr_err("Could not determine model parent directory")?
+        .join(&stem);
+    Ok(ModelLocation {
+        model,
+        source,
+        run_dir,
+        stem,
+    })
+}
+
+fn parse_model_from_disk(path: &Path) -> Result<Model> {
+    let content = fs::read_to_string(path).map_to_extendr_err("Failed to read model file")?;
+    Model::parse(&content).map_err(|_| extendr_err!("Failed to parse model: {}", path.display()))
+}
+
 /// Resolve the final `.ext` file path for a model, honoring `$EST FILE=`.
 ///
 /// Returns the `.ext` path that the *last* `$EST` writes to, after applying
@@ -105,7 +204,7 @@ pub fn find_output_file(input_path: impl AsRef<Path>, extension: &str) -> Result
 /// the model has no `$EST FILE=` overrides.
 pub fn resolve_ext_path(model: &Model, run_dir: &Path, stem: &str) -> PathBuf {
     let default = run_dir.join(format!("{stem}.ext"));
-    nonmem::output_files::resolve_estimation_files(model, run_dir, &default)
+    resolve_estimation_files(model, run_dir, &default)
         .pop()
         .unwrap_or(default)
 }

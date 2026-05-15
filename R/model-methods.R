@@ -133,7 +133,7 @@ build_running_summary <- function(object, n_iterations) {
     iterations <- tryCatch(
       {
         ext_data <- read_ext_file(
-          model_path,
+          object,
           parameters_only = TRUE,
           only_last = TRUE
         )

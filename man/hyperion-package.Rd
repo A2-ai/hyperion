@@ -141,7 +141,6 @@ Useful links:
 
 Authors:
 \itemize{
-  \item Matt Smith \email{matthews@a2-ai.com}
   \item Vincent Prouillet \email{vincent@a2-ai.com}
   \item Mossa M. Reimert \email{mossa@a2-ai.com}
   \item Devin Pastoor \email{devin@a2-ai.com}

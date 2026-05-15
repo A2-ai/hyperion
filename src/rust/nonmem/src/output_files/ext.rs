@@ -1,16 +1,14 @@
 use extendr_api::Result;
 use extendr_api::{Robj, prelude::*};
 
-use fs_err as fs;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 
 //pharos nonmem crate
-use nonmem::Model;
 use nonmem::estimation;
 use nonmem::output_files::ext::{EstimationTable, ExtReader};
 
-use crate::utils::{find_output_file, resolve_ext_path, to_syntactic_name};
+use crate::utils::{find_output_file, load_model_from_input, resolve_ext_path, to_syntactic_name};
 use hyperion_core::{OptionExt, ResultExt, extendr_err};
 
 /// Extract .ext files from path (single file or directory)
@@ -239,48 +237,35 @@ fn fix_parameter_values(list: List, param_names: &[String]) -> Result<List> {
 /// }
 #[extendr]
 pub fn read_ext_file(
-    path: &str,
+    path: Robj,
     #[extendr(default = "NULL")] line_prefixes: Option<Vec<String>>,
     #[extendr(default = "FALSE")] parameters_only: Option<bool>,
     #[extendr(default = "NULL")] only_method: Option<&str>,
     #[extendr(default = "TRUE")] only_last: Option<bool>,
 ) -> Result<Robj> {
     let ext_reader = create_ext_reader(line_prefixes, parameters_only, only_method, only_last)?;
-    let input = Path::new(path);
-    let ext_path = if input.extension() == Some(OsStr::new("ext")) {
-        find_output_file(input, "ext")?
-    } else {
-        let model_path =
-            find_output_file(input, "mod").or_else(|_| find_output_file(input, "ctl"))?;
-        let content = fs::read_to_string(&model_path).map_to_extendr_err("")?;
-        let model = Model::parse(&content)
-            .map_err(|_| extendr_err!("Failed to parse model: {}", model_path.display()))?;
-        let stem = model_path
-            .file_stem()
-            .ok_or_extendr_err("Could not determine model file stem")?
-            .to_string_lossy()
-            .to_string();
-        let run_dir = if input.is_dir() {
-            input.to_path_buf()
-        } else {
-            input
-                .parent()
-                .ok_or_extendr_err("Could not determine parent directory")?
-                .join(&stem)
-        };
-        let resolved = resolve_ext_path(&model, &run_dir, &stem);
-        if !resolved.exists() {
-            return Err(extendr_err!(
-                "Output file not found: {}",
-                resolved.display()
-            ));
-        }
-        resolved
-    };
-
+    let ext_path = resolve_ext_input(&path)?;
     let tables = ext_reader.parse_file(ext_path).map_to_extendr_err("")?;
-
     estimation_tables_to_dataframe(tables)
+}
+
+/// Accepts a `hyperion_nonmem_model` object, a `.mod`/`.ctl` path, a run
+/// directory, or an existing `.ext` path. For `.ext` paths the file is used
+/// directly; everything else routes through `load_model_from_input` so
+/// `$EST FILE=` overrides are honored.
+fn resolve_ext_input(input: &Robj) -> Result<PathBuf> {
+    if let Some(s) = input.as_str() {
+        let path = Path::new(s);
+        if path.extension() == Some(OsStr::new("ext")) {
+            return find_output_file(path, "ext");
+        }
+    }
+    let loc = load_model_from_input(input)?;
+    let resolved = resolve_ext_path(&loc.model, &loc.run_dir, &loc.stem);
+    if !resolved.exists() {
+        return Err(extendr_err!("Ext file not found: {}", resolved.display()));
+    }
+    Ok(resolved)
 }
 
 /// Gets all final estimates from an ext file or vector of ext files

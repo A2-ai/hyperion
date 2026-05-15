@@ -2,23 +2,18 @@ use extendr_api::Result;
 use extendr_api::deserializer::from_robj;
 use extendr_api::prelude::*;
 
-use fs_err as fs;
 use std::cmp::Ordering;
-use std::ffi::OsStr;
-use std::path::PathBuf;
 
 // pharos nonmem crate
-use nonmem::{
-    Model,
-    output_files::{ext::get_parameter_estimates, shk::ShkReader},
-};
+use nonmem::Model;
+use nonmem::output_files::{ext::get_parameter_estimates, shk::ShkReader};
 
 use crate::{
     output_files::ext::create_ext_reader,
     output_files::{OMEGA, ParameterRow, ParameterRowBuilder, SIGMA, THETA, build_parameters_df},
-    utils::{find_output_file, get_comment_type, path_from_robj, resolve_ext_path},
+    utils::{find_output_file, get_comment_type, load_model_from_input, resolve_ext_path},
 };
-use hyperion_core::{OptionExt, ResultExt, extendr_err};
+use hyperion_core::{ResultExt, extendr_err};
 
 /// Extract numeric indices from a parameter name for sorting.
 ///
@@ -116,53 +111,14 @@ pub fn get_parameters(
 ) -> Result<Robj> {
     let ext_reader = create_ext_reader(None, None, only_method, only_last)?;
 
-    // Resolve the search path from either a string or model object
-    let search_path = path_from_robj(&path, false)?;
-    // If .ext file, use parent directory; otherwise use path as-is
-    let search_path = if search_path.extension() == Some(OsStr::new("ext")) {
-        search_path
-            .parent()
-            .map(|p| p.to_path_buf())
-            .unwrap_or_else(|| PathBuf::from("."))
-    } else {
-        search_path
-    };
+    let loc = load_model_from_input(&path)?;
 
-    let shk_data = match find_output_file(&search_path, "shk") {
+    let shk_data = match find_output_file(&loc.run_dir, "shk") {
         Ok(p) => ShkReader.parse_file(p).unwrap_or_default(),
         Err(_) => Vec::new(),
     };
 
-    let model_path =
-        find_output_file(&search_path, "mod").or_else(|_| find_output_file(&search_path, "ctl"))?;
-    let content = fs::read_to_string(&model_path).map_to_extendr_err("")?;
-
-    let model = match Model::parse(&content) {
-        Ok(model) => model,
-        Err(diags) => {
-            let msg = diags
-                .iter()
-                .map(|d| d.render(model_path.as_path(), &content))
-                .collect::<Vec<_>>()
-                .join("\n");
-            return Err(extendr_err!("Failed to read model file:\n{msg}"));
-        }
-    };
-
-    let stem = model_path
-        .file_stem()
-        .ok_or_extendr_err("Could not determine model file stem")?
-        .to_string_lossy()
-        .to_string();
-    let run_dir = if search_path.is_dir() {
-        search_path.clone()
-    } else {
-        search_path
-            .parent()
-            .ok_or_extendr_err("Could not determine parent directory")?
-            .join(&stem)
-    };
-    let ext_path = resolve_ext_path(&model, &run_dir, &stem);
+    let ext_path = resolve_ext_path(&loc.model, &loc.run_dir, &loc.stem);
     if !ext_path.exists() {
         return Err(extendr_err!(
             "Output file not found: {}",
@@ -171,7 +127,8 @@ pub fn get_parameters(
     }
 
     let comment_type = get_comment_type();
-    let parameter_names = model
+    let parameter_names = loc
+        .model
         .get_parameter_names(comment_type)
         .map_to_extendr_err("Failed to get model parameter names")?;
 

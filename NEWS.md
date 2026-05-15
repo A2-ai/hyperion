@@ -37,6 +37,8 @@
   structured grammar; `"type1"` remains strict structured. Replaces
   `use_type1_comments()`.
 - `summary()` includes `model_file` in its output.
+- `read_ext_file()` accepts a `hyperion_nonmem_model` object in addition to
+  the previously-supported path forms.
 - `get_model_lineage(verbose = TRUE)` renders the lineage as a flat table
   with Model, Parent, Description, Tags, Model Hash, and Dataset Hash columns
   instead of the tree view.

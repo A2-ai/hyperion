@@ -12,27 +12,38 @@ knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>"
 )
+
+vignette_root <- tempfile("hyperion-vignette-")
+dir.create(vignette_root, recursive = TRUE)
+file.copy(
+  list.files(system.file("extdata", package = "hyperion"), full.names = TRUE),
+  vignette_root,
+  recursive = TRUE
+)
+file.copy(
+  system.file("pharos.toml", package = "hyperion"),
+  vignette_root
+)
+knitr::opts_knit$set(root.dir = vignette_root)
 ```
 
 ```{r setup}
 library(hyperion)
-
-test_data_dir <- system.file("extdata", package = "hyperion")
 ```
 
 # Hyperion Model object
 
 ```{r}
-mod <- read_model(file.path(test_data_dir, "mod", "1001.mod"))
+mod <- read_model(file.path("mod", "1001.mod"))
 mod
 
-mod <- read_model(file.path(test_data_dir, "models", "onecmt", "run002b001.mod"))
+mod <- read_model(file.path("models", "onecmt", "run002b001.mod"))
 mod
 
-mod_nm <- read_model(file.path(test_data_dir, "mod", "nmexample.mod"))
+mod_nm <- read_model(file.path("mod", "nmexample.mod"))
 mod_nm
 
-mod_e <- read_model(file.path(test_data_dir, "mod", "everything.mod"))
+mod_e <- read_model(file.path("mod", "everything.mod"))
 mod_e
 ```
 
@@ -43,19 +54,19 @@ attributes(mod) |> names()
 ```
 
 ```{r}
-read_model(file.path(test_data_dir, "models", "onecmt", "run001.mod")) |>
-  check_dataset() 
-
-read_model(file.path(test_data_dir, "models", "onecmt", "run002.mod")) |>
+read_model(file.path("models", "onecmt", "run001.mod")) |>
   check_dataset()
 
-read_model(file.path(test_data_dir, "models", "onecmt", "run003.mod")) |>
+read_model(file.path("models", "onecmt", "run002.mod")) |>
+  check_dataset()
+
+read_model(file.path("models", "onecmt", "run003.mod")) |>
   check_dataset()
 ```
 
 
 ```{r}
-read_model(file.path(test_data_dir, "models", "onecmt", "run001.mod")) |>
+read_model(file.path("models", "onecmt", "run001.mod")) |>
   check_model()
 ```
 
@@ -63,7 +74,7 @@ read_model(file.path(test_data_dir, "models", "onecmt", "run001.mod")) |>
 ## model summary can be generated from model object
 
 ```{r}
-mod <- read_model(file.path(test_data_dir, "models", "onecmt", "run003.mod"))
+mod <- read_model(file.path("models", "onecmt", "run003.mod"))
 mod |>
 	summary()
 ```
@@ -88,8 +99,8 @@ mod |> get_model_parameter_info() |> audit_parameter_info()
 # Copy model
 ```{r}
 copy_model(
-  from = file.path(test_data_dir, "models", "onecmt", "run003.mod"),
-  to = file.path(test_data_dir, "models", "onecmt", "run003b2.mod"), #copies run003 to run003b1 with jittered parameters
+  from = file.path("models", "onecmt", "run003.mod"),
+  to = file.path("models", "onecmt", "run003b2.mod"), #copies run003 to run003b1 with jittered parameters
   description = "Updating run003 to 003b1 with jittered params",
   jitter = 0.1,
   overwrite = TRUE,
@@ -99,11 +110,11 @@ copy_model(
 
 ## Copy model accepts hyperion model object
 ```{r}
-mod <- read_model(file.path(test_data_dir, "models", "onecmt", "run003.mod"))
+mod <- read_model(file.path("models", "onecmt", "run003.mod"))
 
-mod |> 
+mod |>
 	copy_model(
-		to = file.path(test_data_dir, "models", "onecmt", "run003b2.mod"),
+		to = file.path("models", "onecmt", "run003b2.mod"),
 		update = "all",
 		description = "Updating run003 with mod object",
 		overwrite = TRUE,
@@ -112,10 +123,81 @@ mod |>
 ```
 
 
-# Model Lineage
+# Managing metadata and lineage
+
+## Set and read metadata
+
+`set_metadata_file()` writes a JSON metadata sidecar next to a model. The
+`description`, `tags`, `based_on`, and `copied_from` fields are stored
+separately so model provenance can be tracked explicitly.
 
 ```{r}
-example_tree <- get_model_lineage(file.path(test_data_dir, "models", "onecmt"))
+set_metadata_file(
+  file.path("models", "onecmt", "run003.mod"),
+  description = "Base one-compartment oral absorption model",
+  tags = c("base", "key"),
+  based_on = c("run002.mod")
+)
 
-example_tree
+read_model(file.path("models", "onecmt", "run003.mod")) |>
+  get_model_metadata()
+```
+
+## Populate metadata at copy time
+
+`copy_model()` accepts `based_on` and `tags` so the new model's metadata is
+populated as part of the copy.
+
+```{r}
+copy_model(
+  from = file.path("models", "onecmt", "run003.mod"),
+  to = file.path("models", "onecmt", "run003b2.mod"),
+  description = "run003 with jittered params, exploring WT on V",
+  based_on = c("run003.mod"),
+  tags = c("exploratory", "wt-on-v"),
+  jitter = 0.1,
+  overwrite = TRUE,
+  seed = 804
+)
+```
+
+## Clear metadata fields
+
+`clear_metadata_file()` selectively clears `based_on`, `copied_from`, and/or
+`tags`. Fields not selected are preserved.
+
+```{r}
+clear_metadata_file(
+  file.path("models", "onecmt", "run003b2.mod"),
+  tags = TRUE
+)
+```
+
+## Lineage queries
+
+`get_model_lineage()` returns the project lineage tree. With no arguments
+it returns every model rooted at the directory containing `pharos.toml`.
+
+```{r}
+get_model_lineage()
+```
+
+Pass a model to get its full lineage (ancestors and descendants):
+
+```{r}
+get_model_lineage(file.path("models", "onecmt", "run003.mod"))
+```
+
+Use `from` and `to` to filter the tree downward, upward, or to the slice
+between two models:
+
+```{r}
+get_model_lineage(from = file.path("models", "onecmt", "run001.mod"))
+
+get_model_lineage(to = file.path("models", "onecmt", "run003b1.mod"))
+
+get_model_lineage(
+  from = file.path("models", "onecmt", "run001.mod"),
+  to   = file.path("models", "onecmt", "run003b1.mod")
+)
 ```

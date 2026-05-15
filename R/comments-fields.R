@@ -7,6 +7,7 @@ theta_fields <- function() {
 omega_fields <- function() {
   c(
     "name",
+    "raw_name",
     "display",
     "description",
     "parameterization",

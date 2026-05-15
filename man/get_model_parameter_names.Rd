@@ -10,7 +10,7 @@ get_model_parameter_names(model)
 \item{model}{hyperion_nonmem_model object from read_model()}
 }
 \value{
-Named character vector with NONMEM names as names and user-friendly names as values
+Named list with NONMEM names as names and user-friendly names as character values
 }
 \description{
 This function extracts parameter names using the pharos typed comment parser.

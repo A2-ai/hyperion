@@ -1,3 +1,66 @@
+# hyperion 0.5.0
+
+## Breaking changes
+
+- `get_model_lineage()` signature changed. Old: `get_model_lineage(model_dir)`
+  (required a directory or model object). New: `get_model_lineage(model = NULL,
+  from = NULL, to = NULL)`.
+  - No-arg call returns the whole project lineage tree, rooted at the directory
+    containing `pharos.toml`.
+  - `model` returns ancestors and descendants of one model.
+  - `from`/`to` filter the tree downstream / upstream / to the slice between
+    two models.
+  - The `model_dir` argument no longer exists.
+- `copy_model()` `description` is now required (was `description = NULL`).
+- R-side raw comment parsing is removed. All comment parsing is owned by
+  pharos. The "raw" mode documentation, parsing pipeline, and transform
+  keyword mapping are gone from `get_model_parameter_info()`. `NA` names are
+  acceptable when pharos cannot parse a comment; `summary()` falls back to
+  NONMEM names in that case. Raw parsing mode is most similar to `type2` 
+  comments in pharos.
+- `use_type1_comments()` is soft-deprecated in favor of `use_comments()`.
+  It still works but emits a `.Deprecated()` warning and delegates.
+
+## New features
+
+- `clear_metadata_file()` — new exported function. Selectively clears
+  `based_on`, `copied_from`, and/or `tags` in a model's metadata file;
+  unspecified fields are preserved.
+- `copy_model()` gains `based_on` and `tags` arguments so metadata can be
+  populated at copy time rather than via a follow-up `set_metadata_file()`.
+- `set_metadata_file()` gains `copied_from` to record mechanical-copy
+  provenance separately from `based_on`.
+- `hyperion.config_dir` option — explicit override for where `pharos.toml` is
+  resolved from. Status is surfaced in the package-load options message.
+- `use_comments(type = c("type1", "type2"))` — single entry point for setting
+  comment parsing type in `pharos.toml`. The new `"type2"` mode is a flexible
+  structured grammar; `"type1"` remains strict structured. Replaces
+  `use_type1_comments()`.
+- `summary()` includes `model_file` in its output.
+- `read_ext_file()` accepts a `hyperion_nonmem_model` object in addition to
+  the previously-supported path forms.
+- `get_model_lineage(verbose = TRUE)` renders the lineage as a flat table
+  with Model, Parent, Description, Tags, Model Hash, and Dataset Hash columns
+  instead of the tree view.
+
+## Bug fixes
+
+- `.ext` parameter columns are sanitized to syntactic R names (e.g.
+  `IIV (CL)` → `IIV_CL`), so returned data frames no longer require backtick
+  quoting.
+- `.grd` gradient column names are similarly sanitized; the surrounding
+  `GRD(...)` wrapper is stripped before sanitization.
+- Fixed `clear_metadata_file()` so previously-set values are actually cleared
+  (prior behavior left stale fields in place).
+- `read_model()` reports parsing diagnostics for malformed NONMEM control
+  streams, backed by a new pharos parser aimed at better control-stream
+  coverage.
+- `$EST FILE=` overrides are now honored when locating `.ext` files in
+  `get_parameters()`, `read_ext_file()`, `get_run_status()`, and
+  `copy_model()` parameter updates. Previously these always used
+  `{model}.ext` regardless of where NONMEM was actually writing estimates.
+
+
 # hyperion 0.4.2
 
 ## Bug fixes

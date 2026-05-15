@@ -468,6 +468,28 @@ hyperion_options_message <- function() {
     "\n"
   )
 
+  # Show the hyperion.config_dir override status first since it controls
+  # where pharos.toml gets resolved from.
+  config_dir_value <- getOption("hyperion.config_dir")
+  if (!is.null(config_dir_value) && nzchar(config_dir_value)) {
+    msg <- paste0(
+      msg,
+      cli::col_green(cli::symbol$tick),
+      " ",
+      "hyperion.config_dir : ",
+      config_dir_value,
+      "\n"
+    )
+  } else {
+    msg <- paste0(
+      msg,
+      cli::symbol$info,
+      " ",
+      cli::style_dim("hyperion.config_dir : (unset)"),
+      "\n"
+    )
+  }
+
   if (grepl("No pharos.toml config file found", pharos_config_status)) {
     msg <- paste0(
       msg,

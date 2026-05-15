@@ -1,39 +1,3 @@
-#' Map raw parameterization string to Transform name
-#'
-#' @param raw_param Raw parameterization string from comment (e.g., "EXP", ":EXP")
-#' @param kind Parameter kind: "THETA", "OMEGA", or "SIGMA"
-#' @return Mapped parameterization name or NULL if not recognized
-#' @noRd
-map_parameterization <- function(raw_param, kind) {
-  if (is.null(raw_param) || !nzchar(raw_param)) {
-    return(NULL)
-  }
-
-  # Remove leading colon if present and convert to uppercase
-  cleaned <- toupper(gsub("^:", "", trimws(raw_param)))
-
-  # Common mappings for all parameter types
-  switch(
-    EXPR = cleaned,
-    "EXP" = "LogNormal",
-    "LOG" = "LogNormal",
-    "LOGNORMAL" = "LogNormal",
-    "LOGIT" = "Logit",
-    "ADD" = "AddErr",
-    "ADDERR" = "AddErr",
-    "ADDITIVE" = "AddErr",
-    "LOGADD" = "LogAddErr",
-    "LOGADDERR" = "LogAddErr",
-    "LOGERR" = "LogAddErr",
-    "PROP" = "Proportional",
-    "PROPORTIONAL" = "Proportional",
-    "IDENTITY" = "Identity",
-    "NORMAL" = "Identity",
-    "NONE" = "Identity",
-    NULL
-  )
-}
-
 #' @noRd
 ParameterComment <- S7::new_class(
   "ParameterComment",
@@ -92,96 +56,6 @@ make_tracked_property <- function(field_name, valid_values = NULL) {
   )
 }
 
-#' Normalize omega associated_theta values against theta names
-#'
-#' If no exact match is found, tries matching by stripping trailing "/...".
-#' Only applies when the base name maps unambiguously to a single theta name.
-#'
-#' @param assoc Character vector of associated theta names
-#' @param theta_names Character vector of theta names
-#' @return Character vector of normalized associated theta names
-#' @noRd
-normalize_associated_theta <- function(assoc, theta_names) {
-  if (length(theta_names) == 0 || length(assoc) == 0) {
-    return(assoc)
-  }
-
-  exact_lookup <- stats::setNames(theta_names, tolower(theta_names))
-
-  base_names <- sub("/.*$", "", theta_names)
-  base_lc <- tolower(base_names)
-  base_map <- list()
-  for (i in seq_along(theta_names)) {
-    base_map[[base_lc[i]]] <- c(base_map[[base_lc[i]]], theta_names[i])
-  }
-  base_lookup <- vapply(
-    base_map,
-    function(vals) {
-      if (length(unique(vals)) == 1) unique(vals) else NA_character_
-    },
-    character(1)
-  )
-  base_lookup <- base_lookup[!is.na(base_lookup)]
-
-  vapply(
-    assoc,
-    function(theta) {
-      key <- tolower(theta)
-      if (key %in% names(exact_lookup)) {
-        exact_lookup[[key]]
-      } else if (key %in% names(base_lookup)) {
-        base_lookup[[key]]
-      } else {
-        theta
-      }
-    },
-    character(1)
-  )
-}
-
-#' Rename duplicate omega names by appending associated_theta
-#'
-#' When multiple omega comments share the same name, renames ALL of them to
-#' `{name}-{associated_theta}` to ensure uniqueness.
-#'
-#' @param omega List of OmegaComment objects
-#' @return Modified list with duplicate names renamed
-#' @noRd
-rename_duplicate_omega_names <- function(omega) {
-  if (length(omega) == 0) {
-    return(omega)
-  }
-
-  omega_names <- vapply(
-    omega,
-    function(c) if (is.null(c@name)) NA_character_ else c@name,
-    character(1)
-  )
-
-  # Find names that appear more than once (excluding NA)
-  name_counts <- table(omega_names[!is.na(omega_names)])
-  dup_names <- names(name_counts[name_counts > 1])
-
-  if (length(dup_names) == 0) {
-    return(omega)
-  }
-
-  lapply(omega, function(comment) {
-    if (!is.null(comment@name) && comment@name %in% dup_names) {
-      assoc <- comment@associated_theta
-      if (!is.null(assoc) && length(assoc) == 1 && nzchar(assoc)) {
-        new_name <- paste0(comment@name, "-", assoc)
-        comment@name <- new_name
-        sources <- attr(comment, "sources") %||% list()
-        name_source <- sources[["name"]] %||% "default"
-        sources[["name"]] <- paste0("renamed from ", name_source)
-        attr(comment, "sources") <- sources
-      }
-    }
-    comment
-  })
-}
-
 #' Theta parameter comment class
 #'
 #' Represents parsed comments for THETA parameters.
@@ -226,6 +100,8 @@ ThetaComment <- S7::new_class(
 #'
 #' @param nonmem_name Character. The NONMEM parameter name (e.g., "OMEGA(1,1)").
 #' @param name Character or NULL. User-defined parameter name (e.g., "IIV-CL").
+#' @param raw_name Character or NULL. Raw user label before pharos composition;
+#'   e.g. `"IIV"` when `name` is `"IIV (CL)"`.
 #' @param display Character or NULL. Display name for tables/output.
 #' @param description Character or NULL. Description of the parameter.
 #' @param parameterization Character or NULL. Transformation type.
@@ -235,6 +111,8 @@ ThetaComment <- S7::new_class(
 #' \describe{
 #'   \item{nonmem_name}{The NONMEM parameter identifier.}
 #'   \item{name}{User-friendly name parsed from comments.}
+#'   \item{raw_name}{Raw user label before pharos composition; e.g. `"IIV"`
+#'     when `name` is `"IIV (CL)"`.}
 #'   \item{display}{Display name for tables. Falls back to `name` if NULL.}
 #'   \item{description}{Longer description of what the parameter represents.}
 #'   \item{parameterization}{Transformation type. Valid values:
@@ -250,6 +128,7 @@ OmegaComment <- S7::new_class(
   parent = ParameterComment,
   properties = list(
     name = make_tracked_property("name"),
+    raw_name = make_tracked_property("raw_name"),
     display = make_tracked_property("display"),
     description = make_tracked_property("description"),
     parameterization = make_tracked_property(
@@ -385,11 +264,7 @@ ModelComments <- S7::new_class(
       comment <- omega_comments[[omega_name]]
       if (!is.null(comment@associated_theta)) {
         assoc <- comment@associated_theta
-        sources <- attr(comment, "sources") %||% list()
-        assoc_source <- sources[["associated_theta"]] %||% "default"
-        assoc_norm <- normalize_associated_theta(assoc, theta_names)
-        # Validate against normalized associated_theta without mutating state.
-        missing <- setdiff(assoc_norm, theta_names)
+        missing <- setdiff(assoc, theta_names)
         if (length(missing) > 0) {
           errors <- c(
             errors,
@@ -458,37 +333,6 @@ ModelComments <- S7::new_class(
     NULL
   },
   constructor = function(theta = list(), omega = list(), sigma = list()) {
-    if (length(theta) > 0 && length(omega) > 0) {
-      theta_names <- vapply(
-        theta,
-        function(c) if (is.null(c@name)) NA_character_ else c@name,
-        character(1)
-      )
-      theta_names <- theta_names[!is.na(theta_names)]
-      if (length(theta_names) > 0) {
-        omega <- lapply(omega, function(comment) {
-          if (!is.null(comment@associated_theta)) {
-            assoc <- comment@associated_theta
-            sources <- attr(comment, "sources") %||% list()
-            assoc_source <- sources[["associated_theta"]] %||% "default"
-            assoc_norm <- normalize_associated_theta(assoc, theta_names)
-            assoc_norm <- unname(assoc_norm)
-            if (!identical(unname(assoc), assoc_norm)) {
-              comment@associated_theta <- assoc_norm
-              sources[["associated_theta"]] <- paste0(
-                "normalized from ",
-                assoc_source
-              )
-              attr(comment, "sources") <- sources
-            }
-          }
-          comment
-        })
-      }
-    }
-
-    omega <- rename_duplicate_omega_names(omega)
-
     S7::new_object(
       S7::S7_object(),
       theta = theta,
@@ -527,20 +371,36 @@ find_parameter <- function(info, parameter, kind = NULL) {
     # 2. Match by @name property
     for (key in names(comments)) {
       if (identical(comments[[key]]@name, parameter)) {
-        matches <- c(
-          matches,
-          list(list(slot = slot, key = key, obj = comments[[key]]))
-        )
+        if (
+          !any(vapply(
+            matches,
+            function(m) m$slot == slot && m$key == key,
+            logical(1)
+          ))
+        ) {
+          matches <- c(
+            matches,
+            list(list(slot = slot, key = key, obj = comments[[key]]))
+          )
+        }
       }
     }
 
     # 3. Match by @display property
     for (key in names(comments)) {
       if (identical(comments[[key]]@display, parameter)) {
-        matches <- c(
-          matches,
-          list(list(slot = slot, key = key, obj = comments[[key]]))
-        )
+        if (
+          !any(vapply(
+            matches,
+            function(m) m$slot == slot && m$key == key,
+            logical(1)
+          ))
+        ) {
+          matches <- c(
+            matches,
+            list(list(slot = slot, key = key, obj = comments[[key]]))
+          )
+        }
       }
     }
   }
@@ -610,7 +470,16 @@ update_param_info <- function(
     param_obj@description <- description
   }
   if (!is.null(parameterization)) {
-    param_obj@parameterization <- parameterization
+    mapped <- map_parameterization(parameterization)
+    if (is.na(mapped)) {
+      rlang::abort(paste0(
+        "Invalid parameterization: ",
+        parameterization,
+        ". Valid values: ",
+        paste(valid_parameterizations(), collapse = ", ")
+      ))
+    }
+    param_obj@parameterization <- mapped
   }
 
   # THETA/SIGMA: unit

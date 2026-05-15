@@ -1,6 +1,6 @@
 {
   "based_on": [
-    "run003.mod"
+    "extdata/models/onecmt/run003.mod"
   ],
   "description": "Updating run003 with mod object",
   "tags": []

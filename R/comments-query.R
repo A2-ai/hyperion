@@ -37,41 +37,19 @@ get_comment <- function(model_comments, nonmem_name) {
   NULL
 }
 
+#' Check if an omega parameter is diagonal (variance) vs off-diagonal (covariance)
 #' @noRd
-build_comment_lookup <- function(model_comments) {
-  all_comments <- c(
-    model_comments@theta,
-    model_comments@omega,
-    model_comments@sigma
-  )
-
-  by_user_name <- list()
-  comments_by_kind <- list(
-    THETA = model_comments@theta,
-    OMEGA = model_comments@omega,
-    SIGMA = model_comments@sigma
-  )
-  for (kind in names(comments_by_kind)) {
-    for (comment in comments_by_kind[[kind]]) {
-      if (!is.null(comment@name)) {
-        if (is.null(by_user_name[[comment@name]])) {
-          by_user_name[[comment@name]] <- comment
-        } else {
-          rlang::warn(
-            paste0(
-              "Duplicate parameter name '",
-              comment@name,
-              "' across parameter kinds; using first occurrence (",
-              kind,
-              ")."
-            )
-          )
-        }
-      }
-    }
+is_diagonal_omega <- function(nonmem_name) {
+  # Parse OMEGA(i,j) format
+  match <- regmatches(
+    nonmem_name,
+    regexec("OMEGA\\((\\d+),(\\d+)\\)", nonmem_name)
+  )[[1]]
+  if (length(match) == 3) {
+    return(match[2] == match[3])
   }
-
-  list(by_nonmem_name = all_comments, by_user_name = by_user_name)
+  # If we can't parse, assume diagonal
+  TRUE
 }
 
 #' @noRd
@@ -86,6 +64,13 @@ resolve_comment <- function(model_comments, nm, kind = NULL) {
     }
     for (cmt in comments) {
       if (!is.null(cmt@name) && identical(cmt@name, lookup_nm)) {
+        return(cmt)
+      }
+      if (
+        S7::S7_inherits(cmt, OmegaComment) &&
+          !is.null(cmt@raw_name) &&
+          identical(cmt@raw_name, lookup_nm)
+      ) {
         return(cmt)
       }
     }
@@ -256,25 +241,9 @@ get_parameter_names <- function(x, lookup_path = NULL) {
   }
   model_comments <- x
 
-  extract_row <- function(comment, include_associated_theta = FALSE) {
-    name_val <- comment@name %||% NA_character_
-    # For omega: build composite name with associated_theta (avoiding duplicates)
-    if (
-      include_associated_theta &&
-        !is.null(comment@associated_theta) &&
-        length(comment@associated_theta) > 0
-    ) {
-      if (is.na(name_val)) {
-        name_val <- paste(comment@associated_theta, collapse = ", ")
-      } else {
-        name_val <- format_omega_display_name(
-          name_val,
-          comment@associated_theta
-        )
-      }
-    }
+  extract_row <- function(comment) {
     data.frame(
-      name = name_val,
+      name = comment@name %||% NA_character_,
       display = comment@display %||% NA_character_,
       stringsAsFactors = FALSE
     )
@@ -289,13 +258,7 @@ get_parameter_names <- function(x, lookup_path = NULL) {
   }
 
   for (nm in names(model_comments@omega)) {
-    rows <- c(
-      rows,
-      list(extract_row(
-        model_comments@omega[[nm]],
-        include_associated_theta = TRUE
-      ))
-    )
+    rows <- c(rows, list(extract_row(model_comments@omega[[nm]])))
     row_names <- c(row_names, nm)
   }
 

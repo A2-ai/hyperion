@@ -52,8 +52,8 @@ $THETA
  1 FIX        ;F1 (fraction)
 
 $OMEGA
- 0.1          ;OM1 CL :EXP
- 0.1          ;OM2 VC :EXP
+ 0.1          ;OM1 CL/F :EXP
+ 0.1          ;OM2 VC/F :EXP
  0.1          ;OM3 KA :EXP
 
 

@@ -4,8 +4,20 @@ use extendr_api::prelude::*;
 //pharos nonmem crate
 use nonmem::{estimation::EstimationMethod, output_files::grd::GrdReader};
 
-use crate::utils::{find_output_file, get_comment_type, path_from_robj, try_parse_model};
+use crate::utils::{
+    find_output_file, get_comment_type, path_from_robj, to_syntactic_name, try_parse_model,
+};
 use hyperion_core::{ResultExt, extendr_err};
+
+/// Turn a pharos-produced gradient column name like `"GRD(IIV (CL))"` into a
+/// syntactic R column name like `"IIV_CL"`.
+fn sanitize_grd_name(raw: &str) -> String {
+    let inner = raw
+        .strip_prefix("GRD(")
+        .and_then(|s| s.strip_suffix(')'))
+        .unwrap_or(raw);
+    to_syntactic_name(inner)
+}
 
 fn create_grd_reader(only_method: Option<&str>, only_last: Option<bool>) -> Result<GrdReader> {
     let mut reader = GrdReader::default();
@@ -58,13 +70,13 @@ pub fn get_gradients(
     let search_path = path_from_robj(&path, false)?;
     let grd_path = find_output_file(&search_path, "grd")?;
 
-    let mut model = try_parse_model(search_path.to_string_lossy().as_ref());
+    let model = try_parse_model(search_path.to_string_lossy().as_ref());
 
     // Load config and extract comment type
     let comment_type = get_comment_type();
 
     let tables = grd_reader
-        .parse_file(grd_path, model.as_mut(), comment_type)
+        .parse_file(grd_path, model.as_ref(), comment_type)
         .map_to_extendr_err("")?;
 
     if tables.is_empty() {
@@ -72,7 +84,12 @@ pub fn get_gradients(
     }
 
     // Get gradient parameter names from the first table (skip ITERATION column)
-    let gradient_names: Vec<String> = tables[0].parameters.iter().skip(1).cloned().collect();
+    let gradient_names: Vec<String> = tables[0]
+        .parameters
+        .iter()
+        .skip(1)
+        .map(|n| sanitize_grd_name(n))
+        .collect();
 
     let flat_data: Vec<(i32, String, Vec<f64>)> = tables
         .into_iter()

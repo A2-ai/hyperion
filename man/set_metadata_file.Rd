@@ -4,7 +4,13 @@
 \alias{set_metadata_file}
 \title{Creates a metadata file for a NONMEM model}
 \usage{
-set_metadata_file(model_path, description = NULL, tags = NULL, based_on = NULL)
+set_metadata_file(
+  model_path,
+  description = NULL,
+  tags = NULL,
+  based_on = NULL,
+  copied_from = NULL
+)
 }
 \arguments{
 \item{model_path}{Path to the NONMEM model file, or a hyperion_nonmem_model object (required)}
@@ -14,6 +20,8 @@ set_metadata_file(model_path, description = NULL, tags = NULL, based_on = NULL)
 \item{tags}{Character vector of tags to categorize or label the model}
 
 \item{based_on}{Character vector of model names/paths that this model is based on}
+
+\item{copied_from}{Optional model name/path this model was mechanically copied from}
 }
 \value{
 Returns invisibly after creating the metadata file

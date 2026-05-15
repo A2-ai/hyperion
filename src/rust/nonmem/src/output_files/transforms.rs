@@ -4,8 +4,8 @@ use extendr_api::scalar::Rfloat;
 
 use std::str::FromStr;
 
+use nmparser::Transform;
 use nonmem::output_files::ext::ParameterType;
-use nonmem::transforms::Transform;
 
 use hyperion_core::extendr_err;
 

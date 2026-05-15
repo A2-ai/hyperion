@@ -18,15 +18,18 @@ NULL
 #' }
 init <- function(config_path) .Call(wrap__init, config_path)
 
-set_panic_message <- function() .Call(wrap__set_panic_message)
+silence_panic_output <- function() .Call(wrap__silence_panic_output)
 
 find_pharos_config_file <- function() .Call(wrap__find_pharos_config_file)
 
-#' Gets model object
+#' Read a NONMEM model from a .mod or .ctl file
 #'
-#' @param path path to mod or ctl file.
+#' @param path path to a .mod or .ctl file.
 #'
-#' @return hyperion_nonmem_model S3 object with `model_source` and `run_status` attributes
+#' @return A `hyperion_nonmem_model` S3 object with attributes:
+#'   - `filename`: the model stem (e.g. `"run001"`)
+#'   - `model_source`: path to the source file, relative to the pharos config dir
+#'   - `run_status`: `"run"`, `"running"`, or `"not_run"` determined from output files on disk
 #' @export
 #'
 #' @examples \dontrun{
@@ -34,24 +37,14 @@ find_pharos_config_file <- function() .Call(wrap__find_pharos_config_file)
 #' }
 read_model <- function(path) .Call(wrap__read_model, path)
 
-#' Checks model dataset
+#' Read a model from an .lst file (internal)
 #'
-#' @param model hyperion_nonmem_model object from `read_model`
+#' @param path path to an .lst file, model output directory, or metadata.json file.
 #'
-#' @return Dataset check results
-#' @export
-#'
-#' @examples \dontrun{
-#' model <- read_model("model/nonmem/run001.mod")
-#' model |> check_dataset()
-#' }
-check_dataset <- function(model) .Call(wrap__check_dataset, model)
-
-#' Gets model object from lst file (internal)
-#'
-#' @param path path to lst file, model output directory, or metadata.json file.
-#'
-#' @return hyperion_nonmem_model S3 object with `model_source` attribute for the source file
+#' @return A `hyperion_nonmem_model` S3 object with attributes:
+#'   - `filename`: the model stem (e.g. `"run001"`)
+#'   - `model_source`: path to the source file, relative to the pharos config dir
+#'   - `run_status`: `"run"`, `"running"`, or `"not_run"` determined from output files on disk
 #' @keywords internal
 read_model_from_lst <- function(path) .Call(wrap__read_model_from_lst, path)
 
@@ -70,6 +63,8 @@ read_model_from_lst <- function(path) .Call(wrap__read_model_from_lst, path)
 #' Examples: "THETA1" or c("THETA1")
 #' @param seed integer for random number generator seed to ensure reproducible jittering
 #' @param description Description of model in metadata file
+#' @param based_on Character vector of model names/paths that this model is based on
+#' @param tags Character vector of tags to attach to the model in metadata
 #' @param no_metadata boolean, if true, does not create metadatafile, default FALSE
 #'
 #' @return path to new model file (invisible) todo
@@ -78,7 +73,7 @@ read_model_from_lst <- function(path) .Call(wrap__read_model_from_lst, path)
 #' @examples \dontrun{
 #' copy_model(from = "model/nonmem/run001.mod", to = "model/nonmem/run002.mod")
 #' }
-copy_model <- function(from, to, overwrite = FALSE, ext_file = NULL, update = 'none', jitter = NULL, jitter_excluded = NULL, seed = NULL, description = NULL, no_metadata = FALSE) .Call(wrap__copy_model_wrap, from, to, overwrite, ext_file, update, jitter, jitter_excluded, seed, description, no_metadata)
+copy_model <- function(from, to, overwrite = FALSE, ext_file = NULL, update = 'none', jitter = NULL, jitter_excluded = NULL, seed = NULL, description, based_on = NULL, tags = NULL, no_metadata = FALSE) .Call(wrap__copy_model_wrap, from, to, overwrite, ext_file, update, jitter, jitter_excluded, seed, description, based_on, tags, no_metadata)
 
 #' Gets model run summary (internal implementation)
 #'
@@ -120,20 +115,42 @@ get_run_info <- function(path) .Call(wrap__get_run_info, path)
 #' }
 check_model <- function(model_path) .Call(wrap__check_model_wrap, model_path)
 
-#' Get's model lineage
+#' Checks model dataset
 #'
-#' @param model_dir path to directory containing all models, or a hyperion_nonmem_model object
-#' (uses the model's parent directory)
+#' @param model hyperion_nonmem_model object from `read_model`
+#'
+#' @return Dataset check results
+#' @export
+check_dataset <- function(model) .Call(wrap__check_dataset, model)
+
+#' Show model lineage and relationships.
+#'
+#' With no arguments, returns the full project lineage tree. Supplying a
+#' model path returns that model's full lineage (ancestors and descendants).
+#' The `from` and `to` arguments filter the tree from a model downward, up
+#' to a model, or to the slice between two models. The project is always
+#' rooted at the directory containing `pharos.toml`.
+#'
+#' @param model Optional `hyperion_nonmem_model` object or model file path.
+#' Returns the model's full lineage (ancestors and descendants). Conflicts
+#' with `from`/`to`.
+#' @param from Filter the tree to this model and everything downstream.
+#' Accepts a `hyperion_nonmem_model` object or a model file path.
+#' @param to Filter the tree to this model and everything upstream.
+#' Accepts a `hyperion_nonmem_model` object or a model file path.
 #'
 #' @return hyperion_nonmem_tree S3 object
 #' @export
 #'
 #' @examples \dontrun{
-#' get_model_lineage("model/nonmem/")
-#' model <- read_model("model/nonmem/run001.mod")
-#' get_model_lineage(model)
+#' get_model_lineage()                                            # whole project
+#' get_model_lineage("model/nonmem/run003.mod")                   # full lineage of run003
+#' get_model_lineage(from = "model/nonmem/run001.mod")            # run001 and descendants
+#' get_model_lineage(to = "model/nonmem/run003.mod")              # run003 and ancestors
+#' get_model_lineage(from = "model/nonmem/run001.mod",
+#'                   to   = "model/nonmem/run003.mod")            # slice between two models
 #' }
-get_model_lineage <- function(model_dir) .Call(wrap__get_model_lineage, model_dir)
+get_model_lineage <- function(model = NULL, from = NULL, to = NULL) .Call(wrap__get_model_lineage, model, from, to)
 
 #' Gets parameter estimates from model run
 #'
@@ -165,9 +182,26 @@ get_parameters <- function(path, hide_off_diagonal_params = FALSE, only_method =
 #'
 #' @param model hyperion_nonmem_model object from read_model()
 #'
-#' @return Named character vector with NONMEM names as names and user-friendly names as values
+#' @return Named list with NONMEM names as names and user-friendly names as character values
 #' @keywords internal
 get_model_parameter_names <- function(model) .Call(wrap__get_model_parameter_names, model)
+
+#' Build per-parameter comment info from a model object (internal)
+#'
+#' @param model hyperion_nonmem_model object from read_model()
+#'
+#' @return list with `thetas`, `omegas`, `sigmas` entries; each is a list of
+#'   length-2 lists `(coordinate, info)` in numeric coordinate order.
+#' @keywords internal
+get_model_comment_info <- function(model) .Call(wrap__get_model_comment_info, model)
+
+#' Canonicalize a parameterization alias to its PascalCase form.
+#'
+#' @param raw Parameterization alias (e.g. `"EXP"`, `"lognormal"`, `"PROP"`).
+#' @return Canonical name (`"LogNormal"`, `"Proportional"`, ...) or `NA_character_`
+#'   if `raw` is not a recognized alias.
+#' @keywords internal
+map_parameterization <- function(raw) .Call(wrap__map_parameterization, raw)
 
 #' Creates a metadata file for a NONMEM model
 #'
@@ -179,6 +213,7 @@ get_model_parameter_names <- function(model) .Call(wrap__get_model_parameter_nam
 #' @param description Optional description of the model and its purpose
 #' @param tags Character vector of tags to categorize or label the model
 #' @param based_on Character vector of model names/paths that this model is based on
+#' @param copied_from Optional model name/path this model was mechanically copied from
 #'
 #' @return Returns invisibly after creating the metadata file
 #' @export
@@ -200,7 +235,7 @@ get_model_parameter_names <- function(model) .Call(wrap__get_model_parameter_nam
 #'   based_on = c("run001.mod")
 #' )
 #' }
-set_metadata_file <- function(model_path, description = NULL, tags = NULL, based_on = NULL) .Call(wrap__set_metadata_file, model_path, description, tags, based_on)
+set_metadata_file <- function(model_path, description = NULL, tags = NULL, based_on = NULL, copied_from = NULL) .Call(wrap__set_metadata_file, model_path, description, tags, based_on, copied_from)
 
 #' Updates a metadatafile
 #'
@@ -243,6 +278,27 @@ update_metadata_file <- function(model_path, description = NULL, tags = NULL, ba
 #' meta$based_on
 #' }
 get_model_metadata <- function(model) .Call(wrap__load_model_metadata, model)
+
+#' Clear fields in a model's metadata file
+#'
+#' Selectively clears the `based_on`, `copied_from`, and/or `tags` fields in
+#' the metadata file associated with a model. Fields not selected are left
+#' unchanged.
+#'
+#' @param model_path Path to the NONMEM model file, or a hyperion_nonmem_model object
+#' @param based_on If TRUE, clear the based_on field. Default FALSE.
+#' @param copied_from If TRUE, clear the copied_from field. Default FALSE.
+#' @param tags If TRUE, clear the tags field. Default FALSE.
+#'
+#' @return Returns invisibly after updating the metadata file
+#' @export
+#'
+#' @examples \dontrun{
+#' clear_metadata_file("model/nonmem/run001.mod", tags = TRUE)
+#' model <- read_model("model/nonmem/run001.mod")
+#' clear_metadata_file(model, based_on = TRUE, copied_from = TRUE)
+#' }
+clear_metadata_file <- function(model_path, based_on = FALSE, copied_from = FALSE, tags = FALSE) .Call(wrap__clear_metadata_file_wrap, model_path, based_on, copied_from, tags)
 
 #' Determine run status for a model path, run directory, or model object.
 #'

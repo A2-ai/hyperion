@@ -15,7 +15,7 @@ test_that("format_ignore_condition falls back for unknown operators", {
     ValueFilter = list(
       field = "AN01FL",
       op = "Between",
-      value = "0"
+      value = list(Number = 0)
     )
   )
 
@@ -23,7 +23,7 @@ test_that("format_ignore_condition falls back for unknown operators", {
 })
 
 test_that("get_theta_parameter_data returns NULL with no parameters", {
-  x <- list(theta_parameters = list())
+  x <- list(thetas = list())
   expect_null(get_theta_parameter_data(
     x,
     digits = NULL,
@@ -50,22 +50,11 @@ test_that("get_random_effect_parameter_data handles BlockSame copying", {
   blocks <- list(
     list(
       structure = list(Block = list(size = 2)),
-      parametrization = "LogNormal",
+      fixed = TRUE,
+      parametrization = "Cholesky",
       parameters = list(
-        list(
-          initial_value = 0.1,
-          lower_bound = 0,
-          upper_bound = 1,
-          is_fixed = FALSE,
-          comment = "A"
-        ),
-        list(
-          initial_value = 0.2,
-          lower_bound = 0,
-          upper_bound = 1,
-          is_fixed = TRUE,
-          comment = "B"
-        )
+        list(value = 0.1, comment = "A"),
+        list(value = 0.2, comment = "B")
       )
     ),
     list(structure = list(BlockSame = list(size = 2)))

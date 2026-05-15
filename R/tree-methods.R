@@ -7,11 +7,21 @@ build_tree_display_parts <- function(x) {
     ))
   }
 
-  tree_data <- build_cli_tree_data(x)
+  # Index the Vec<LineageNode> by name for O(1) lookup downstream.
+  nodes_by_name <- x$nodes
+  names(nodes_by_name) <- vapply(x$nodes, function(n) n$name, character(1))
+
+  tree_data <- build_cli_tree_data(nodes_by_name)
   total_models <- length(tree_data$parent)
   all_parents <- tree_data$parent
   all_children <- unlist(tree_data$children)
   root_nodes <- setdiff(all_parents, all_children)
+
+  # Models the caller named explicitly (positional, from, to) get
+  # highlighted in the print. The `focal` attribute is set by the rust
+  # `get_model_lineage` wrapper.
+  focal <- attr(x, "focal") %||% character()
+  focal_display <- gsub("\\.(mod|ctl)$", "", focal)
 
   list(
     is_empty = FALSE,
@@ -19,21 +29,30 @@ build_tree_display_parts <- function(x) {
     tree_data = tree_data,
     total_models = total_models,
     root_nodes = root_nodes,
-    nodes = x$nodes
+    nodes = nodes_by_name,
+    focal_display = focal_display
   )
 }
 
 #' Print Method for Hyperion Tree Objects
 #'
 #' Displays a hyperion_nonmem_tree in a readable tree format using cli::tree().
-#' Shows the hierarchical relationships between models with Unicode tree characters.
+#' Shows the hierarchical relationships between models with Unicode tree
+#' characters. The default compact view shows only the model description; pass
+#' `verbose = TRUE` for a flat table that also includes tags.
 #'
 #' @param x A hyperion_nonmem_tree object
+#' @param verbose Logical; if `TRUE`, render a flat table with model,
+#'   description, and tags columns instead of the tree view.
 #' @param ... Additional arguments (currently unused)
 #'
 #' @return Invisibly returns the input object
-#' @rawNamespace S3method(base::print, hyperion_nonmem_tree)
-print.hyperion_nonmem_tree <- function(x, ...) {
+#' @exportS3Method base::print hyperion_nonmem_tree
+print.hyperion_nonmem_tree <- function(
+  x,
+  verbose = isTRUE(attr(x, "verbose")),
+  ...
+) {
   cli::cli_text("")
   parts <- build_tree_display_parts(x)
 
@@ -47,6 +66,25 @@ print.hyperion_nonmem_tree <- function(x, ...) {
   cli::cli_alert_info("Models: {parts$total_models}")
   cli::cli_text("")
 
+  if (verbose) {
+    print_tree_table(parts)
+  } else {
+    print_tree_compact(parts)
+  }
+
+  invisible(x)
+}
+
+# Look up a node's model record by stripped name.
+tree_node_model <- function(parts, node_name) {
+  mod_key <- paste0(node_name, ".mod")
+  ctl_key <- paste0(node_name, ".ctl")
+  node_key <- if (mod_key %in% names(parts$nodes)) mod_key else ctl_key
+  parts$nodes[[node_key]]$model
+}
+
+print_tree_compact <- function(parts) {
+  width <- cli::console_width()
   final_output <- character()
 
   for (root_idx in seq_along(parts$root_nodes)) {
@@ -56,7 +94,6 @@ print.hyperion_nonmem_tree <- function(x, ...) {
     for (i in seq_along(tree_output)) {
       line <- tree_output[i]
       node_name <- gsub("^[^a-zA-Z0-9._]*", "", line)
-      node_key <- paste0(node_name, ".mod")
 
       is_root <- (node_name %in% parts$root_nodes)
       children <- parts$tree_data$children[
@@ -65,34 +102,35 @@ print.hyperion_nonmem_tree <- function(x, ...) {
       is_leaf <- length(children) == 0
 
       tree_prefix <- gsub(node_name, "", line, fixed = TRUE)
-      colored_node <- if (is_root) {
-        cli::col_blue(cli::style_bold(node_name))
-      } else if (is_leaf) {
-        cli::col_green(node_name)
+      is_focal <- node_name %in% parts$focal_display
+      display_name <- if (is_focal) {
+        cli::style_bold(cli::style_underline(node_name))
       } else {
-        cli::col_yellow(node_name)
+        node_name
+      }
+      colored_node <- if (is_root) {
+        cli::col_blue(cli::style_bold(display_name))
+      } else if (is_leaf) {
+        cli::col_green(display_name)
+      } else {
+        cli::col_yellow(display_name)
       }
 
-      if (
-        node_key %in%
-          names(parts$nodes) &&
-          !is.null(parts$nodes[[node_key]]$description)
-      ) {
-        desc_text <- parts$nodes[[node_key]]$description
-        if (nchar(desc_text) > 50) {
-          desc_text <- paste0(substr(desc_text, 1, 47), "...")
+      node_model <- tree_node_model(parts, node_name)
+      has_desc <- !is.null(node_model) &&
+        !is.null(node_model$description) &&
+        nzchar(node_model$description)
+      suffix <- ""
+      if (has_desc) {
+        used <- cli::ansi_nchar(tree_prefix) + nchar(node_name) + 1
+        budget <- max(30, width - used - 1)
+        desc_text <- node_model$description
+        if (nchar(desc_text) > budget) {
+          desc_text <- paste0(substr(desc_text, 1, budget - 3), "...")
         }
-        final_output <- c(
-          final_output,
-          paste0(
-            tree_prefix,
-            colored_node,
-            cli::style_dim(paste0(" - ", desc_text))
-          )
-        )
-      } else {
-        final_output <- c(final_output, paste0(tree_prefix, colored_node))
+        suffix <- paste0(" ", cli::style_dim(desc_text))
       }
+      final_output <- c(final_output, paste0(tree_prefix, colored_node, suffix))
     }
 
     if (root_idx < length(parts$root_nodes)) {
@@ -101,7 +139,138 @@ print.hyperion_nonmem_tree <- function(x, ...) {
   }
 
   cat(final_output, sep = "\n")
-  invisible(x)
+}
+
+format_hash <- function(h) {
+  if (is.null(h) || !is.character(h) || !nzchar(h)) {
+    return("")
+  }
+  if (nchar(h) > 8) paste0(substr(h, 1, 8), "...") else h
+}
+
+# Full node record (not just $model) for hash lookups.
+tree_node_record <- function(parts, node_name) {
+  mod_key <- paste0(node_name, ".mod")
+  ctl_key <- paste0(node_name, ".ctl")
+  node_key <- if (mod_key %in% names(parts$nodes)) mod_key else ctl_key
+  parts$nodes[[node_key]]
+}
+
+# Hard upper bounds for content-sized columns; columns shrink to fit content
+# when the longest value is shorter.
+MAX_DESC_WIDTH <- 60
+MAX_TAGS_WIDTH <- 80
+
+print_tree_table <- function(parts) {
+  # Collect rows in DFS (tree) order so the table reads top-to-bottom like the
+  # tree view. Parent column preserves lineage info that the flat layout loses.
+  rows <- list()
+  for (root_node in parts$root_nodes) {
+    tree_output <- cli::tree(parts$tree_data, root = root_node)
+    for (line in tree_output) {
+      node_name <- gsub("^[^a-zA-Z0-9._]*", "", line)
+      node <- tree_node_record(parts, node_name)
+      node_model <- node$model
+      node_run <- node$run
+
+      parent <- if (
+        !is.null(node_model$based_on) &&
+          length(node_model$based_on) > 0
+      ) {
+        gsub("\\.(mod|ctl)$", "", node_model$based_on[[1]])
+      } else {
+        ""
+      }
+      desc <- if (!is.null(node_model$description)) {
+        node_model$description
+      } else {
+        ""
+      }
+      tags <- if (length(node_model$tags) > 0) {
+        paste(node_model$tags, collapse = ", ")
+      } else {
+        ""
+      }
+      model_hash <- format_hash(node_run$start$model_hashes$blake3)
+      dataset_hash <- format_hash(node_run$start$dataset_hashes$blake3)
+
+      rows[[length(rows) + 1]] <- list(
+        model = node_name,
+        parent = parent,
+        description = desc,
+        tags = tags,
+        model_hash = model_hash,
+        dataset_hash = dataset_hash
+      )
+    }
+  }
+
+  col_w <- function(col, label) {
+    max(c(nchar(label), vapply(rows, function(r) nchar(r[[col]]), integer(1))))
+  }
+  model_w <- col_w("model", "Model")
+  parent_w <- col_w("parent", "Parent")
+  desc_w <- min(col_w("description", "Description"), MAX_DESC_WIDTH)
+  tags_w <- min(col_w("tags", "Tags"), MAX_TAGS_WIDTH)
+  model_hash_w <- col_w("model_hash", "Model Hash")
+  dataset_hash_w <- col_w("dataset_hash", "Dataset Hash")
+
+  truncate <- function(s, w) {
+    if (nchar(s) > w) paste0(substr(s, 1, w - 3), "...") else s
+  }
+  fmt_row <- function(model, parent, desc, tags, mh, dh) {
+    sprintf(
+      "%-*s  %-*s  %-*s  %-*s  %-*s  %-*s",
+      model_w,
+      model,
+      parent_w,
+      parent,
+      desc_w,
+      truncate(desc, desc_w),
+      tags_w,
+      truncate(tags, tags_w),
+      model_hash_w,
+      mh,
+      dataset_hash_w,
+      dh
+    )
+  }
+
+  # 2 spaces between 6 cols = 10 separator chars.
+  total_w <- model_w +
+    parent_w +
+    desc_w +
+    tags_w +
+    model_hash_w +
+    dataset_hash_w +
+    10
+  cat(
+    cli::style_bold(fmt_row(
+      "Model",
+      "Parent",
+      "Description",
+      "Tags",
+      "Model Hash",
+      "Dataset Hash"
+    )),
+    "\n",
+    sep = ""
+  )
+  cat(strrep("\u2500", total_w), "\n", sep = "")
+  for (r in rows) {
+    cat(
+      fmt_row(
+        r$model,
+        r$parent,
+        r$description,
+        r$tags,
+        r$model_hash,
+        r$dataset_hash
+      ),
+      "\n",
+      sep = ""
+    )
+  }
 }
 
 #' Build Tree Data for cli::tree()
@@ -113,30 +282,29 @@ print.hyperion_nonmem_tree <- function(x, ...) {
 #' @return A data frame suitable for cli::tree()
 #' @keywords internal
 #' @noRd
-build_cli_tree_data <- function(hyperion_nonmem_tree) {
-  all_nodes <- names(hyperion_nonmem_tree$nodes)
+build_cli_tree_data <- function(nodes_by_name) {
+  all_nodes <- names(nodes_by_name)
 
-  # Build children map and find unique nodes in one pass
+  # Build children map. Only treat a based_on reference as a parent edge if
+  # the parent is actually in the tree — pharos slices intentionally exclude
+  # ancestors outside the slice (e.g. `from = run002` excludes run001), so
+  # synthesizing those parents would put a phantom "root" above the slice.
   children_map <- list()
-  unique_nodes <- all_nodes
-
   for (node_name in all_nodes) {
-    node_info <- hyperion_nonmem_tree$nodes[[node_name]]
-    if (length(node_info$based_on) > 0) {
-      parent <- node_info$based_on[[1]]
-
-      # Add any parent to unique nodes if not already present
-      if (!(parent %in% unique_nodes)) {
-        unique_nodes <- c(parent, unique_nodes)
+    node_info <- nodes_by_name[[node_name]]
+    if (length(node_info$model$based_on) > 0) {
+      parent <- node_info$model$based_on[[1]]
+      if (!(parent %in% all_nodes)) {
+        next
       }
-
-      # Build children map
       if (is.null(children_map[[parent]])) {
         children_map[[parent]] <- character(0)
       }
       children_map[[parent]] <- c(children_map[[parent]], node_name)
     }
   }
+
+  unique_nodes <- all_nodes
 
   # Ensure all nodes have entries in children_map
   for (node in unique_nodes) {
@@ -148,15 +316,17 @@ build_cli_tree_data <- function(hyperion_nonmem_tree) {
   # Create result data frame
   data.frame(
     stringsAsFactors = FALSE,
-    parent = gsub("\\.mod$", "", unique_nodes),
+    parent = gsub("\\.(mod|ctl)$", "", unique_nodes),
     children = I(lapply(unique_nodes, function(node) {
-      gsub("\\.mod$", "", children_map[[node]])
+      gsub("\\.(mod|ctl)$", "", children_map[[node]])
     }))
   )
 }
 
 #' Knit print method for hyperion_nonmem_tree objects (for Quarto/R Markdown)
-#' @param x A hyperion_nonmem_tree object
+#' @param x A hyperion_nonmem_tree object. If the object carries a `"verbose"`
+#'   attribute (set by `get_model_lineage(verbose = TRUE)`), the flat table
+#'   layout is rendered instead of the tree view.
 #' @param ... Additional arguments (ignored)
 #' @return HTML/markdown output for rendered documents
 #' @exportS3Method knitr::knit_print
@@ -187,22 +357,86 @@ knit_print.hyperion_nonmem_tree <- function(x, ...) {
     ""
   )
 
-  for (root_idx in seq_along(parts$root_nodes)) {
-    root_node <- parts$root_nodes[root_idx]
-    tree_lines <- knit_print_tree_node(
-      root_node,
-      parts$tree_data,
-      parts$nodes,
-      level = 0
-    )
-    output <- c(output, tree_lines)
+  if (isTRUE(attr(x, "verbose"))) {
+    output <- c(output, knit_print_tree_table(parts))
+  } else {
+    for (root_idx in seq_along(parts$root_nodes)) {
+      root_node <- parts$root_nodes[root_idx]
+      tree_lines <- knit_print_tree_node(
+        root_node,
+        parts$tree_data,
+        parts$nodes,
+        parts$focal_display,
+        level = 0
+      )
+      output <- c(output, tree_lines)
 
-    if (root_idx < length(parts$root_nodes)) {
-      output <- c(output, "")
+      if (root_idx < length(parts$root_nodes)) {
+        output <- c(output, "")
+      }
     }
   }
 
   knitr::asis_output(paste(output, collapse = "\n"))
+}
+
+# Markdown table renderer for knit_print verbose mode. Mirrors the columns in
+# print_tree_table so the two views are consistent.
+knit_print_tree_table <- function(parts) {
+  rows <- list()
+  for (root_node in parts$root_nodes) {
+    tree_output <- cli::tree(parts$tree_data, root = root_node)
+    for (line in tree_output) {
+      node_name <- gsub("^[^a-zA-Z0-9._]*", "", line)
+      node <- tree_node_record(parts, node_name)
+      node_model <- node$model
+      node_run <- node$run
+
+      parent <- if (
+        !is.null(node_model$based_on) &&
+          length(node_model$based_on) > 0
+      ) {
+        gsub("\\.(mod|ctl)$", "", node_model$based_on[[1]])
+      } else {
+        ""
+      }
+      desc <- if (!is.null(node_model$description)) {
+        node_model$description
+      } else {
+        ""
+      }
+      tags <- if (length(node_model$tags) > 0) {
+        paste(node_model$tags, collapse = ", ")
+      } else {
+        ""
+      }
+      model_hash <- format_hash(node_run$start$model_hashes$blake3)
+      dataset_hash <- format_hash(node_run$start$dataset_hashes$blake3)
+
+      rows[[length(rows) + 1]] <- c(
+        node_name,
+        parent,
+        desc,
+        tags,
+        model_hash,
+        dataset_hash
+      )
+    }
+  }
+
+  header <- c(
+    "| Model | Parent | Description | Tags | Model Hash | Dataset Hash |",
+    "|---|---|---|---|---|---|"
+  )
+  body <- vapply(
+    rows,
+    function(r) {
+      paste0("| ", paste(r, collapse = " | "), " |")
+    },
+    character(1)
+  )
+
+  c(header, body)
 }
 
 #' Helper function to recursively build tree structure in markdown
@@ -213,14 +447,22 @@ knit_print.hyperion_nonmem_tree <- function(x, ...) {
 #' @return Character vector of markdown lines for this subtree
 #' @keywords internal
 #' @noRd
-knit_print_tree_node <- function(node_name, tree_data, nodes_info, level = 0) {
+knit_print_tree_node <- function(
+  node_name,
+  tree_data,
+  nodes_info,
+  focal_display,
+  level = 0
+) {
   output <- character()
 
   # Create indentation
   indent <- paste(rep("  ", level), collapse = "")
 
   # Find node info
-  node_key <- paste0(node_name, ".mod")
+  mod_key <- paste0(node_name, ".mod")
+  ctl_key <- paste0(node_name, ".ctl")
+  node_key <- if (mod_key %in% names(nodes_info)) mod_key else ctl_key
 
   # Determine node type for styling
   all_parents <- tree_data$parent
@@ -230,37 +472,51 @@ knit_print_tree_node <- function(node_name, tree_data, nodes_info, level = 0) {
   is_root <- (node_name %in% root_nodes)
   children <- tree_data$children[tree_data$parent == node_name][[1]]
   is_leaf <- length(children) == 0
+  is_focal <- node_name %in% focal_display
 
   # Apply HTML styling based on node type
-  styled_node <- if (is_root) {
-    paste0('<strong style="color:blue">', node_name, '</strong>')
-  } else if (is_leaf) {
-    paste0('<span style="color:green">', node_name, '</span>')
+  display_name <- if (is_focal) {
+    paste0('<strong><u>', node_name, '</u></strong>')
   } else {
-    paste0('<span style="color:orange">', node_name, '</span>')
+    node_name
+  }
+  styled_node <- if (is_root) {
+    paste0('<strong style="color:blue">', display_name, '</strong>')
+  } else if (is_leaf) {
+    paste0('<span style="color:green">', display_name, '</span>')
+  } else {
+    paste0('<span style="color:orange">', display_name, '</span>')
   }
 
-  # Add description if available
-  if (
-    node_key %in%
-      names(nodes_info) &&
-      !is.null(nodes_info[[node_key]]$description)
-  ) {
-    desc_text <- nodes_info[[node_key]]$description
+  # Add tags and description if available
+  node_model <- nodes_info[[node_key]]$model
+  has_tags <- !is.null(node_model) && length(node_model$tags) > 0
+  has_desc <- !is.null(node_model) &&
+    !is.null(node_model$description) &&
+    nzchar(node_model$description)
+  suffix <- ""
+  if (has_tags) {
+    suffix <- paste0(
+      ' <span style="color:teal">',
+      paste(node_model$tags, collapse = ", "),
+      '</span>'
+    )
+  }
+  if (has_desc) {
+    desc_text <- node_model$description
     if (nchar(desc_text) > 50) {
       desc_text <- paste0(substr(desc_text, 1, 47), "...")
     }
-    node_line <- paste0(
-      indent,
-      "- ",
-      styled_node,
-      ' <span style="color:gray">- ',
+    sep <- if (has_tags) ' <span style="color:gray">|</span> ' else ' '
+    suffix <- paste0(
+      suffix,
+      sep,
+      '<span style="color:gray">',
       desc_text,
       '</span>'
     )
-  } else {
-    node_line <- paste0(indent, "- ", styled_node)
   }
+  node_line <- paste0(indent, "- ", styled_node, suffix)
 
   output <- c(output, node_line)
 
@@ -271,6 +527,7 @@ knit_print_tree_node <- function(node_name, tree_data, nodes_info, level = 0) {
         child,
         tree_data,
         nodes_info,
+        focal_display,
         level + 1
       )
       output <- c(output, child_lines)
@@ -284,154 +541,77 @@ knit_print_tree_node <- function(node_name, tree_data, nodes_info, level = 0) {
 # Lineage utility functions
 # ==============================================================================
 
-#' Normalize model names with or without .mod suffix
-#'
-#' @param model_name Character model name
-#' @param keep_suffix Logical, if TRUE preserves existing suffix or adds .mod
-#' @return Normalized model name
-#' @noRd
-normalize_model_name <- function(model_name, keep_suffix = FALSE) {
-  suffix <- NULL
-  if (grepl("\\.mod$", model_name)) {
-    suffix <- ".mod"
-  } else if (grepl("\\.ctl$", model_name)) {
-    suffix <- ".ctl"
-  }
-  clean <- sub("\\.(mod|ctl)$", "", model_name)
-  if (keep_suffix) {
-    return(paste0(clean, suffix %||% ".mod"))
-  }
-  clean
-}
-
 #' Get a model's ancestors
 #'
-#' Walk up the based_on chain to find all ancestors of a model.
-#'
-#' @param lineage A hyperion_nonmem_tree object from `get_model_lineage()`
-#' @param model_name Character, model name (e.g., "run001" or "run001.mod")
-#' @return Character vector of ancestor names (without .mod suffix),
-#'   ordered from parent to root. Returns empty vector if no ancestors.
+#' @param mod A `hyperion_nonmem_model` object or a path to a `.mod`/`.ctl`
+#'   file.
+#' @return Character vector of ancestor project-relative paths (with
+#'   extension, e.g., `"models/onecmt/run001.mod"`). Includes `mod` itself
+#'   alongside its ancestors. Returns empty vector if the lineage has no
+#'   ancestors.
 #' @export
-get_model_ancestors <- function(lineage, model_name) {
-  if (!inherits(lineage, "hyperion_nonmem_tree")) {
-    rlang::abort("lineage must be a hyperion_nonmem_tree object")
-  }
-
-  # Normalize model name (add .mod if needed)
-  model_key <- normalize_model_name(model_name, keep_suffix = TRUE)
-
-  ancestors <- character(0)
-  current <- model_key
-  visited <- character(0)
-
-  # Walk up the based_on chain
-
-  while (TRUE) {
-    if (current %in% visited) {
-      rlang::abort(sprintf("Circular lineage detected at %s", current))
-    }
-    visited <- c(visited, current)
-    node <- lineage$nodes[[current]]
-    if (is.null(node) || length(node$based_on) == 0) {
-      break
-    }
-    parent <- node$based_on[[1]]
-    # Normalize parent name
-    parent_clean <- normalize_model_name(parent)
-    ancestors <- c(ancestors, parent_clean)
-    current <- normalize_model_name(parent, keep_suffix = TRUE)
-  }
-
-  ancestors
+get_model_ancestors <- function(mod) {
+  nodes <- get_model_lineage(to = mod)$nodes
+  vapply(nodes, function(n) n$name, character(1))
 }
 
 #' Get a model's descendants
 #'
-#' Find all models whose based_on chain includes the given model.
-#'
-#' @param lineage A hyperion_nonmem_tree object from `get_model_lineage()`
-#' @param model_name Character, model name (e.g., "run001" or "run001.mod")
-#' @return Character vector of descendant names (without .mod suffix)
+#' @param mod A `hyperion_nonmem_model` object or a path to a `.mod`/`.ctl`
+#'   file.
+#' @return Character vector of descendant project-relative paths (with
+#'   extension, e.g., `"models/onecmt/run002.mod"`). Does not include
+#'   `mod` itself.
 #' @export
-get_model_descendants <- function(lineage, model_name) {
-  if (!inherits(lineage, "hyperion_nonmem_tree")) {
-    rlang::abort("lineage must be a hyperion_nonmem_tree object")
-  }
-
-  # Normalize model name (remove .mod if present)
-  model_clean <- normalize_model_name(model_name)
-
-  descendants <- character(0)
-
-  # Build parent -> children map once
-  parent_map <- list()
-  for (node_name in names(lineage$nodes)) {
-    node <- lineage$nodes[[node_name]]
-    if (!is.null(node) && length(node$based_on) > 0) {
-      parent_clean <- normalize_model_name(node$based_on[[1]])
-      child_clean <- normalize_model_name(node_name)
-      parent_map[[parent_clean]] <- unique(c(
-        parent_map[[parent_clean]],
-        child_clean
-      ))
-    }
-  }
-
-  # Traverse descendants from the starting model
-  queue <- model_clean
-  visited <- character(0)
-
-  while (length(queue) > 0) {
-    current <- queue[[1]]
-    queue <- queue[-1]
-    children <- parent_map[[current]]
-    if (length(children) == 0) {
-      next
-    }
-    for (child in children) {
-      if (child %in% visited) {
-        next
-      }
-      visited <- c(visited, child)
-      descendants <- c(descendants, child)
-      queue <- c(queue, child)
-    }
-  }
-
-  descendants
+get_model_descendants <- function(mod) {
+  from_keys <- vapply(
+    get_model_lineage(from = mod)$nodes,
+    function(n) n$name,
+    character(1)
+  )
+  # `slice(from = mod, to = mod)` resolves to just `mod` itself; strip it
+  # out so the result is descendants only.
+  self_key <- vapply(
+    get_model_lineage(from = mod, to = mod)$nodes,
+    function(n) n$name,
+    character(1)
+  )
+  setdiff(from_keys, self_key)
 }
 
 #' Check if two models are in a direct lineage
 #'
-#' Returns TRUE if model1 is an ancestor of model2 or vice versa
-#' (i.e., they are in a direct parent-child chain).
+#' Returns TRUE if `m1` is an ancestor of `m2` or vice versa (i.e., they
+#' are in a direct parent-child chain).
 #'
-#' @param lineage A hyperion_nonmem_tree object from `get_model_lineage()`
-#' @param model1 Character, model name (e.g., "run001" or "run001.mod")
-#' @param model2 Character, model name (e.g., "run003" or "run003.mod")
-#' @return Logical, TRUE if models are in direct lineage
+#' @param m1 A `hyperion_nonmem_model` object or a path to a `.mod`/`.ctl`
+#'   file.
+#' @param m2 A `hyperion_nonmem_model` object or a path to a `.mod`/`.ctl`
+#'   file.
+#' @return Logical, TRUE if models are in direct lineage.
 #' @export
-are_models_in_lineage <- function(lineage, model1, model2) {
-  if (!inherits(lineage, "hyperion_nonmem_tree")) {
-    rlang::abort("lineage must be a hyperion_nonmem_tree object")
-  }
-
-  # Normalize model names
-  model1_clean <- normalize_model_name(model1)
-  model2_clean <- normalize_model_name(model2)
-
-  # Check if model1 is ancestor of model2
-  ancestors2 <- get_model_ancestors(lineage, model2)
-  if (model1_clean %in% ancestors2) {
-    return(TRUE)
-  }
-
-  # Check if model2 is ancestor of model1
-  ancestors1 <- get_model_ancestors(lineage, model1)
-  if (model2_clean %in% ancestors1) {
-    return(TRUE)
-  }
-
-  FALSE
+are_models_in_lineage <- function(m1, m2) {
+  length(get_model_lineage(from = m1, to = m2)$nodes) > 0 ||
+    length(get_model_lineage(from = m2, to = m1)$nodes) > 0
 }
+
+# Override the extendr-generated `get_model_lineage` to accept `verbose` and
+# stash it on the returned tree as an attribute. Both `print()` and
+# `knit_print()` read this attribute, so `get_model_lineage(verbose = TRUE)`
+# at the REPL or in a knitr chunk renders the flat-table view without the
+# caller having to remember the print-time flag.
+#'
+#' @rdname get_model_lineage
+#' @param verbose Logical; if `TRUE`, the returned tree carries a
+#'   `"verbose"` attribute that causes `print()` and `knit_print()` to render
+#'   a flat 6-column table (Model, Parent, Description, Tags, Model Hash,
+#'   Dataset Hash) instead of the tree view.
+#' @export
+get_model_lineage <- (function() {
+  raw <- get_model_lineage
+  function(model = NULL, from = NULL, to = NULL, verbose = FALSE) {
+    tree <- raw(model = model, from = from, to = to)
+    attr(tree, "verbose") <- isTRUE(verbose)
+    tree
+  }
+})()

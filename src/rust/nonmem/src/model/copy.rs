@@ -1,11 +1,12 @@
 use extendr_api::Result;
 use extendr_api::prelude::*;
 
+use fs_err as fs;
 use nonmem::copy::UpdateType;
-use nonmem::{CopyOptions, copy_model};
+use nonmem::{CopyOptions, Model, copy_model};
 use std::path::{Path, PathBuf};
 
-use crate::utils::path_from_robj;
+use crate::utils::{path_from_robj, resolve_ext_path};
 use hyperion_core::{OptionExt, ResultExt, extendr_err};
 
 // This should move to Option<Robj>
@@ -91,6 +92,8 @@ fn parse_update_robj(update: Robj) -> Result<Vec<UpdateType>> {
 /// Examples: "THETA1" or c("THETA1")
 /// @param seed integer for random number generator seed to ensure reproducible jittering
 /// @param description Description of model in metadata file
+/// @param based_on Character vector of model names/paths that this model is based on
+/// @param tags Character vector of tags to attach to the model in metadata
 /// @param no_metadata boolean, if true, does not create metadatafile, default FALSE
 ///
 /// @return path to new model file (invisible) todo
@@ -112,7 +115,9 @@ pub fn copy_model_wrap(
     // This should move to Option<Robj>
     #[extendr(default = "NULL")] jitter_excluded: Option<&Robj>,
     #[extendr(default = "NULL")] seed: Option<u64>,
-    #[extendr(default = "NULL")] description: String,
+    description: String,
+    #[extendr(default = "NULL")] based_on: Option<Vec<String>>,
+    #[extendr(default = "NULL")] tags: Option<Vec<String>>,
     #[extendr(default = "FALSE")] no_metadata: bool,
 ) -> Result<()> {
     // Parse input parameters
@@ -130,6 +135,8 @@ pub fn copy_model_wrap(
         seed,
         jitter_excluded: jitter_excluded_parsed,
         description,
+        based_on: based_on.unwrap_or_default(),
+        tags: tags.unwrap_or_default(),
         no_metadata,
     };
 
@@ -158,17 +165,19 @@ pub fn copy_model_wrap(
         let ext_path = match &ext_file {
             Some(path) => PathBuf::from(path),
             None => {
-                // Default: run001.mod -> run001/run001.ext
                 let model_stem = from_path
                     .file_stem()
                     .ok_or_extendr_err("Could not determine model file stem")?
-                    .to_string_lossy();
-
-                from_path
+                    .to_string_lossy()
+                    .to_string();
+                let run_dir = from_path
                     .parent()
                     .ok_or_extendr_err("Could not determine parent directory")?
-                    .join(&*model_stem)
-                    .join(format!("{}.ext", model_stem))
+                    .join(&model_stem);
+                let content = fs::read_to_string(&from_path).map_to_extendr_err("")?;
+                let model = Model::parse(&content)
+                    .map_err(|_| extendr_err!("Failed to parse model: {}", from_path.display()))?;
+                resolve_ext_path(&model, &run_dir, &model_stem)
             }
         };
 

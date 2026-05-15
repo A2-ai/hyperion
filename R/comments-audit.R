@@ -44,7 +44,7 @@ audit_parameter_info <- function(info) {
 #' @param x A parameter_audit object
 #' @param ... Additional arguments (ignored)
 #' @return Invisible copy of x
-#' @rawNamespace S3method(base::print, parameter_audit)
+#' @exportS3Method base::print parameter_audit
 print.parameter_audit <- function(x, ...) {
   cli::cli_text("")
   cli::cli_h1("Parameter Info Audit")

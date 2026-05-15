@@ -1,24 +1,19 @@
 use extendr_api::Result;
+use extendr_api::deserializer::from_robj;
 use extendr_api::prelude::*;
 
-use fs_err as fs;
 use std::cmp::Ordering;
-use std::ffi::OsStr;
-use std::path::PathBuf;
 
 // pharos nonmem crate
-use nonmem::{
-    Model,
-    output_files::{ext::get_parameter_estimates, shk::ShkReader},
-};
+use nonmem::Model;
+use nonmem::output_files::{ext::get_parameter_estimates, shk::ShkReader};
 
 use crate::{
-    model::robj_to_model,
     output_files::ext::create_ext_reader,
     output_files::{OMEGA, ParameterRow, ParameterRowBuilder, SIGMA, THETA, build_parameters_df},
-    utils::{find_output_file, get_comment_type, path_from_robj},
+    utils::{find_output_file, get_comment_type, load_model_from_input, resolve_ext_path},
 };
-use hyperion_core::ResultExt;
+use hyperion_core::{ResultExt, extendr_err};
 
 /// Extract numeric indices from a parameter name for sorting.
 ///
@@ -65,7 +60,7 @@ fn extract_param_sort_key(name: &str) -> (u32, u32, u8) {
 }
 
 /// Compare two parameter names for numeric sorting.
-fn compare_param_names(a: &str, b: &str) -> Ordering {
+pub(crate) fn compare_param_names(a: &str, b: &str) -> Ordering {
     let key_a = extract_param_sort_key(a);
     let key_b = extract_param_sort_key(b);
 
@@ -116,32 +111,24 @@ pub fn get_parameters(
 ) -> Result<Robj> {
     let ext_reader = create_ext_reader(None, None, only_method, only_last)?;
 
-    // Resolve the search path from either a string or model object
-    let search_path = path_from_robj(&path, false)?;
-    // If .ext file, use parent directory; otherwise use path as-is
-    let search_path = if search_path.extension() == Some(OsStr::new("ext")) {
-        search_path
-            .parent()
-            .map(|p| p.to_path_buf())
-            .unwrap_or_else(|| PathBuf::from("."))
-    } else {
-        search_path
-    };
+    let loc = load_model_from_input(&path)?;
 
-    let shk_data = match find_output_file(&search_path, "shk") {
+    let shk_data = match find_output_file(&loc.run_dir, "shk") {
         Ok(p) => ShkReader.parse_file(p).unwrap_or_default(),
         Err(_) => Vec::new(),
     };
 
-    let ext_path = find_output_file(&search_path, "ext")?;
-    let model_path =
-        find_output_file(&search_path, "mod").or_else(|_| find_output_file(&search_path, "ctl"))?;
-    let content = fs::read_to_string(&model_path).map_to_extendr_err("")?;
-
-    let mut model = Model::parse(&content).map_to_extendr_err("Failed to read model file")?;
+    let ext_path = resolve_ext_path(&loc.model, &loc.run_dir, &loc.stem);
+    if !ext_path.exists() {
+        return Err(extendr_err!(
+            "Output file not found: {}",
+            ext_path.display()
+        ));
+    }
 
     let comment_type = get_comment_type();
-    let parameter_names = model
+    let parameter_names = loc
+        .model
         .get_parameter_names(comment_type)
         .map_to_extendr_err("Failed to get model parameter names")?;
 
@@ -220,11 +207,11 @@ pub fn get_parameters(
 ///
 /// @param model hyperion_nonmem_model object from read_model()
 ///
-/// @return Named character vector with NONMEM names as names and user-friendly names as values
+/// @return Named list with NONMEM names as names and user-friendly names as character values
 /// @keywords internal
 #[extendr]
 pub fn get_model_parameter_names(model: Robj) -> Result<Robj> {
-    let mut model = robj_to_model(&model)?;
+    let model: Model = from_robj(&model)?;
 
     let comment_type = get_comment_type();
     let parameter_names = model

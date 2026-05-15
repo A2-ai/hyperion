@@ -4,19 +4,19 @@
 \alias{are_models_in_lineage}
 \title{Check if two models are in a direct lineage}
 \usage{
-are_models_in_lineage(lineage, model1, model2)
+are_models_in_lineage(m1, m2)
 }
 \arguments{
-\item{lineage}{A hyperion_nonmem_tree object from \code{get_model_lineage()}}
+\item{m1}{A \code{hyperion_nonmem_model} object or a path to a \code{.mod}/\code{.ctl}
+file.}
 
-\item{model1}{Character, model name (e.g., "run001" or "run001.mod")}
-
-\item{model2}{Character, model name (e.g., "run003" or "run003.mod")}
+\item{m2}{A \code{hyperion_nonmem_model} object or a path to a \code{.mod}/\code{.ctl}
+file.}
 }
 \value{
-Logical, TRUE if models are in direct lineage
+Logical, TRUE if models are in direct lineage.
 }
 \description{
-Returns TRUE if model1 is an ancestor of model2 or vice versa
-(i.e., they are in a direct parent-child chain).
+Returns TRUE if \code{m1} is an ancestor of \code{m2} or vice versa (i.e., they
+are in a direct parent-child chain).
 }

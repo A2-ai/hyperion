@@ -10,9 +10,11 @@ hyperion-core = { path = "../core" }
 
 # Pharos components
 nonmem = { workspace = true }
+nmparser = { workspace = true }
 config = { workspace = true }
 
 # Core utilities
+anyhow = { workspace = true }
 fs-err = { workspace = true }
 serde = { workspace = true }
 

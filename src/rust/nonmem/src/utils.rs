@@ -1,14 +1,15 @@
 use extendr_api::Result;
+use extendr_api::deserializer::from_robj;
 use extendr_api::prelude::*;
 use extendr_api::serializer::to_robj;
 
 use fs_err as fs;
-use std::path::Component;
 use std::path::{Path, PathBuf};
 
 // pharos config and nonmem crate
-use config::{CONFIG_FILENAME, CommentType, Config, NonmemConfig};
+use config::{CONFIG_FILENAME, CommentType, Config, NonmemConfig, to_root_relative};
 use nonmem::Model;
+use nonmem::output_files::resolve_estimation_files;
 
 // hyperion core
 use hyperion_core::{OptionExt, ResultExt, extendr_err, find_config_dir};
@@ -98,6 +99,116 @@ pub fn find_output_file(input_path: impl AsRef<Path>, extension: &str) -> Result
     }
 }
 
+/// Parsed model bundled with its on-disk locations, returned by
+/// [`load_model_from_input`].
+pub struct ModelLocation {
+    pub model: Model,
+    /// The `.mod`/`.ctl` file on disk that was parsed.
+    pub source: PathBuf,
+    /// The run output directory (containing `.lst`, `.ext`, etc.).
+    pub run_dir: PathBuf,
+    /// The model's stem (e.g. `"run001"`).
+    pub stem: String,
+}
+
+/// Resolve a polymorphic input to a parsed Model plus its on-disk locations.
+///
+/// Accepted inputs:
+/// - `hyperion_nonmem_model` Robj (uses its `model_source` attribute).
+/// - String path to a `.mod` or `.ctl` file.
+/// - String path to a run directory, or any file inside a run directory
+///   (e.g. `.ext`, `.lst`, `_metadata.json`). The model copy in the run
+///   directory is used as the source.
+pub fn load_model_from_input(input: &Robj) -> Result<ModelLocation> {
+    if input.inherits("hyperion_nonmem_model") {
+        let model: Model = from_robj(input)?;
+        let source = path_from_robj(input, false)?;
+        return assemble_top_level(model, source);
+    }
+    if let Some(s) = input.as_str() {
+        let path = Path::new(s);
+        // Direct .mod or .ctl file input.
+        if let Some(ext) = path.extension().and_then(|e| e.to_str())
+            && (ext == "mod" || ext == "ctl")
+            && path.exists()
+        {
+            let model = parse_model_from_disk(path)?;
+            return assemble_top_level(model, path.to_path_buf());
+        }
+        // Anything else (directory, _metadata.json, .lst, .ext, etc.): locate
+        // the in-run-dir model copy. `find_output_file` handles directories
+        // and files adjacent to the run dir (like `_metadata.json`); for files
+        // that live *inside* the run dir (`.lst`, `.ext`), it would compute a
+        // doubly-nested wrong path, so fall back to using the file's parent
+        // as the run dir.
+        let source = find_output_file(path, "mod")
+            .or_else(|_| find_output_file(path, "ctl"))
+            .or_else(|_| {
+                let parent = path
+                    .parent()
+                    .ok_or_extendr_err("Could not determine parent directory")?;
+                find_output_file(parent, "mod").or_else(|_| find_output_file(parent, "ctl"))
+            })?;
+        let stem = source
+            .file_stem()
+            .ok_or_extendr_err("Could not determine model file stem")?
+            .to_string_lossy()
+            .to_string();
+        let run_dir = source
+            .parent()
+            .ok_or_extendr_err("Could not determine run directory")?
+            .to_path_buf();
+        let model = parse_model_from_disk(&source)?;
+        return Ok(ModelLocation {
+            model,
+            source,
+            run_dir,
+            stem,
+        });
+    }
+    Err(extendr_err!(
+        "Expected a hyperion_nonmem_model object or a path to a model file/directory"
+    ))
+}
+
+/// Assemble a `ModelLocation` for a source path adjacent to its run dir
+/// (the conventional `parent/stem.mod` + `parent/stem/` layout).
+fn assemble_top_level(model: Model, source: PathBuf) -> Result<ModelLocation> {
+    let stem = source
+        .file_stem()
+        .ok_or_extendr_err("Could not determine model file stem")?
+        .to_string_lossy()
+        .to_string();
+    let run_dir = source
+        .parent()
+        .ok_or_extendr_err("Could not determine model parent directory")?
+        .join(&stem);
+    Ok(ModelLocation {
+        model,
+        source,
+        run_dir,
+        stem,
+    })
+}
+
+fn parse_model_from_disk(path: &Path) -> Result<Model> {
+    let content = fs::read_to_string(path).map_to_extendr_err("Failed to read model file")?;
+    Model::parse(&content).map_err(|_| extendr_err!("Failed to parse model: {}", path.display()))
+}
+
+/// Resolve the final `.ext` file path for a model, honoring `$EST FILE=`.
+///
+/// Returns the `.ext` path that the *last* `$EST` writes to, after applying
+/// NONMEM's inheritance rule (an `$EST` without `FILE=` continues writing to
+/// the previous `$EST`'s file). Falls back to `{stem}.ext` in `run_dir` when
+/// the model has no `$EST FILE=` overrides.
+pub fn resolve_ext_path(model: &Model, run_dir: &Path, stem: &str) -> PathBuf {
+    let default = run_dir.join(format!("{stem}.ext"));
+    resolve_estimation_files(model, run_dir, &default)
+        .pop()
+        .unwrap_or(default)
+}
+
 /// Validate and resolve a model input path (.mod or .ctl).
 /// Returns error if path is not a .mod/.ctl file or doesn't exist.
 pub fn validate_model_path(input_path: impl AsRef<Path>) -> Result<PathBuf> {
@@ -148,15 +259,26 @@ pub fn validate_model_path(input_path: impl AsRef<Path>) -> Result<PathBuf> {
     Err(extendr_err!("File not found: {}", path.display()))
 }
 
-/// Convert an absolute path to be relative to the pharos config directory.
+/// Convert a path to a project-relative identifier (forward-slash form).
+///
+/// Delegates the actual prefix-stripping to pharos's `to_root_relative` for
+/// consistency with how the rest of pharos generates project-relative keys.
+/// We can't call pharos's `to_config_relative` directly because it uses
+/// pharos's own `find_config_dir` and so wouldn't honor the
+/// `hyperion.config_dir` R option override. Canonicalizes both sides
+/// here so relative inputs (resolved against CWD) line up with the
+/// canonical config root before stripping.
+///
 /// Returns the original path if no config directory is found.
 pub fn to_config_relative(path: impl AsRef<Path>) -> Result<String> {
     let path = path.as_ref();
     let config_dir = find_config_dir().map_to_extendr_err("Failed to find config dir")?;
 
     if let Some(dir) = config_dir {
-        let rel = make_relative_path(&dir, path);
-        return Ok(rel.to_string_lossy().to_string());
+        let canonical_path = fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+        let canonical_dir = fs::canonicalize(&dir).unwrap_or(dir);
+        return to_root_relative(&canonical_path, &canonical_dir)
+            .map_to_extendr_err("Failed to make path config-relative");
     }
 
     Ok(path.to_string_lossy().to_string())
@@ -209,31 +331,6 @@ pub fn path_from_robj(input: &Robj, validate_model: bool) -> Result<PathBuf> {
     }
 }
 
-fn make_relative_path(base: &Path, target: &Path) -> PathBuf {
-    let base_components: Vec<Component<'_>> = base.components().collect();
-    let target_components: Vec<Component<'_>> = target.components().collect();
-
-    if base_components.first() != target_components.first() {
-        return target.to_path_buf();
-    }
-
-    let mut idx = 0;
-    let max = base_components.len().min(target_components.len());
-    while idx < max && base_components[idx] == target_components[idx] {
-        idx += 1;
-    }
-
-    let mut rel = PathBuf::new();
-    for _ in idx..base_components.len() {
-        rel.push("..");
-    }
-    for comp in target_components.iter().skip(idx) {
-        rel.push(comp.as_os_str());
-    }
-
-    rel
-}
-
 /// Gives Some(Model) if model path is found
 pub fn try_parse_model(path: &str) -> Option<Model> {
     let path_buf = std::path::Path::new(path);
@@ -257,6 +354,20 @@ pub fn try_parse_model(path: &str) -> Option<Model> {
 
 /// Gets the comment type from pharos.toml configuration
 ///
+/// Map an arbitrary string to an R-syntactic column name by replacing any
+/// non-alphanumeric character with `_`, collapsing runs of `_`, and trimming
+/// leading/trailing `_`. E.g. `"SIGMA(1,1)"` -> `"SIGMA_1_1"`.
+pub(crate) fn to_syntactic_name(s: &str) -> String {
+    let mut out: String = s
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '_' })
+        .collect();
+    while out.contains("__") {
+        out = out.replace("__", "_");
+    }
+    out.trim_matches('_').to_string()
+}
+
 /// @return Option<CommentType> from pharos config, None if not found or config doesn't exist
 pub fn get_comment_type() -> Option<CommentType> {
     find_config_dir()

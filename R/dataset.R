@@ -3,7 +3,7 @@
 #' @param x A hyperion_nonmem_dataset object
 #' @param ... Additional arguments (ignored)
 #' @return Invisible copy of x
-#' @rawNamespace S3method(base::print, hyperion_nonmem_dataset)
+#' @exportS3Method base::print hyperion_nonmem_dataset
 print.hyperion_nonmem_dataset <- function(x, ...) {
   rel_path <- to_config_relative(x$canonical_path)
 

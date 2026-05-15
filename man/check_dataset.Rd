@@ -15,9 +15,3 @@ Dataset check results
 \description{
 Checks model dataset
 }
-\examples{
-\dontrun{
-model <- read_model("model/nonmem/run001.mod")
-model |> check_dataset()
-}
-}

@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use nonmem::estimation;
 use nonmem::output_files::ext::{EstimationTable, ExtReader};
 
-use crate::utils::find_output_file;
+use crate::utils::{find_output_file, load_model_from_input, resolve_ext_path, to_syntactic_name};
 use hyperion_core::{OptionExt, ResultExt, extendr_err};
 
 /// Extract .ext files from path (single file or directory)
@@ -82,8 +82,12 @@ fn estimation_tables_to_dataframe(tables: Vec<EstimationTable>) -> Result<Robj> 
         return Err(extendr_err!("No tables found in ext file"));
     }
 
-    // Get parameter names from the first table
-    let param_names = tables[0].parameters.clone();
+    // Get parameter names from the first table, sanitized for R syntactic use.
+    let param_names: Vec<String> = tables[0]
+        .parameters
+        .iter()
+        .map(|n| to_syntactic_name(n))
+        .collect();
 
     let flat_data: Vec<(i32, String, Vec<f64>)> = tables
         .into_iter()
@@ -233,18 +237,35 @@ fn fix_parameter_values(list: List, param_names: &[String]) -> Result<List> {
 /// }
 #[extendr]
 pub fn read_ext_file(
-    path: &str,
+    path: Robj,
     #[extendr(default = "NULL")] line_prefixes: Option<Vec<String>>,
     #[extendr(default = "FALSE")] parameters_only: Option<bool>,
     #[extendr(default = "NULL")] only_method: Option<&str>,
     #[extendr(default = "TRUE")] only_last: Option<bool>,
 ) -> Result<Robj> {
     let ext_reader = create_ext_reader(line_prefixes, parameters_only, only_method, only_last)?;
-    let path = find_output_file(path, "ext")?;
-
-    let tables = ext_reader.parse_file(path).map_to_extendr_err("")?;
-
+    let ext_path = resolve_ext_input(&path)?;
+    let tables = ext_reader.parse_file(ext_path).map_to_extendr_err("")?;
     estimation_tables_to_dataframe(tables)
+}
+
+/// Accepts a `hyperion_nonmem_model` object, a `.mod`/`.ctl` path, a run
+/// directory, or an existing `.ext` path. For `.ext` paths the file is used
+/// directly; everything else routes through `load_model_from_input` so
+/// `$EST FILE=` overrides are honored.
+fn resolve_ext_input(input: &Robj) -> Result<PathBuf> {
+    if let Some(s) = input.as_str() {
+        let path = Path::new(s);
+        if path.extension() == Some(OsStr::new("ext")) {
+            return find_output_file(path, "ext");
+        }
+    }
+    let loc = load_model_from_input(input)?;
+    let resolved = resolve_ext_path(&loc.model, &loc.run_dir, &loc.stem);
+    if !resolved.exists() {
+        return Err(extendr_err!("Ext file not found: {}", resolved.display()));
+    }
+    Ok(resolved)
 }
 
 /// Gets all final estimates from an ext file or vector of ext files
@@ -317,10 +338,15 @@ pub fn get_final_estimates(
         return Err(extendr_err!("No tables found in ext file"));
     }
 
-    // Get parameter names from first table (all should be the same)
-    let param_names = if let Some((_, first_tables)) = results.first() {
+    // Get parameter names from first table (all should be the same),
+    // sanitized for R syntactic use.
+    let param_names: Vec<String> = if let Some((_, first_tables)) = results.first() {
         if let Some(first_table) = first_tables.first() {
-            first_table.parameters.clone()
+            first_table
+                .parameters
+                .iter()
+                .map(|n| to_syntactic_name(n))
+                .collect()
         } else {
             return Err(extendr_err!("No tables found in first ext file"));
         }

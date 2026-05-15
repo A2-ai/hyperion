@@ -15,14 +15,29 @@ jobs:
 
       - name: Check pharos dependency status
         run: |
-          # Get pharos branch from Cargo.toml
+          # Determine whether Cargo.toml pins pharos via branch or tag.
+          # Branch pin: compare lock commit to that branch's HEAD.
+          # Tag pin:    compare lock commit to main's HEAD (so we still get
+          #             notified when pharos advances past a release pin).
           BRANCH=$(grep -A 2 'git = "https://github.com/a2-ai/pharos"' src/rust/Cargo.toml | grep 'branch =' | sed 's/.*branch = "\([^"]*\)".*/\1/' | head -1)
+          TAG=$(grep -A 2 'git = "https://github.com/a2-ai/pharos"' src/rust/Cargo.toml | grep 'tag =' | sed 's/.*tag = "\([^"]*\)".*/\1/' | head -1)
 
-          # Get current and latest commits
           CURRENT=$(grep -A 1 'source = "git+https://github.com/a2-ai/pharos' src/rust/Cargo.lock | grep -o '#[a-f0-9]\{40\}' | head -1 | cut -c2-)
-          LATEST=$(git ls-remote https://github.com/a2-ai/pharos refs/heads/$BRANCH | cut -f1)
 
-          echo "Branch: $BRANCH"
+          if [ -n "$BRANCH" ]; then
+            TARGET_REF="refs/heads/$BRANCH"
+            TARGET_LABEL="branch $BRANCH"
+          elif [ -n "$TAG" ]; then
+            TARGET_REF="refs/heads/main"
+            TARGET_LABEL="main (pinned to tag $TAG)"
+          else
+            echo "::error::Could not determine pharos pin style (branch or tag) in Cargo.toml"
+            exit 1
+          fi
+
+          LATEST=$(git ls-remote https://github.com/a2-ai/pharos $TARGET_REF | cut -f1)
+
+          echo "Pin: $TARGET_LABEL"
           echo "Current: $CURRENT"
           echo "Latest: $LATEST"
 

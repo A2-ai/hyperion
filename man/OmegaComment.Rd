@@ -7,6 +7,7 @@
 OmegaComment(
   nonmem_name = character(0),
   name = NULL,
+  raw_name = NULL,
   display = NULL,
   description = NULL,
   parameterization = NULL,
@@ -17,6 +18,9 @@ OmegaComment(
 \item{nonmem_name}{Character. The NONMEM parameter name (e.g., "OMEGA(1,1)").}
 
 \item{name}{Character or NULL. User-defined parameter name (e.g., "IIV-CL").}
+
+\item{raw_name}{Character or NULL. Raw user label before pharos composition;
+e.g. \code{"IIV"} when \code{name} is \code{"IIV (CL)"}.}
 
 \item{display}{Character or NULL. Display name for tables/output.}
 
@@ -34,6 +38,8 @@ Represents parsed comments for OMEGA parameters.
 \describe{
 \item{nonmem_name}{The NONMEM parameter identifier.}
 \item{name}{User-friendly name parsed from comments.}
+\item{raw_name}{Raw user label before pharos composition; e.g. \code{"IIV"}
+when \code{name} is \code{"IIV (CL)"}.}
 \item{display}{Display name for tables. Falls back to \code{name} if NULL.}
 \item{description}{Longer description of what the parameter represents.}
 \item{parameterization}{Transformation type. Valid values:

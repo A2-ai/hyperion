@@ -7,7 +7,9 @@
 \method{knit_print}{hyperion_nonmem_tree}(x, ...)
 }
 \arguments{
-\item{x}{A hyperion_nonmem_tree object}
+\item{x}{A hyperion_nonmem_tree object. If the object carries a \code{"verbose"}
+attribute (set by \code{get_model_lineage(verbose = TRUE)}), the flat table
+layout is rendered instead of the tree view.}
 
 \item{...}{Additional arguments (ignored)}
 }

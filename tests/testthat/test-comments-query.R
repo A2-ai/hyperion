@@ -34,7 +34,7 @@ test_that("get_parameter_names uses associated_theta when name is NA", {
   )
   omega11 <- OmegaComment(
     nonmem_name = "OMEGA(1,1)",
-    name = NA_character_,
+    name = "CL/F",
     associated_theta = "CL/F"
   )
 

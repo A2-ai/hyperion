@@ -2,17 +2,22 @@
 % Please edit documentation in R/extendr-wrappers.R
 \name{read_model_from_lst}
 \alias{read_model_from_lst}
-\title{Gets model object from lst file (internal)}
+\title{Read a model from an .lst file (internal)}
 \usage{
 read_model_from_lst(path)
 }
 \arguments{
-\item{path}{path to lst file, model output directory, or metadata.json file.}
+\item{path}{path to an .lst file, model output directory, or metadata.json file.}
 }
 \value{
-hyperion_nonmem_model S3 object with \code{model_source} attribute for the source file
+A \code{hyperion_nonmem_model} S3 object with attributes:
+\itemize{
+\item \code{filename}: the model stem (e.g. \code{"run001"})
+\item \code{model_source}: path to the source file, relative to the pharos config dir
+\item \code{run_status}: \code{"run"}, \code{"running"}, or \code{"not_run"} determined from output files on disk
+}
 }
 \description{
-Gets model object from lst file (internal)
+Read a model from an .lst file (internal)
 }
 \keyword{internal}

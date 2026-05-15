@@ -1,9 +1,12 @@
 use extendr_api::Result;
 use extendr_api::prelude::*;
-use hyperion_core::ResultExt;
+use extendr_api::serializer::to_robj;
+use hyperion_core::{OptionExt, ResultExt};
 
 // pharos config and nonmem crates
-use nonmem::check_model;
+use nonmem::{check_dataset as nonmem_check_dataset, check_model};
+
+use extendr_api::deserializer::from_robj;
 
 use crate::utils::{load_nonmem_config, path_from_robj};
 use hyperion_core::extendr_err;
@@ -45,8 +48,32 @@ pub fn check_model_wrap(model_path: Robj) -> Result<i32> {
     Ok(res.exit_code)
 }
 
+/// Checks model dataset
+///
+/// @param model hyperion_nonmem_model object from `read_model`
+///
+/// @return Dataset check results
+/// @export
+#[extendr]
+pub fn check_dataset(model: Robj) -> Result<Robj> {
+    let model_path = path_from_robj(&model, false)?;
+    let model_dir = model_path
+        .parent()
+        .ok_or_extendr_err("Could not determine model directory")?;
+
+    let model = from_robj(&model)?;
+    let dataset = nonmem_check_dataset(&model, model_dir).map_to_extendr_err("")?;
+
+    let mut robj = to_robj(&dataset).map_to_extendr_err("Failed to serialize to Robj")?;
+    robj.set_class(["hyperion_nonmem_dataset"])
+        .map_to_extendr_err("Failed to set class")?;
+
+    Ok(robj)
+}
+
 extendr_module! {
     mod check;
 
     fn check_model_wrap;
+    fn check_dataset;
 }

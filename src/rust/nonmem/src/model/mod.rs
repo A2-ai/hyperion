@@ -1,5 +1,4 @@
 use extendr_api::Result;
-use extendr_api::deserializer::from_robj;
 use extendr_api::prelude::*;
 use extendr_api::serializer::to_robj;
 use fs_err as fs;
@@ -34,11 +33,6 @@ pub fn model_to_robj(model: &mut Model, path: impl AsRef<Path>) -> Result<Robj> 
     add_model_source_attr(&mut model_robj, path)?;
 
     set_model_class(&mut model_robj)
-}
-
-/// Reconstruct a parser Model from a hyperion_nonmem_model Robj.
-pub fn robj_to_model(model: &Robj) -> Result<Model> {
-    from_robj(model).map_to_extendr_err("Failed to create Model from Robj")
 }
 
 fn add_filename_attr(model_robj: &mut Robj, path: &Path) -> Result<()> {

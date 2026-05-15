@@ -6,7 +6,7 @@ use hyperion_core::{OptionExt, ResultExt};
 // pharos config and nonmem crates
 use nonmem::{check_dataset as nonmem_check_dataset, check_model};
 
-use crate::model::robj_to_model;
+use extendr_api::deserializer::from_robj;
 
 use crate::utils::{load_nonmem_config, path_from_robj};
 use hyperion_core::extendr_err;
@@ -61,7 +61,7 @@ pub fn check_dataset(model: Robj) -> Result<Robj> {
         .parent()
         .ok_or_extendr_err("Could not determine model directory")?;
 
-    let model = robj_to_model(&model)?;
+    let model = from_robj(&model)?;
     let dataset = nonmem_check_dataset(&model, model_dir).map_to_extendr_err("")?;
 
     let mut robj = to_robj(&dataset).map_to_extendr_err("Failed to serialize to Robj")?;

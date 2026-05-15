@@ -1,4 +1,5 @@
 use extendr_api::Result;
+use extendr_api::deserializer::from_robj;
 use extendr_api::prelude::*;
 
 use fs_err as fs;
@@ -13,7 +14,6 @@ use nonmem::{
 };
 
 use crate::{
-    model::robj_to_model,
     output_files::ext::create_ext_reader,
     output_files::{OMEGA, ParameterRow, ParameterRowBuilder, SIGMA, THETA, build_parameters_df},
     utils::{find_output_file, get_comment_type, path_from_robj, resolve_ext_path},
@@ -254,7 +254,7 @@ pub fn get_parameters(
 /// @keywords internal
 #[extendr]
 pub fn get_model_parameter_names(model: Robj) -> Result<Robj> {
-    let model = robj_to_model(&model)?;
+    let model: Model = from_robj(&model)?;
 
     let comment_type = get_comment_type();
     let parameter_names = model

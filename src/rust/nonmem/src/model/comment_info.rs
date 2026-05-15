@@ -1,8 +1,10 @@
 use std::collections::BTreeMap;
 
 use extendr_api::Result;
+use extendr_api::deserializer::from_robj;
 use extendr_api::prelude::*;
 use extendr_api::serializer::to_robj;
+
 use serde::Serialize;
 
 use nmparser::{
@@ -11,7 +13,6 @@ use nmparser::{
 };
 
 use crate::model::parameters::compare_param_names;
-use crate::model::robj_to_model;
 use hyperion_core::ResultExt;
 
 #[derive(Debug, Clone, Default, Serialize)]
@@ -187,7 +188,7 @@ pub fn build(model: &Model) -> anyhow::Result<ModelCommentInfo> {
 /// @keywords internal
 #[extendr]
 pub fn get_model_comment_info(model: Robj) -> Result<Robj> {
-    let model = robj_to_model(&model)?;
+    let model = from_robj(&model)?;
     let info = build(&model).map_to_extendr_err("Failed to build comment info")?;
     to_robj(&info).map_to_extendr_err("Failed to serialize comment info")
 }

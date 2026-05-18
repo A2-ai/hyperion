@@ -175,7 +175,7 @@ pub fn copy_model_wrap(
                     .ok_or_extendr_err("Could not determine parent directory")?
                     .join(&model_stem);
                 let content = fs::read_to_string(&from_path).map_to_extendr_err("")?;
-                let model = Model::parse(&content)
+                let model = Model::parse(&from_path, &content)
                     .map_err(|_| extendr_err!("Failed to parse model: {}", from_path.display()))?;
                 resolve_ext_path(&model, &run_dir, &model_stem)
             }

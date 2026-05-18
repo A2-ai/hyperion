@@ -123,17 +123,11 @@ pub fn read_model(path: &str) -> Result<Robj> {
     let mod_path = validate_model_path(path)?;
     let content = fs::read_to_string(&mod_path).map_to_extendr_err("")?;
 
-    let mut model = match Model::parse(&content) {
+    let mut model = match Model::parse(path, &content) {
         Ok(model) => model,
-        Err(diags) => {
-            let msg = diags
-                .iter()
-                .map(|d| d.render(mod_path.as_path(), &content))
-                .collect::<Vec<_>>()
-                .join("\n");
-            return Err(extendr_err!("Failed to read model file:\n{msg}"));
-        }
+        Err(e) => return Err(extendr_err!("Failed to read model file:\n{e}")),
     };
+
     let mut robj_model = model_to_robj(&mut model, &mod_path)?;
     add_run_status_attr(&mut robj_model, &mod_path)?;
 

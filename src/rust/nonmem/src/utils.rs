@@ -193,7 +193,8 @@ fn assemble_top_level(model: Model, source: PathBuf) -> Result<ModelLocation> {
 
 fn parse_model_from_disk(path: &Path) -> Result<Model> {
     let content = fs::read_to_string(path).map_to_extendr_err("Failed to read model file")?;
-    Model::parse(&content).map_err(|_| extendr_err!("Failed to parse model: {}", path.display()))
+    Model::parse(path, &content)
+        .map_err(|_| extendr_err!("Failed to parse model: {}", path.display()))
 }
 
 /// Resolve the final `.ext` file path for a model, honoring `$EST FILE=`.
@@ -348,8 +349,8 @@ pub fn try_parse_model(path: &str) -> Option<Model> {
     let model_path = find_output_file(search_path, "mod")
         .or_else(|_| find_output_file(path, "ctl"))
         .ok()?;
-    let content = fs::read_to_string(model_path).ok()?;
-    Model::parse(&content).ok()
+    let content = fs::read_to_string(&model_path).ok()?;
+    Model::parse(model_path, &content).ok()
 }
 
 /// Gets the comment type from pharos.toml configuration

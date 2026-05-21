@@ -393,6 +393,38 @@ print_data_table_knit <- function(formatted_data, title) {
   return(output)
 }
 
+#' Detect the installed pharos CLI and its version
+#'
+#' Locates the `pharos` executable on the user's PATH via [Sys.which()] and
+#' parses the version reported by `pharos --version`.
+#'
+#' @return A list with elements:
+#'   \itemize{
+#'     \item `path` — absolute path to the pharos binary, or `NA_character_` if not found
+#'     \item `version` — installed version string (e.g. `"0.4.2"`), or `NA_character_` if not found or unparseable
+#'   }
+#' @keywords internal
+#' @noRd
+detect_pharos <- function() {
+  path <- unname(Sys.which("pharos"))
+  if (!nzchar(path)) {
+    return(list(path = NA_character_, version = NA_character_))
+  }
+
+  out <- tryCatch(
+    suppressWarnings(system2(path, "--version", stdout = TRUE, stderr = TRUE)),
+    error = function(e) NULL
+  )
+  if (is.null(out) || !length(out)) {
+    return(list(path = path, version = NA_character_))
+  }
+
+  match <- regmatches(out[1], regexpr("[0-9]+\\.[0-9]+\\.[0-9]+", out[1]))
+  version <- if (length(match)) match else NA_character_
+
+  list(path = path, version = version)
+}
+
 #' Generates a tidyverse-esque onAttach message for hyperion options
 #'
 #' @return a message to display on attach
@@ -456,6 +488,13 @@ hyperion_options_message <- function() {
   # Check pharos config file status
   pharos_config_status <- find_pharos_config_file()
 
+  # Detect installed pharos CLI and compare against expected version
+  pharos_cli <- detect_pharos()
+  expected_pharos <- utils::packageDescription(
+    "hyperion",
+    fields = "Config/PharosVersion"
+  )
+
   # Format .onAttach message
   msg <- "\n\n"
 
@@ -468,24 +507,55 @@ hyperion_options_message <- function() {
     "\n"
   )
 
-  # Show the hyperion.config_dir override status first since it controls
-  # where pharos.toml gets resolved from.
-  config_dir_value <- getOption("hyperion.config_dir")
-  if (!is.null(config_dir_value) && nzchar(config_dir_value)) {
+  # Pharos CLI: absent, mismatched, or matched
+  if (is.na(pharos_cli$path)) {
     msg <- paste0(
       msg,
-      cli::col_green(cli::symbol$tick),
+      cli::col_red(cli::symbol$cross),
       " ",
-      "hyperion.config_dir : ",
-      config_dir_value,
+      cli::col_red("pharos CLI not found on PATH"),
+      "\n"
+    )
+  } else if (is.na(pharos_cli$version)) {
+    msg <- paste0(
+      msg,
+      cli::col_red(cli::symbol$cross),
+      " ",
+      cli::col_red(paste0(
+        "pharos CLI found at ",
+        pharos_cli$path,
+        " but version could not be determined"
+      )),
+      "\n"
+    )
+  } else if (
+    !is.na(expected_pharos) && !identical(pharos_cli$version, expected_pharos)
+  ) {
+    msg <- paste0(
+      msg,
+      cli::col_red(cli::symbol$cross),
+      " ",
+      cli::col_red(paste0(
+        "pharos CLI version mismatch: installed ",
+        pharos_cli$version,
+        ", expected ",
+        expected_pharos,
+        " (",
+        pharos_cli$path,
+        ")"
+      )),
       "\n"
     )
   } else {
     msg <- paste0(
       msg,
-      cli::symbol$info,
+      cli::col_green(cli::symbol$tick),
       " ",
-      cli::style_dim("hyperion.config_dir : (unset)"),
+      "pharos CLI: ",
+      pharos_cli$version,
+      " (",
+      pharos_cli$path,
+      ")",
       "\n"
     )
   }
@@ -505,6 +575,24 @@ hyperion_options_message <- function() {
       " ",
       "pharos.toml found: ",
       pharos_config_status,
+      "\n"
+    )
+  }
+
+  # hyperion.config_dir is shown as a sub-detail of pharos.toml resolution
+  # since it controls where pharos.toml is looked up from.
+  config_dir_value <- getOption("hyperion.config_dir")
+  if (!is.null(config_dir_value) && nzchar(config_dir_value)) {
+    msg <- paste0(
+      msg,
+      "    \u2514 hyperion.config_dir : ",
+      config_dir_value,
+      "\n"
+    )
+  } else {
+    msg <- paste0(
+      msg,
+      cli::style_dim("    \u2514 hyperion.config_dir : (unset)"),
       "\n"
     )
   }

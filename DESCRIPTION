@@ -1,6 +1,6 @@
 Package: hyperion
 Title: Pharmaceutical Model Development and Workflow Tools
-Version: 0.5.0
+Version: 0.4.2.9000
 Authors@R: c(
     person("Matt", "Smith", , "matthews@a2-ai.com", role = c("aut", "cre")),
     person("Vincent", "Prouillet", ,"vincent@a2-ai.com", role = c("aut")),
@@ -18,6 +18,7 @@ License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 Config/rextendr/version: 0.5.0
+Config/PharosVersion: 0.5.0
 Config/build/never-clean: true
 Config/build/extra-sources: src/rust/Cargo.lock
 SystemRequirements: Cargo (Rust's package manager), rustc >= 1.65.0, xz

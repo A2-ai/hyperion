@@ -37,7 +37,7 @@ library(hyperion)
 #> 
 #> ── pharos configuration ────────────────────────────────────────────────────────
 #> ✔ pharos CLI: 0.5.1 (/Users/mattsmith/.cargo/bin/pharos)
-#> ✔ pharos.toml found: /private/var/folders/bx/l0m1kftd7m93lvrc4m3_309c0000gn/T/RtmpesfiL5/hyperion-readme-bc8061adc0a2/pharos.toml
+#> ✔ pharos.toml found: /private/var/folders/bx/l0m1kftd7m93lvrc4m3_309c0000gn/T/RtmpAPB8kK/hyperion-readme-d746d46e41b/pharos.toml
 #>     └ hyperion.config_dir : (unset)
 #> ── hyperion options ────────────────────────────────────────────────────────────
 #> ✔ hyperion.significant_number_display : 4
@@ -61,7 +61,7 @@ You can check a model for correct compilation before submitting to catch
 any data path issues, or syntax errors within the control stream with:
 
 ``` r
-check_model(file.path("models", "onecmt", "run002a.mod"))
+check_model(file.path("extdata", "models", "onecmt", "run002a.mod"))
 ```
 
     WARNINGS AND ERRORS (IF ANY) FOR PROBLEM    1
@@ -73,7 +73,7 @@ check_model(file.path("models", "onecmt", "run002a.mod"))
     [1] 0
 
 ``` r
-check_model(file.path("models", "onecmt", "run004.mod"))
+check_model(file.path("extdata", "models", "onecmt", "run004.mod"))
 ```
 
     AN ERROR WAS FOUND IN THE CONTROL STATEMENTS.
@@ -90,7 +90,7 @@ check_model(file.path("models", "onecmt", "run004.mod"))
 Hyperion can read .mod files to give an overview of the mod file with:
 
 ``` r
-run002 <- read_model(file.path("models", "onecmt", "run002.mod"))
+run002 <- read_model(file.path("extdata", "models", "onecmt", "run002.mod"))
 run002
 ```
 
@@ -913,8 +913,8 @@ is based on.
 
 ``` r
 copy_model(
-  from = file.path("models", "onecmt", "run002.mod"),
-  to = file.path("models", "onecmt", "run002a.mod"),
+  from = file.path("extdata", "models", "onecmt", "run002.mod"),
+  to = file.path("extdata", "models", "onecmt", "run002a.mod"),
   update = "all", # sets initial estimates of `to` with final estimates of `from`
   jitter = 0.1, # jitters run002a initial estimates by 10%
   description = "Some description about what makes run002a different",
@@ -937,38 +937,32 @@ get_model_lineage()
 
 ℹ️ <strong>Models:</strong> 9
 
-- <strong style="color:blue">models/onecmt/run001</strong>
+- <strong style="color:blue">extdata/models/onecmt/run001</strong>
   <span style="color:teal">base</span>
   <span style="color:gray">\|</span> <span style="color:gray">Base
   model</span>
-
-- <strong style="color:blue">models/onecmt/run002</strong>
-  <span style="color:gray">Adding COV step, unfixing eps(2)</span>
-
-- <strong style="color:blue">models/onecmt/run002a</strong>
+  - <span style="color:orange">extdata/models/onecmt/run002</span>
+    <span style="color:gray">Adding COV step, unfixing eps(2)</span>
+    - <span style="color:green">extdata/models/onecmt/run002b001</span>
+      <span style="color:teal">not run, 2cmt</span>
+      <span style="color:gray">\|</span>
+      <span style="color:gray">Jittering initial sigma estimates, using
+      theta/…</span>
+    - <span style="color:orange">extdata/models/onecmt/run003</span>
+      <span style="color:teal">key</span>
+      <span style="color:gray">\|</span>
+      <span style="color:gray">Jittering initial estimates</span>
+      - <span style="color:green">extdata/models/onecmt/run003b1</span>
+        <span style="color:gray">Updating run003 to 003b1 with jittered
+        params. …</span>
+      - <span style="color:green">extdata/models/onecmt/run003b2</span>
+        <span style="color:gray">Updating run003 with mod object</span>
+  - <span style="color:green">extdata/models/onecmt/run004</span>
+    <span style="color:gray">Updating run001 to run004 with jittered
+    params …</span>
+  - <span style="color:green">extdata/models/onecmt/run005</span>
+    <span style="color:gray">Updating run001 to run004 with jittered
+    params …</span>
+- <strong style="color:blue">extdata/models/onecmt/run002a</strong>
   <span style="color:gray">Some description about what makes run002a
   diffe…</span>
-
-- <strong style="color:blue">models/onecmt/run002b001</strong>
-  <span style="color:teal">not run, 2cmt</span>
-  <span style="color:gray">\|</span> <span style="color:gray">Jittering
-  initial sigma estimates, using theta/…</span>
-
-- <strong style="color:blue">models/onecmt/run003</strong>
-  <span style="color:teal">key</span> <span style="color:gray">\|</span>
-  <span style="color:gray">Jittering initial estimates</span>
-
-- <strong style="color:blue">models/onecmt/run003b1</strong>
-  <span style="color:gray">Updating run003 to 003b1 with jittered
-  params. …</span>
-
-- <strong style="color:blue">models/onecmt/run003b2</strong>
-  <span style="color:gray">Updating run003 with mod object</span>
-
-- <strong style="color:blue">models/onecmt/run004</strong>
-  <span style="color:gray">Updating run001 to run004 with jittered
-  params …</span>
-
-- <strong style="color:blue">models/onecmt/run005</strong>
-  <span style="color:gray">Updating run001 to run004 with jittered
-  params …</span>

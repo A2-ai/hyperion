@@ -15,7 +15,7 @@ knitr::opts_chunk$set(
 readme_root <- tempfile("hyperion-readme-")
 dir.create(readme_root, recursive = TRUE)
 file.copy(
-  list.files(system.file("extdata", package = "hyperion"), full.names = TRUE),
+  system.file("extdata", package = "hyperion"),
   readme_root,
   recursive = TRUE
 )
@@ -61,7 +61,7 @@ The `pharos.toml` file contains several configuration options for NONMEM and pha
 
 You can check a model for correct compilation before submitting to catch any data path issues, or syntax errors within the control stream with:
 ```{r check, eval = FALSE}
-check_model(file.path("models", "onecmt", "run002a.mod"))
+check_model(file.path("extdata", "models", "onecmt", "run002a.mod"))
 ```
 
 ```
@@ -75,7 +75,7 @@ Note: Analytical 2nd Derivatives are constructed in FSUBS but are never used.
 ```
 
 ```{r, eval = FALSE}
-check_model(file.path("models", "onecmt", "run004.mod"))
+check_model(file.path("extdata", "models", "onecmt", "run004.mod"))
 ```
 
 ```
@@ -94,7 +94,7 @@ AN ERROR WAS FOUND ON LINE 11 AT THE APPROXIMATE POSITION NOTED:
 
 Hyperion can read .mod files to give an overview of the mod file with:
 ```{r model, results='asis'}
-run002 <- read_model(file.path("models", "onecmt", "run002.mod"))
+run002 <- read_model(file.path("extdata", "models", "onecmt", "run002.mod"))
 run002
 ```
 
@@ -121,8 +121,8 @@ You can copy a model to a new control stream and alter the initial estimates of 
 
 ```{r copy}
 copy_model(
-  from = file.path("models", "onecmt", "run002.mod"),
-  to = file.path("models", "onecmt", "run002a.mod"),
+  from = file.path("extdata", "models", "onecmt", "run002.mod"),
+  to = file.path("extdata", "models", "onecmt", "run002a.mod"),
   update = "all", # sets initial estimates of `to` with final estimates of `from`
   jitter = 0.1, # jitters run002a initial estimates by 10%
   description = "Some description about what makes run002a different",

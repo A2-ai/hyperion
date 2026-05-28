@@ -134,5 +134,5 @@ copy_model(
 
 If you use hyperion to copy models you can extract the model lineage with
 ```{r lineage, results='asis'}
-get_model_lineage(file.path("models", "onecmt", "run003.mod"))
+get_model_lineage()
 ```

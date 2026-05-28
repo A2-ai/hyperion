@@ -37,7 +37,7 @@ library(hyperion)
 #> 
 #> ── pharos configuration ────────────────────────────────────────────────────────
 #> ✔ pharos CLI: 0.5.1 (/Users/mattsmith/.cargo/bin/pharos)
-#> ✔ pharos.toml found: /private/var/folders/bx/l0m1kftd7m93lvrc4m3_309c0000gn/T/RtmpmtTz8E/hyperion-readme-a3ec18f8d675/pharos.toml
+#> ✔ pharos.toml found: /private/var/folders/bx/l0m1kftd7m93lvrc4m3_309c0000gn/T/RtmpesfiL5/hyperion-readme-bc8061adc0a2/pharos.toml
 #>     └ hyperion.config_dir : (unset)
 #> ── hyperion options ────────────────────────────────────────────────────────────
 #> ✔ hyperion.significant_number_display : 4
@@ -930,13 +930,45 @@ If you use hyperion to copy models you can extract the model lineage
 with
 
 ``` r
-get_model_lineage(file.path("models", "onecmt", "run003.mod"))
+get_model_lineage()
 ```
 
 <strong>Hyperion Model Tree</strong>
 
-ℹ️ <strong>Models:</strong> 1
+ℹ️ <strong>Models:</strong> 9
 
-- <strong style="color:blue"><strong><u>models/onecmt/run003</u></strong></strong>
+- <strong style="color:blue">models/onecmt/run001</strong>
+  <span style="color:teal">base</span>
+  <span style="color:gray">\|</span> <span style="color:gray">Base
+  model</span>
+
+- <strong style="color:blue">models/onecmt/run002</strong>
+  <span style="color:gray">Adding COV step, unfixing eps(2)</span>
+
+- <strong style="color:blue">models/onecmt/run002a</strong>
+  <span style="color:gray">Some description about what makes run002a
+  diffe…</span>
+
+- <strong style="color:blue">models/onecmt/run002b001</strong>
+  <span style="color:teal">not run, 2cmt</span>
+  <span style="color:gray">\|</span> <span style="color:gray">Jittering
+  initial sigma estimates, using theta/…</span>
+
+- <strong style="color:blue">models/onecmt/run003</strong>
   <span style="color:teal">key</span> <span style="color:gray">\|</span>
   <span style="color:gray">Jittering initial estimates</span>
+
+- <strong style="color:blue">models/onecmt/run003b1</strong>
+  <span style="color:gray">Updating run003 to 003b1 with jittered
+  params. …</span>
+
+- <strong style="color:blue">models/onecmt/run003b2</strong>
+  <span style="color:gray">Updating run003 with mod object</span>
+
+- <strong style="color:blue">models/onecmt/run004</strong>
+  <span style="color:gray">Updating run001 to run004 with jittered
+  params …</span>
+
+- <strong style="color:blue">models/onecmt/run005</strong>
+  <span style="color:gray">Updating run001 to run004 with jittered
+  params …</span>

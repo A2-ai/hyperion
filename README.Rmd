@@ -11,6 +11,19 @@ knitr::opts_chunk$set(
   fig.path = "man/figures/README-",
   out.width = "100%"
 )
+
+readme_root <- tempfile("hyperion-readme-")
+dir.create(readme_root, recursive = TRUE)
+file.copy(
+  system.file("extdata", package = "hyperion"),
+  readme_root,
+  recursive = TRUE
+)
+file.copy(
+  system.file("pharos.toml", package = "hyperion"),
+  readme_root
+)
+knitr::opts_knit$set(root.dir = readme_root)
 ```
 
 # hyperion
@@ -18,6 +31,7 @@ knitr::opts_chunk$set(
 <!-- badges: start -->
 [![R-CMD-check](https://github.com/A2-ai/hyperion/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/A2-ai/hyperion/actions/workflows/R-CMD-check.yaml)
 [![Pharos Dependency](https://github.com/A2-ai/hyperion/actions/workflows/pharos-dependency-check.yaml/badge.svg)](https://github.com/A2-ai/hyperion/actions/workflows/pharos-dependency-check.yaml)
+[![extendr](https://img.shields.io/badge/extendr-^0.9.0-276DC2)](https://extendr.github.io/extendr/extendr_api/)
 <!-- badges: end -->
 
 Hyperion is a companion R packge to the cli tool [pharos](https://github.com/a2-ai/pharos) for managing and running pharamceutical models directly from R. NONMEM is the first supported modelling software.
@@ -36,7 +50,6 @@ To initialize hyperion/pharos use the `hyperion::init()` cfunction to create a `
 
 ```{r example}
 library(hyperion)
-test_data_dir <- system.file("extdata", package = "hyperion")
 
 if (!file.exists("pharos.toml")) {
   hyperion::init(".")
@@ -47,12 +60,33 @@ The `pharos.toml` file contains several configuration options for NONMEM and pha
 ## Checking a model
 
 You can check a model for correct compilation before submitting to catch any data path issues, or syntax errors within the control stream with:
-```{r check}
-check_model(file.path(test_data_dir, "models", "onecmt", "run002a.mod"))
+```{r check, eval = FALSE}
+check_model(file.path("extdata", "models", "onecmt", "run002a.mod"))
 ```
 
-```{r}
-check_model(file.path(test_data_dir, "models", "onecmt", "run004.mod"))
+```
+WARNINGS AND ERRORS (IF ANY) FOR PROBLEM    1
+
+ (WARNING  2) NM-TRAN INFERS THAT THE DATA ARE POPULATION.
+
+Note: Analytical 2nd Derivatives are constructed in FSUBS but are never used.
+      You may insert $ABBR DERIV2=NO after the first $PROB to save FSUBS construction and compilation time
+[1] 0
+```
+
+```{r, eval = FALSE}
+check_model(file.path("extdata", "models", "onecmt", "run004.mod"))
+```
+
+```
+AN ERROR WAS FOUND IN THE CONTROL STATEMENTS.
+
+AN ERROR WAS FOUND ON LINE 11 AT THE APPROXIMATE POSITION NOTED:
+ TVCL = THETA1
+        X
+ THE CHARACTERS IN ERROR ARE: THETA1
+  208  UNDEFINED VARIABLE.
+[1] 4
 ```
 
 
@@ -60,7 +94,7 @@ check_model(file.path(test_data_dir, "models", "onecmt", "run004.mod"))
 
 Hyperion can read .mod files to give an overview of the mod file with:
 ```{r model, results='asis'}
-run002 <- read_model(file.path(test_data_dir, "models", "onecmt", "run002.mod"))
+run002 <- read_model(file.path("extdata", "models", "onecmt", "run002.mod"))
 run002
 ```
 
@@ -87,8 +121,8 @@ You can copy a model to a new control stream and alter the initial estimates of 
 
 ```{r copy}
 copy_model(
-  from = file.path(test_data_dir, "models", "onecmt", "run002.mod"),
-  to = file.path(test_data_dir, "models", "onecmt", "run002a.mod"),
+  from = file.path("extdata", "models", "onecmt", "run002.mod"),
+  to = file.path("extdata", "models", "onecmt", "run002a.mod"),
   update = "all", # sets initial estimates of `to` with final estimates of `from`
   jitter = 0.1, # jitters run002a initial estimates by 10%
   description = "Some description about what makes run002a different",
@@ -100,5 +134,5 @@ copy_model(
 
 If you use hyperion to copy models you can extract the model lineage with
 ```{r lineage, results='asis'}
-get_model_lineage(file.path(test_data_dir, "models", "onecmt"))
+get_model_lineage()
 ```

@@ -60,12 +60,33 @@ The `pharos.toml` file contains several configuration options for NONMEM and pha
 ## Checking a model
 
 You can check a model for correct compilation before submitting to catch any data path issues, or syntax errors within the control stream with:
-```{r check}
+```{r check, eval = FALSE}
 check_model(file.path("models", "onecmt", "run002a.mod"))
 ```
 
-```{r}
+```
+WARNINGS AND ERRORS (IF ANY) FOR PROBLEM    1
+
+ (WARNING  2) NM-TRAN INFERS THAT THE DATA ARE POPULATION.
+
+Note: Analytical 2nd Derivatives are constructed in FSUBS but are never used.
+      You may insert $ABBR DERIV2=NO after the first $PROB to save FSUBS construction and compilation time
+[1] 0
+```
+
+```{r, eval = FALSE}
 check_model(file.path("models", "onecmt", "run004.mod"))
+```
+
+```
+AN ERROR WAS FOUND IN THE CONTROL STATEMENTS.
+
+AN ERROR WAS FOUND ON LINE 11 AT THE APPROXIMATE POSITION NOTED:
+ TVCL = THETA1
+        X
+ THE CHARACTERS IN ERROR ARE: THETA1
+  208  UNDEFINED VARIABLE.
+[1] 4
 ```
 
 
@@ -113,5 +134,5 @@ copy_model(
 
 If you use hyperion to copy models you can extract the model lineage with
 ```{r lineage, results='asis'}
-get_model_lineage(file.path("models", "onecmt"))
+get_model_lineage(file.path("models", "onecmt", "run003.mod"))
 ```

@@ -8,6 +8,7 @@
 [![R-CMD-check](https://github.com/A2-ai/hyperion/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/A2-ai/hyperion/actions/workflows/R-CMD-check.yaml)
 [![Pharos
 Dependency](https://github.com/A2-ai/hyperion/actions/workflows/pharos-dependency-check.yaml/badge.svg)](https://github.com/A2-ai/hyperion/actions/workflows/pharos-dependency-check.yaml)
+[![extendr](https://img.shields.io/badge/extendr-%5E0.9.0-276DC2)](https://extendr.github.io/extendr/extendr_api/)
 <!-- badges: end -->
 
 Hyperion is a companion R packge to the cli tool
@@ -35,14 +36,15 @@ library(hyperion)
 #> 
 #> 
 #> ── pharos configuration ────────────────────────────────────────────────────────
-#> ✔ pharos.toml found: /data/user-homes/matthews/Packages/hyperion/pharos.toml
+#> ✔ pharos CLI: 0.5.1 (/Users/mattsmith/.cargo/bin/pharos)
+#> ✔ pharos.toml found: /private/var/folders/bx/l0m1kftd7m93lvrc4m3_309c0000gn/T/RtmpmtTz8E/hyperion-readme-a3ec18f8d675/pharos.toml
+#>     └ hyperion.config_dir : (unset)
 #> ── hyperion options ────────────────────────────────────────────────────────────
 #> ✔ hyperion.significant_number_display : 4
 #> ── hyperion nonmem object options ──────────────────────────────────────────────
 #> ✔ hyperion.nonmem_model.show_included_columns : FALSE
 #> ✔ hyperion.nonmem_summary.rse_threshold : 50
 #> ✔ hyperion.nonmem_summary.shrinkage_threshold : 30
-test_data_dir <- system.file("extdata", package = "hyperion")
 
 if (!file.exists("pharos.toml")) {
   hyperion::init(".")
@@ -59,34 +61,36 @@ You can check a model for correct compilation before submitting to catch
 any data path issues, or syntax errors within the control stream with:
 
 ``` r
-check_model(file.path(test_data_dir, "models", "onecmt", "run002a.mod"))
-#> WARNINGS AND ERRORS (IF ANY) FOR PROBLEM    1
-#>              
-#>  (WARNING  2) NM-TRAN INFERS THAT THE DATA ARE POPULATION.
-#>   
-#> Note: Analytical 2nd Derivatives are constructed in FSUBS but are never used.
-#>       You may insert $ABBR DERIV2=NO after the first $PROB to save FSUBS construction and compilation time
-#> [1] 0
+check_model(file.path("models", "onecmt", "run002a.mod"))
 ```
 
+    WARNINGS AND ERRORS (IF ANY) FOR PROBLEM    1
+
+     (WARNING  2) NM-TRAN INFERS THAT THE DATA ARE POPULATION.
+
+    Note: Analytical 2nd Derivatives are constructed in FSUBS but are never used.
+          You may insert $ABBR DERIV2=NO after the first $PROB to save FSUBS construction and compilation time
+    [1] 0
+
 ``` r
-check_model(file.path(test_data_dir, "models", "onecmt", "run004.mod"))
-#> AN ERROR WAS FOUND IN THE CONTROL STATEMENTS.
-#>  
-#> AN ERROR WAS FOUND ON LINE 11 AT THE APPROXIMATE POSITION NOTED:
-#>  TVCL = THETA1
-#>         X     
-#>  THE CHARACTERS IN ERROR ARE: THETA1
-#>   208  UNDEFINED VARIABLE.
-#> [1] 4
+check_model(file.path("models", "onecmt", "run004.mod"))
 ```
+
+    AN ERROR WAS FOUND IN THE CONTROL STATEMENTS.
+
+    AN ERROR WAS FOUND ON LINE 11 AT THE APPROXIMATE POSITION NOTED:
+     TVCL = THETA1
+            X
+     THE CHARACTERS IN ERROR ARE: THETA1
+      208  UNDEFINED VARIABLE.
+    [1] 4
 
 ## Viewing a model object
 
 Hyperion can read .mod files to give an overview of the mod file with:
 
 ``` r
-run002 <- read_model(file.path(test_data_dir, "models", "onecmt", "run002.mod"))
+run002 <- read_model(file.path("models", "onecmt", "run002.mod"))
 run002
 ```
 
@@ -909,8 +913,8 @@ is based on.
 
 ``` r
 copy_model(
-  from = file.path(test_data_dir, "models", "onecmt", "run002.mod"),
-  to = file.path(test_data_dir, "models", "onecmt", "run002a.mod"),
+  from = file.path("models", "onecmt", "run002.mod"),
+  to = file.path("models", "onecmt", "run002a.mod"),
   update = "all", # sets initial estimates of `to` with final estimates of `from`
   jitter = 0.1, # jitters run002a initial estimates by 10%
   description = "Some description about what makes run002a different",
@@ -926,32 +930,13 @@ If you use hyperion to copy models you can extract the model lineage
 with
 
 ``` r
-get_model_lineage(file.path(test_data_dir, "models", "onecmt"))
+get_model_lineage(file.path("models", "onecmt", "run003.mod"))
 ```
 
 <strong>Hyperion Model Tree</strong>
 
-ℹ️ <strong>Models:</strong> 9
+ℹ️ <strong>Models:</strong> 1
 
-- <strong style="color:blue">run001</strong> <span style="color:gray">-
-  Base model</span>
-  - <span style="color:green">run004</span> <span style="color:gray">-
-    Updating run001 to run004 with jittered params …</span>
-  - <span style="color:green">run005</span> <span style="color:gray">-
-    Updating run001 to run004 with jittered params …</span>
-  - <span style="color:orange">run002</span> <span style="color:gray">-
-    Adding COV step, unfixing eps(2)</span>
-    - <span style="color:green">run002b001</span>
-      <span style="color:gray">- Jittering initial sigma estimates,
-      using theta/…</span>
-    - <span style="color:orange">run003</span>
-      <span style="color:gray">- Jittering initial estimates</span>
-      - <span style="color:green">run003b2</span>
-        <span style="color:gray">- Updating run003 with mod
-        object</span>
-      - <span style="color:green">run003b1</span>
-        <span style="color:gray">- Updating run003 to 003b1 with
-        jittered params. …</span>
-    - <span style="color:green">run002a</span>
-      <span style="color:gray">- Some description about what makes
-      run002a diffe…</span>
+- <strong style="color:blue"><strong><u>models/onecmt/run003</u></strong></strong>
+  <span style="color:teal">key</span> <span style="color:gray">\|</span>
+  <span style="color:gray">Jittering initial estimates</span>

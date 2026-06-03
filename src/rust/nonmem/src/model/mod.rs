@@ -12,6 +12,7 @@ use hyperion_core::{OptionExt, ResultExt, extendr_err};
 
 pub mod check;
 pub mod comment_info;
+pub mod comparison;
 pub mod copy;
 pub mod lineage;
 pub mod metadata;
@@ -142,6 +143,7 @@ extendr_module! {
     use lineage;
     use parameters;
     use comment_info;
+    use comparison;
     use metadata;
     use run_status;
 

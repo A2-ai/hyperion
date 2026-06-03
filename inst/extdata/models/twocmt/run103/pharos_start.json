@@ -1,0 +1,13 @@
+{
+  "start": "2026-06-01T18:25:32+00:00",
+  "model_name": "run103",
+  "model_canonical_path": "/Users/mattsmith/Documents/hyperion/inst/extdata/models/twocmt/run103.mod",
+  "dataset_path": "../../data/derived/onecmpt-oral-30ind.csv",
+  "dataset_canonical_path": "/Users/mattsmith/Documents/hyperion/inst/extdata/data/derived/onecmpt-oral-30ind.csv",
+  "dataset_hashes": {
+    "blake3": "8d8189cfc45dc4d56c295ca990a131e086f53d874aa91e730c1e8856e840b005"
+  },
+  "model_hashes": {
+    "blake3": "ba7498c8199c506b6b2530a8ebb6271b616b3b5e4568cae5d2c72813e1d90f39"
+  }
+}

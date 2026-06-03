@@ -203,6 +203,29 @@ get_model_comment_info <- function(model) .Call(wrap__get_model_comment_info, mo
 #' @keywords internal
 map_parameterization <- function(raw) .Call(wrap__map_parameterization, raw)
 
+#' Information criteria for a model's final estimation method (internal)
+#'
+#' @param model path to a model file, run output directory, or a
+#' hyperion_nonmem_model object
+#'
+#' @param penalty AIC penalty per parameter; `NULL` uses pharos' default of 2
+#'
+#' @return a named list with `ofv`, `n_parameters`, `n_observations`,
+#' `aic`, and `bic` for the final estimation method
+#' @keywords internal
+get_information_criteria <- function(model, penalty) .Call(wrap__get_information_criteria, model, penalty)
+
+#' Compare two NONMEM runs (internal)
+#'
+#' @param first path/run directory/model object for the first run
+#' @param second path/run directory/model object for the second run
+#'
+#' @return a named list with the per-run information criteria (`first`,
+#' `second`), the deltas (`first - second`), and the likelihood ratio test
+#' fields (`lrt_status`, `lrt_df`, `lrt_p_value`)
+#' @keywords internal
+compare_runs_impl <- function(first, second) .Call(wrap__compare_runs_impl, first, second)
+
 #' Creates a metadata file for a NONMEM model
 #'
 #' This function creates a metadata file that stores information about a NONMEM model,

@@ -1,0 +1,56 @@
+{
+  "start": "2026-06-01T18:25:32+00:00",
+  "end": "2026-06-01T18:25:48+00:00",
+  "exit_code": 0,
+  "runtime_ms": 15212,
+  "files_copied": [],
+  "output_files_rewrites": {
+    "run103.tab": "run103.tab",
+    "run103.msf": "run103.msf",
+    "run103par.tab": "run103par.tab"
+  },
+  "output_files_hashes": [
+    {
+      "filename": "run103.ext",
+      "hashes": {
+        "blake3": "067c0b61a6a0524513696fc7266c8df2d657d7fa31829d501c495c251108548b"
+      }
+    },
+    {
+      "filename": "run103.grd",
+      "hashes": {
+        "blake3": "f291e3f00e58a0210107d4708fc631e8afe703448920d998a98ef097d7df654d"
+      }
+    },
+    {
+      "filename": "run103.lst",
+      "hashes": {
+        "blake3": "d72d3f7b372cb6c394494753342e7b4aaf2a8e77c7406e62d10d6bf9f0175b2d"
+      }
+    },
+    {
+      "filename": "run103.mod",
+      "hashes": {
+        "blake3": "13194a1a775502a0ee81aff94a0cff214d474265fdd87f739c61f4fe0338c25b"
+      }
+    },
+    {
+      "filename": "run103.msf",
+      "hashes": {
+        "blake3": "6acf1b7ec0552a2ce4d3efbfcec6d21846691f44467164c02eaaaf3d1030a140"
+      }
+    },
+    {
+      "filename": "run103.msf",
+      "hashes": {
+        "blake3": "6acf1b7ec0552a2ce4d3efbfcec6d21846691f44467164c02eaaaf3d1030a140"
+      }
+    },
+    {
+      "filename": "run103.xml",
+      "hashes": {
+        "blake3": "7da539cd0b233807871e0f5164de367562d9ceee75a5ff3f3473240834654dbb"
+      }
+    }
+  ]
+}

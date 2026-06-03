@@ -271,7 +271,7 @@ fn run_dir_from_model_path(model_path: &Path) -> Result<PathBuf> {
     Ok(parent.join(stem.as_ref()))
 }
 
-fn parse_summary_directory(input: Robj) -> Result<PathBuf> {
+pub(crate) fn parse_summary_directory(input: Robj) -> Result<PathBuf> {
     if input.is_string() {
         let path = input
             .as_str()

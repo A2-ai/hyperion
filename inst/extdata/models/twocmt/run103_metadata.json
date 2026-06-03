@@ -1,0 +1,6 @@
+{
+  "based_on": ["extdata/models/onecmt/run003.mod"],
+  "copied_from": "extdata/models/onecmt/run003.mod",
+  "description": "Two compartment model",
+  "tags": []
+}

@@ -1,14 +1,17 @@
 use extendr_api::Result;
 use extendr_api::prelude::*;
 
+use fs_err as fs;
+
 // Pharos nonmem crate
+use nonmem::LineageTree;
 use nonmem::comparisons::{Lrt, ModelComparison};
 use nonmem::metrics::InformationCriteria;
 use nonmem::output_files::get_summary;
 
 use crate::model::summary::parse_summary_directory;
 use crate::utils::get_comment_type;
-use hyperion_core::{OptionExt, ResultExt};
+use hyperion_core::{OptionExt, ResultExt, find_config_dir};
 
 /// Convert an InformationCriteria into a named R list.
 fn ic_to_list(ic: &InformationCriteria) -> Robj {
@@ -62,7 +65,20 @@ pub fn compare_runs_impl(first: Robj, second: Robj) -> Result<Robj> {
     let first_dir = parse_summary_directory(first)?;
     let second_dir = parse_summary_directory(second)?;
 
-    let comparison = ModelComparison::compare_runs(&first_dir, &second_dir)
+    // Build the lineage tree from the hyperion-resolved config root (honoring
+    // the `hyperion.config_dir` option) rather than pharos's CWD discovery, so
+    // the LRT nestedness check uses the correct project root.
+    let tree = match find_config_dir()? {
+        Some(root) => {
+            let root = fs::canonicalize(&root)
+                .map_to_extendr_err("Failed to canonicalize project root")?;
+            LineageTree::from_project_root(root)
+        }
+        None => LineageTree::from_project(),
+    }
+    .map_to_extendr_err("Failed to build lineage tree")?;
+
+    let comparison = ModelComparison::compare_runs(&first_dir, &second_dir, &tree)
         .map_to_extendr_err("Failed to compare runs")?;
 
     let (lrt_status, lrt_df, lrt_p_value) = match comparison.lrt {

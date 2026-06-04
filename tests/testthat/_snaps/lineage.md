@@ -6,7 +6,7 @@
       
       
       -- Hyperion Model Tree ---------------------------------------------------------
-      i Models: 9
+      i Models: 10
       
     Output
       extdata/models/onecmt/run001 Base model
@@ -15,7 +15,8 @@
       | +-extdata/models/onecmt/run002b001 Jittering initial sigma estimates, usin...
       | \-extdata/models/onecmt/run003 Jittering initial estimates
       |   +-extdata/models/onecmt/run003b1 Updating run003 to 003b1 with jittered ...
-      |   \-extdata/models/onecmt/run003b2 Updating run003 with mod object
+      |   +-extdata/models/onecmt/run003b2 Updating run003 with mod object
+      |   \-extdata/models/twocmt/run103 Two compartment model
       +-extdata/models/onecmt/run004 Updating run001 to run004 with jittered param...
       \-extdata/models/onecmt/run005 Updating run001 to run004 with jittered param...
 
@@ -27,14 +28,15 @@
       
       
       -- Hyperion Model Tree ---------------------------------------------------------
-      i Models: 5
+      i Models: 6
       
     Output
       extdata/models/onecmt/run001 Base model
       \-extdata/models/onecmt/run002 Adding COV step, unfixing eps(2)
         \-extdata/models/onecmt/run003 Jittering initial estimates
           +-extdata/models/onecmt/run003b1 Updating run003 to 003b1 with jittered ...
-          \-extdata/models/onecmt/run003b2 Updating run003 with mod object
+          +-extdata/models/onecmt/run003b2 Updating run003 with mod object
+          \-extdata/models/twocmt/run103 Two compartment model
 
 # get_model_lineage(from, to) slices between two models
 
@@ -73,6 +75,7 @@
       [6] "extdata/models/onecmt/run003b2.mod"  
       [7] "extdata/models/onecmt/run004.mod"    
       [8] "extdata/models/onecmt/run005.mod"    
+      [9] "extdata/models/twocmt/run103.mod"    
 
 ---
 

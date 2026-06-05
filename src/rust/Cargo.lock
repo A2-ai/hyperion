@@ -161,7 +161,7 @@ dependencies = [
 [[package]]
 name = "config"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=information-criteria#f40630978db3f9a243078de60dbfb8823796c085"
+source = "git+https://github.com/a2-ai/pharos?branch=information-criteria#2dae37c62d8df2c5ee013aef391a4614c0ed202c"
 dependencies = [
  "anyhow",
  "fs-err",
@@ -568,9 +568,9 @@ checksum = "3d3067d79b975e8844ca9eb072e16b31c3c1c36928edf9c6789548c524d0d954"
 
 [[package]]
 name = "ignore"
-version = "0.4.25"
+version = "0.4.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d3d782a365a015e0f5c04902246139249abf769125006fbe7649e2ee88169b4a"
+checksum = "b915661dd01db3f05050265b2477bcc6527b3792388e2749b41623cc592be67d"
 dependencies = [
  "crossbeam-deque",
  "globset",
@@ -744,7 +744,7 @@ checksum = "6b947ae49db0d222b1dbc6b113ce7248a3fc3a6ca21b696717bfc000ba4484d8"
 [[package]]
 name = "nonmem"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=information-criteria#f40630978db3f9a243078de60dbfb8823796c085"
+source = "git+https://github.com/a2-ai/pharos?branch=information-criteria#2dae37c62d8df2c5ee013aef391a4614c0ed202c"
 dependencies = [
  "anyhow",
  "blake3",
@@ -770,7 +770,7 @@ dependencies = [
 [[package]]
 name = "nonmem-parser"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=information-criteria#f40630978db3f9a243078de60dbfb8823796c085"
+source = "git+https://github.com/a2-ai/pharos?branch=information-criteria#2dae37c62d8df2c5ee013aef391a4614c0ed202c"
 dependencies = [
  "anyhow",
  "fs-err",
@@ -1111,7 +1111,7 @@ dependencies = [
 [[package]]
 name = "scheduler"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=information-criteria#f40630978db3f9a243078de60dbfb8823796c085"
+source = "git+https://github.com/a2-ai/pharos?branch=information-criteria#2dae37c62d8df2c5ee013aef391a4614c0ed202c"
 dependencies = [
  "anyhow",
  "config",
@@ -1373,7 +1373,7 @@ checksum = "ebc1c04c71510c7f702b52b7c350734c9ff1295c464a03335b00bb84fc54f853"
 [[package]]
 name = "utils"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=information-criteria#f40630978db3f9a243078de60dbfb8823796c085"
+source = "git+https://github.com/a2-ai/pharos?branch=information-criteria#2dae37c62d8df2c5ee013aef391a4614c0ed202c"
 dependencies = [
  "anyhow",
  "fs-err",

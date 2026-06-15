@@ -1,3 +1,11 @@
+# hyperion 0.5.0.9000
+
+## New features
+
+- `get_model_content()` — new exported function. Returns the full NONMEM
+  model file text as a single character string, reconstructed from a
+  `hyperion_nonmem_model` object.
+
 # hyperion 0.5.0
 
 ## Breaking changes

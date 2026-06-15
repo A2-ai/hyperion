@@ -48,6 +48,22 @@ read_model <- function(path) .Call(wrap__read_model, path)
 #' @keywords internal
 read_model_from_lst <- function(path) .Call(wrap__read_model_from_lst, path)
 
+#' Get the full text content of a model
+#'
+#' Reconstructs the NONMEM model file text from a `hyperion_nonmem_model`
+#' object by joining the parsed model tokens.
+#'
+#' @param model A `hyperion_nonmem_model` object from `read_model()`
+#'
+#' @return Character string with the full model file content
+#' @export
+#'
+#' @examples \dontrun{
+#' mod <- read_model("model/nonmem/run001.mod")
+#' get_model_content(mod)
+#' }
+get_model_content <- function(model) .Call(wrap__get_model_content, model)
+
 #' Copies model file to new model file
 #'
 #' @param from path to model file to copy or hyperion_nonmem_model object

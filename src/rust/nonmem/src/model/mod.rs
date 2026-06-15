@@ -1,4 +1,5 @@
 use extendr_api::Result;
+use extendr_api::deserializer::from_robj;
 use extendr_api::prelude::*;
 use extendr_api::serializer::to_robj;
 use fs_err as fs;
@@ -135,6 +136,26 @@ pub fn read_model(path: &str) -> Result<Robj> {
     Ok(robj_model)
 }
 
+/// Get the full text content of a model
+///
+/// Reconstructs the NONMEM model file text from a `hyperion_nonmem_model`
+/// object by joining the parsed model tokens.
+///
+/// @param model A `hyperion_nonmem_model` object from `read_model()`
+///
+/// @return Character string with the full model file content
+/// @export
+///
+/// @examples \dontrun{
+/// mod <- read_model("model/nonmem/run001.mod")
+/// get_model_content(mod)
+/// }
+#[extendr]
+pub fn get_model_content(model: Robj) -> Result<String> {
+    let model: Model = from_robj(&model)?;
+    Ok(model.model_content())
+}
+
 extendr_module! {
     mod model;
     use copy;
@@ -149,4 +170,5 @@ extendr_module! {
 
     fn read_model;
     fn read_model_from_lst;
+    fn get_model_content;
 }

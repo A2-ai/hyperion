@@ -1,4 +1,4 @@
-test_that("get_model_pk renders $PK statements as equations", {
+test_that("get_model_pk returns a table of $PK equations", {
   mod <- read_model(system.file(
     "extdata", "mod/1001.mod",
     package = "hyperion"
@@ -6,14 +6,28 @@ test_that("get_model_pk renders $PK statements as equations", {
   pk <- get_model_pk(mod)
 
   expect_s3_class(pk, "hyperion_nonmem_model_pk")
-  expect_type(pk, "character")
-  expect_length(pk, 10)
+  expect_s3_class(pk, "data.frame")
+  expect_equal(names(pk), c("target", "equation", "symbols"))
+  expect_equal(nrow(pk), 10L)
 
-  eqs <- as.character(pk)
-  expect_equal(eqs[1], "TVCL = THETA(1)")
-  # binary ops render in pharos's normalized form (no spaces around * and /)
-  expect_true("CL = TVCL*EXP(ETA(1))" %in% eqs)
-  expect_true("S2 = VC/1000" %in% eqs)
+  expect_equal(pk$target[1], "TVCL")
+  expect_equal(pk$equation[1], "TVCL = THETA(1)")
+})
+
+test_that("get_model_pk symbols capture RHS dependencies", {
+  mod <- read_model(system.file(
+    "extdata", "mod/1001.mod",
+    package = "hyperion"
+  ))
+  pk <- get_model_pk(mod)
+  sym <- function(target) pk$symbols[[which(pk$target == target)]]
+
+  expect_type(pk$symbols, "list")
+  # plain identifiers + indexed THETA/ETA refs; math fns (EXP) excluded
+  expect_equal(sym("TVCL"), "THETA(1)")
+  expect_equal(sym("CL"), c("TVCL", "ETA(1)"))
+  expect_equal(sym("S2"), "VC")
+  expect_equal(sym("K20"), c("CL", "VC"))
 })
 
 test_that("get_model_pk errors on non-model input", {

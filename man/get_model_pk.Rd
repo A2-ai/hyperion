@@ -2,7 +2,7 @@
 % Please edit documentation in R/model-pk.R
 \name{get_model_pk}
 \alias{get_model_pk}
-\title{Get a model's \verb{$PK} block as rendered equations}
+\title{Get a model's \verb{$PK} block as a table of equations}
 \usage{
 get_model_pk(model)
 }
@@ -10,20 +10,26 @@ get_model_pk(model)
 \item{model}{A \code{hyperion_nonmem_model} object from \code{\link[=read_model]{read_model()}}.}
 }
 \value{
-A \code{hyperion_nonmem_model_pk} object: a character vector of
-equations, one per \verb{$PK} statement, with a print method. Empty when the
-model has no \verb{$PK} block.
+A \code{hyperion_nonmem_model_pk} object (a data.frame) with one row per
+\verb{$PK} statement and columns:
+\describe{
+\item{target}{assignment left-hand side (\code{NA} for non-assignments)}
+\item{equation}{the full rendered equation, e.g. \code{"CL = TVCL*EXP(ETA(1))"}}
+\item{symbols}{list column; the identifiers and \code{THETA}/\code{ETA}/\code{EPS}/\code{ERR}
+references used in the statement (math functions excluded)}
+}
+Empty when the model has no \verb{$PK} block.
 }
 \description{
-Extracts the \verb{$PK} block from a model and renders each statement back to a
-NONMEM equation (e.g. \code{"CL = TVCL*EXP(ETA(1))"}). Rendering is performed by
-pharos from the parsed model, so comments and blank lines in the original
-block are not included — only the equations.
+Extracts the \verb{$PK} block from a model and returns one row per statement. The
+\code{target}, \code{equation}, and \code{symbols} are all derived by pharos from the parsed
+model AST. Comments and blank lines in the original block are not included.
 }
 \examples{
 \dontrun{
 mod <- read_model("model/nonmem/run001.mod")
-mod |> get_model_pk()
+pk <- mod |> get_model_pk()
+pk$symbols[[which(pk$target == "CL")]] # what CL depends on
 }
 }
 \seealso{

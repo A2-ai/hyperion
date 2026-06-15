@@ -3,7 +3,7 @@ use extendr_api::deserializer::from_robj;
 use extendr_api::prelude::*;
 use extendr_api::serializer::to_robj;
 use fs_err as fs;
-use nmparser::Model;
+use nmparser::{Model, NmtranExpr, NmtranStatement};
 use nonmem::output_files::lst;
 use std::path::Path;
 
@@ -156,24 +156,105 @@ pub fn get_model_content(model: Robj) -> Result<String> {
     Ok(model.model_content())
 }
 
-/// Render the `$PK` block statements as NONMEM equations (internal)
+/// NONMEM arrays whose indexed reference is kept whole as a symbol.
+const PK_PARAM_ARRAYS: [&str; 4] = ["THETA", "ETA", "EPS", "ERR"];
+
+/// Build the `$PK` block table: one row per statement (internal)
 ///
-/// Each statement in the model's `$PK` block is rendered back to its NONMEM
-/// source form (e.g. `"CL = TVCL*EXP(ETA(1))"`) using the pharos AST. Returns
-/// an empty vector when the model has no `$PK` block.
+/// Returns a list with one element per `$PK` statement. Each element is a list
+/// with `target` (assignment LHS, `NULL` for non-assignments), `equation` (the
+/// statement rendered back to NONMEM source via the pharos AST), and `symbols`
+/// (identifiers and `THETA`/`ETA`/`EPS`/`ERR` references used, with math
+/// functions excluded). Empty when the model has no `$PK` block.
 ///
 /// @param model A `hyperion_nonmem_model` object from `read_model()`
 ///
-/// @return Character vector with one rendered equation per `$PK` statement.
+/// @return List of per-statement `target`/`equation`/`symbols` lists.
 /// @keywords internal
 #[extendr]
-pub fn get_pk_statements(model: Robj) -> Result<Vec<String>> {
+pub fn get_pk_table(model: Robj) -> Result<List> {
     let model: Model = from_robj(&model)?;
-    let statements = model
-        .pk
-        .map(|pk| pk.statements.iter().map(|s| s.to_string()).collect())
-        .unwrap_or_default();
-    Ok(statements)
+    let rows: Vec<Robj> = match &model.pk {
+        Some(pk) => pk
+            .statements
+            .iter()
+            .map(|stmt| {
+                list!(
+                    target = assignment_target(stmt),
+                    equation = stmt.to_string(),
+                    symbols = statement_symbols(stmt)
+                )
+                .into()
+            })
+            .collect(),
+        None => Vec::new(),
+    };
+    Ok(List::from_values(rows))
+}
+
+fn assignment_target(stmt: &NmtranStatement) -> Option<String> {
+    match stmt {
+        NmtranStatement::Assignment { target, .. } => Some(target.clone()),
+        _ => None,
+    }
+}
+
+fn statement_symbols(stmt: &NmtranStatement) -> Vec<String> {
+    let mut out = Vec::new();
+    collect_statement_symbols(stmt, &mut out);
+    let mut seen = std::collections::HashSet::new();
+    out.into_iter().filter(|s| seen.insert(s.clone())).collect()
+}
+
+fn collect_statement_symbols(stmt: &NmtranStatement, out: &mut Vec<String>) {
+    match stmt {
+        NmtranStatement::Assignment { expr, .. } => collect_expr_symbols(expr, out),
+        NmtranStatement::If {
+            condition,
+            body,
+            elseif_branches,
+            else_body,
+        } => {
+            collect_expr_symbols(condition, out);
+            body.iter().for_each(|s| collect_statement_symbols(s, out));
+            for (cond, stmts) in elseif_branches {
+                collect_expr_symbols(cond, out);
+                stmts.iter().for_each(|s| collect_statement_symbols(s, out));
+            }
+            if let Some(stmts) = else_body {
+                stmts.iter().for_each(|s| collect_statement_symbols(s, out));
+            }
+        }
+        NmtranStatement::DoWhile { condition, body } => {
+            collect_expr_symbols(condition, out);
+            body.iter().for_each(|s| collect_statement_symbols(s, out));
+        }
+        NmtranStatement::Call { args, .. } => {
+            args.iter().for_each(|a| collect_expr_symbols(a, out));
+        }
+        NmtranStatement::Exit { .. } | NmtranStatement::Unknown { .. } => {}
+    }
+}
+
+fn collect_expr_symbols(expr: &NmtranExpr, out: &mut Vec<String>) {
+    match expr {
+        NmtranExpr::Number(_) => {}
+        NmtranExpr::Ident(name) => out.push(name.clone()),
+        NmtranExpr::FunctionCall { name, args } => {
+            if PK_PARAM_ARRAYS.contains(&name.as_str()) {
+                // Keep the whole indexed reference (e.g. "THETA(2)") via Display.
+                out.push(expr.to_string());
+            } else {
+                args.iter().for_each(|a| collect_expr_symbols(a, out));
+            }
+        }
+        NmtranExpr::BinaryExpr { lhs, rhs, .. } => {
+            collect_expr_symbols(lhs, out);
+            collect_expr_symbols(rhs, out);
+        }
+        NmtranExpr::UnaryExpr { operand, .. } => collect_expr_symbols(operand, out),
+        NmtranExpr::Paren(inner) => collect_expr_symbols(inner, out),
+    }
 }
 
 extendr_module! {
@@ -191,5 +272,5 @@ extendr_module! {
     fn read_model;
     fn read_model_from_lst;
     fn get_model_content;
-    fn get_pk_statements;
+    fn get_pk_table;
 }

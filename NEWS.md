@@ -3,8 +3,10 @@
 ## New features
 
 - `get_model_pk()` — new exported function. Returns a model's `$PK` block as a
-  `hyperion_nonmem_model_pk` object: a character vector of equations, one per
-  statement (rendered from the parsed model), with a print method.
+  `hyperion_nonmem_model_pk` data.frame: one row per statement with `target`,
+  `equation` (rendered from the parsed model), and a `symbols` list-column
+  (the identifiers and `THETA`/`ETA`/`EPS`/`ERR` references each statement
+  uses), plus a print method.
 - `get_model_content()` — new exported function. Returns the full NONMEM
   model file text as a single character string, reconstructed from a
   `hyperion_nonmem_model` object.

@@ -38,10 +38,10 @@ serde = { workspace = true }
 extendr-api = { version = "0.9.0", features = ["serde"] }
 
 # Pharos components
-nonmem = { git = "https://github.com/a2-ai/pharos", package = "nonmem", branch = "information-criteria" }
-nmparser = { git = "https://github.com/a2-ai/pharos", package = "nonmem-parser", branch = "information-criteria" }
-config = { git = "https://github.com/a2-ai/pharos", package = "config", branch = "information-criteria" }
-scheduler = { git = "https://github.com/a2-ai/pharos", package = "scheduler", branch = "information-criteria" }
+nonmem = { git = "https://github.com/a2-ai/pharos", package = "nonmem", branch = "pk-object" }
+nmparser = { git = "https://github.com/a2-ai/pharos", package = "nonmem-parser", branch = "pk-object" }
+config = { git = "https://github.com/a2-ai/pharos", package = "config", branch = "pk-object" }
+scheduler = { git = "https://github.com/a2-ai/pharos", package = "scheduler", branch = "pk-object" }
 
 # Core utilities
 anyhow = "1.0.100"

@@ -156,6 +156,26 @@ pub fn get_model_content(model: Robj) -> Result<String> {
     Ok(model.model_content())
 }
 
+/// Render the `$PK` block statements as NONMEM equations (internal)
+///
+/// Each statement in the model's `$PK` block is rendered back to its NONMEM
+/// source form (e.g. `"CL = TVCL*EXP(ETA(1))"`) using the pharos AST. Returns
+/// an empty vector when the model has no `$PK` block.
+///
+/// @param model A `hyperion_nonmem_model` object from `read_model()`
+///
+/// @return Character vector with one rendered equation per `$PK` statement.
+/// @keywords internal
+#[extendr]
+pub fn get_pk_statements(model: Robj) -> Result<Vec<String>> {
+    let model: Model = from_robj(&model)?;
+    let statements = model
+        .pk
+        .map(|pk| pk.statements.iter().map(|s| s.to_string()).collect())
+        .unwrap_or_default();
+    Ok(statements)
+}
+
 extendr_module! {
     mod model;
     use copy;
@@ -171,4 +191,5 @@ extendr_module! {
     fn read_model;
     fn read_model_from_lst;
     fn get_model_content;
+    fn get_pk_statements;
 }

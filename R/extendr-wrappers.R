@@ -64,6 +64,18 @@ read_model_from_lst <- function(path) .Call(wrap__read_model_from_lst, path)
 #' }
 get_model_content <- function(model) .Call(wrap__get_model_content, model)
 
+#' Render the `$PK` block statements as NONMEM equations (internal)
+#'
+#' Each statement in the model's `$PK` block is rendered back to its NONMEM
+#' source form (e.g. `"CL = TVCL*EXP(ETA(1))"`) using the pharos AST. Returns
+#' an empty vector when the model has no `$PK` block.
+#'
+#' @param model A `hyperion_nonmem_model` object from `read_model()`
+#'
+#' @return Character vector with one rendered equation per `$PK` statement.
+#' @keywords internal
+get_pk_statements <- function(model) .Call(wrap__get_pk_statements, model)
+
 #' Copies model file to new model file
 #'
 #' @param from path to model file to copy or hyperion_nonmem_model object

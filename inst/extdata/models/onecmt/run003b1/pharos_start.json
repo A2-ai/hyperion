@@ -1,7 +1,7 @@
 {
   "start": "2026-01-13T19:53:01+00:00",
   "model_name": "run003b1",
-  "model_canonical_path": "/Users/mattsmith/Documents/hyperion/inst/extdata/models/onecmt/run003b1.mod",
+  "model_path": "extdata/models/onecmt/run003b1.mod",
   "dataset_path": "../../data/derived/onecmpt-oral-30ind-cov.csv",
   "dataset_canonical_path": "/Users/mattsmith/Documents/hyperion/inst/extdata/data/derived/onecmpt-oral-30ind-cov.csv",
   "dataset_hashes": {

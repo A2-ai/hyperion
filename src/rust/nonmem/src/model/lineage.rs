@@ -62,10 +62,15 @@ impl From<RunEndFile> for RRunEndFile {
     }
 }
 
-impl From<LineageTree> for RLineageTree {
-    fn from(lineage: LineageTree) -> Self {
+impl TryFrom<LineageTree> for RLineageTree {
+    type Error = extendr_api::Error;
+
+    fn try_from(lineage: LineageTree) -> Result<Self> {
         let all_keys: HashSet<String> = lineage.nodes.keys().cloned().collect();
-        let chain = lineage.topological_order(all_keys);
+        let chain = lineage
+            .topological_order(all_keys)
+            .map_to_extendr_err("Could not get topological order of LineageTree")?;
+
         let mut project_metadata = lineage.metadata;
         let nodes = chain
             .into_iter()
@@ -79,7 +84,8 @@ impl From<LineageTree> for RLineageTree {
                 LineageNode { name, model, run }
             })
             .collect();
-        RLineageTree { nodes }
+
+        Ok(RLineageTree { nodes })
     }
 }
 
@@ -159,7 +165,7 @@ pub fn get_model_lineage(
 
     let lineage = filter_lineage(lineage, chain);
 
-    let r_lineage: RLineageTree = lineage.into();
+    let r_lineage: RLineageTree = lineage.try_into()?;
 
     let mut lineage_robj =
         to_robj(&r_lineage).map_to_extendr_err("Failed to create Robj from RLineageTree")?;

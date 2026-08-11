@@ -1,7 +1,7 @@
 {
   "start": "2026-02-23T17:49:03+00:00",
   "model_name": "run-err",
-  "model_canonical_path": "/Users/mattsmith/Documents/hyperion/inst/extdata/models/run-error-names/run-err.mod",
+  "model_path": "extdata/models/run-error-names/run-err.mod",
   "dataset_path": "../../data/derived/onecmpt-oral-30ind.csv",
   "dataset_canonical_path": "/Users/mattsmith/Documents/hyperion/inst/extdata/data/derived/onecmpt-oral-30ind.csv",
   "dataset_hashes": {

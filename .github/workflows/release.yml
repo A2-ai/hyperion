@@ -5,7 +5,7 @@
 # a release builds or deploys, edit .github/prism.yml, run
 # `gh prism init --force`, and commit both files together.
 #
-# gh-prism-version: v0.0.0-20260811161240-59653b4488c1
+# gh-prism-version: v0.1.1-0.20260813184036-47acba2b668f
 # prism-config-sha256: 5a5071cc2cb5b9c705afba8bf0fc09d39be4437f849fecbf32b4b75b981ecaa9
 # =============================================================================
 name: Release
@@ -19,6 +19,11 @@ on:
         description: Tag to release
         required: true
         type: string
+      publish:
+        description: Deploy a prerelease (rc or dev) tag to PRISM
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -26,8 +31,9 @@ permissions:
 jobs:
   # ===========================================================================
   # PREFLIGHT
-  # Resolves the tag, classifies release candidates, and warns when the repo
-  # disagrees with what this workflow was generated from.
+  # Resolves the tag, classifies prereleases (release candidates and dev
+  # versions), and warns when the repo disagrees with what this workflow was
+  # generated from.
   # ===========================================================================
   preflight:
     name: Preflight release
@@ -35,6 +41,8 @@ jobs:
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
       is_rc: ${{ steps.tag.outputs.is_rc }}
+      is_dev: ${{ steps.tag.outputs.is_dev }}
+      is_prerelease: ${{ steps.tag.outputs.is_prerelease }}
     steps:
       - name: Resolve tag
         id: tag
@@ -42,12 +50,13 @@ jobs:
           TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          # KEEP IN SYNC: IsReleaseCandidate in gh-prism internal/config/plan.go
-          if [[ "$TAG" =~ -rc[0-9]*$ ]]; then
-            echo "is_rc=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "is_rc=false" >> "$GITHUB_OUTPUT"
-          fi
+          # KEEP IN SYNC: IsReleaseCandidate and IsDevTag in gh-prism internal/config/plan.go
+          is_rc=false; is_dev=false; is_prerelease=false
+          if [[ "$TAG" =~ -rc[0-9]*$ ]]; then is_rc=true; fi
+          # A dev tag's last dot-component is 9000-9999: exactly four digits starting with 9.
+          if [[ "$TAG" =~ \.9[0-9]{3}$ ]]; then is_dev=true; fi
+          if [ "$is_rc" = true ] || [ "$is_dev" = true ]; then is_prerelease=true; fi
+          { echo "is_rc=$is_rc"; echo "is_dev=$is_dev"; echo "is_prerelease=$is_prerelease"; } >> "$GITHUB_OUTPUT"
 
       - name: Checkout package repository
         uses: actions/checkout@v4
@@ -169,6 +178,7 @@ jobs:
         uses: A2-ai/r-releaser/setup-build-env@feat/gh-compatibility
         with:
           toolchain: "auto"
+          rust: "auto"
           sysdeps: "auto"
           sysdeps_ignore: "libgit2_1.7-devel pandoc"
           sysdeps_extra: "libgit2-devel libcurl-devel"
@@ -224,8 +234,8 @@ jobs:
           tag: ${{ needs.preflight.outputs.tag }}
           release_name: ${{ needs.preflight.outputs.tag }}
           overwrite: true
-          prerelease: ${{ needs.preflight.outputs.is_rc == 'true' }}
-          make_latest: ${{ needs.preflight.outputs.is_rc == 'true' && 'false' || 'legacy' }}
+          prerelease: ${{ needs.preflight.outputs.is_prerelease == 'true' }}
+          make_latest: ${{ needs.preflight.outputs.is_prerelease == 'true' && 'false' || 'legacy' }}
 
       - name: Upload source tarball as artifact
         uses: actions/upload-artifact@v4
@@ -252,8 +262,8 @@ jobs:
           tag: ${{ needs.preflight.outputs.tag }}
           release_name: ${{ needs.preflight.outputs.tag }}
           overwrite: true
-          prerelease: ${{ needs.preflight.outputs.is_rc == 'true' }}
-          make_latest: ${{ needs.preflight.outputs.is_rc == 'true' && 'false' || 'legacy' }}
+          prerelease: ${{ needs.preflight.outputs.is_prerelease == 'true' }}
+          make_latest: ${{ needs.preflight.outputs.is_prerelease == 'true' && 'false' || 'legacy' }}
 
       - name: Upload manifest as artifact
         uses: actions/upload-artifact@v4
@@ -278,11 +288,11 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - {"name":"almalinux8-x86_64","runner":"ubuntu-latest","container":"almalinux:8","os_release_id":"almalinux","arch":"x86_64","r":"4.5","sysdeps":"auto","sysdeps_ignore":"libgit2_1.7-devel pandoc","sysdeps_extra":"libgit2-devel libcurl-devel","toolchain":"auto"}
-          - {"name":"almalinux8-x86_64","runner":"ubuntu-latest","container":"almalinux:8","os_release_id":"almalinux","arch":"x86_64","r":"4.4","sysdeps":"auto","sysdeps_ignore":"libgit2_1.7-devel pandoc","sysdeps_extra":"libgit2-devel libcurl-devel","toolchain":"auto"}
-          - {"name":"macos-arm64","runner":"macos-15","container":null,"os_release_id":null,"arch":"arm64","r":"4.6","sysdeps":"none","sysdeps_ignore":"","sysdeps_extra":"","toolchain":"auto"}
-          - {"name":"macos-arm64","runner":"macos-15","container":null,"os_release_id":null,"arch":"arm64","r":"4.5","sysdeps":"none","sysdeps_ignore":"","sysdeps_extra":"","toolchain":"auto"}
-          - {"name":"macos-arm64","runner":"macos-15","container":null,"os_release_id":null,"arch":"arm64","r":"4.4","sysdeps":"none","sysdeps_ignore":"","sysdeps_extra":"","toolchain":"auto"}
+          - {"name":"almalinux8-x86_64","runner":"ubuntu-latest","container":"almalinux:8","os_release_id":"almalinux","arch":"x86_64","r":"4.5","sysdeps":"auto","sysdeps_ignore":"libgit2_1.7-devel pandoc","sysdeps_extra":"libgit2-devel libcurl-devel","toolchain":"auto","rust":"auto"}
+          - {"name":"almalinux8-x86_64","runner":"ubuntu-latest","container":"almalinux:8","os_release_id":"almalinux","arch":"x86_64","r":"4.4","sysdeps":"auto","sysdeps_ignore":"libgit2_1.7-devel pandoc","sysdeps_extra":"libgit2-devel libcurl-devel","toolchain":"auto","rust":"auto"}
+          - {"name":"macos-arm64","runner":"macos-15","container":null,"os_release_id":null,"arch":"arm64","r":"4.6","sysdeps":"none","sysdeps_ignore":"","sysdeps_extra":"","toolchain":"auto","rust":"auto"}
+          - {"name":"macos-arm64","runner":"macos-15","container":null,"os_release_id":null,"arch":"arm64","r":"4.5","sysdeps":"none","sysdeps_ignore":"","sysdeps_extra":"","toolchain":"auto","rust":"auto"}
+          - {"name":"macos-arm64","runner":"macos-15","container":null,"os_release_id":null,"arch":"arm64","r":"4.4","sysdeps":"none","sysdeps_ignore":"","sysdeps_extra":"","toolchain":"auto","rust":"auto"}
     env:
       BUILD_R: ${{ matrix.config.r }}
       BUILD_CONTAINER: ${{ matrix.config.container || '' }}
@@ -333,6 +343,7 @@ jobs:
         uses: A2-ai/r-releaser/setup-build-env@feat/gh-compatibility
         with:
           toolchain: ${{ matrix.config.toolchain }}
+          rust: ${{ matrix.config.rust }}
           sysdeps: ${{ matrix.config.sysdeps }}
           sysdeps_ignore: ${{ matrix.config.sysdeps_ignore }}
           sysdeps_extra: ${{ matrix.config.sysdeps_extra }}
@@ -388,8 +399,8 @@ jobs:
           tag: ${{ needs.preflight.outputs.tag }}
           release_name: ${{ needs.preflight.outputs.tag }}
           overwrite: true
-          prerelease: ${{ needs.preflight.outputs.is_rc == 'true' }}
-          make_latest: ${{ needs.preflight.outputs.is_rc == 'true' && 'false' || 'legacy' }}
+          prerelease: ${{ needs.preflight.outputs.is_prerelease == 'true' }}
+          make_latest: ${{ needs.preflight.outputs.is_prerelease == 'true' && 'false' || 'legacy' }}
 
       - name: Upload manifest as artifact
         uses: actions/upload-artifact@v4
@@ -435,13 +446,13 @@ jobs:
           tag: ${{ needs.preflight.outputs.tag }}
           release_name: ${{ needs.preflight.outputs.tag }}
           overwrite: true
-          prerelease: ${{ needs.preflight.outputs.is_rc == 'true' }}
-          make_latest: ${{ needs.preflight.outputs.is_rc == 'true' && 'false' || 'legacy' }}
+          prerelease: ${{ needs.preflight.outputs.is_prerelease == 'true' }}
+          make_latest: ${{ needs.preflight.outputs.is_prerelease == 'true' && 'false' || 'legacy' }}
 
   # ===========================================================================
   # DEPLOY
   # Publishes to PRISM using the org Actions secret PRISM_API_TOKEN_DEV. Runs
-  # only when the tag is not a release candidate.
+  # when the tag is not a prerelease, or when dispatched with publish: true.
   # ===========================================================================
   deploy:
     name: Deploy to PRISM
@@ -449,7 +460,7 @@ jobs:
     if: >-
       !cancelled() &&
       needs.finalize.result == 'success' &&
-      needs.preflight.outputs.is_rc != 'true'
+      (needs.preflight.outputs.is_prerelease != 'true' || inputs.publish == true)
     runs-on: ubuntu-latest
     concurrency:
       group: prism-deploy-${{ github.repository }}-${{ needs.preflight.outputs.tag }}
@@ -467,16 +478,22 @@ jobs:
 
   # ===========================================================================
   # DEPLOY-SKIPPED
-  # Visible annotation when a release candidate skips the PRISM deploy.
+  # Visible annotation when a prerelease (rc or dev version) skips the PRISM
+  # deploy.
   # ===========================================================================
   deploy-skipped:
-    name: Deploy skipped (release candidate)
+    name: Deploy skipped (prerelease)
     needs: [preflight, finalize]
     if: >-
       !cancelled() &&
       needs.finalize.result == 'success' &&
-      needs.preflight.outputs.is_rc == 'true'
+      needs.preflight.outputs.is_prerelease == 'true' &&
+      inputs.publish != true
     runs-on: ubuntu-latest
     steps:
       - name: Explain skip
-        run: echo "::notice::${{ needs.preflight.outputs.tag }} is a release candidate — PRISM deploy skipped."
+        env:
+          TAG: ${{ needs.preflight.outputs.tag }}
+          KIND: ${{ needs.preflight.outputs.is_rc == 'true' && 'a release candidate' || 'a development version' }}
+        run: |
+          echo "::notice::$TAG is $KIND — PRISM deploy skipped. To deploy it anyway run: gh workflow run release.yml --ref $TAG -f tag=$TAG -f publish=true (--ref runs the workflow baked at the tag and stamps the tag's commit into the deploy)"

@@ -73,9 +73,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.4.2"
+version = "1.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d262e149917187838d5b42777c8253bcb64500067342904e7d429499a6f277e"
+checksum = "509591b7bcd67f4ef775afad7662703b4935daaa6ec0e5605cfb1090b32a2b6d"
 dependencies = [
  "find-msvc-tools",
  "shlex 2.0.1",
@@ -101,7 +101,7 @@ dependencies = [
 [[package]]
 name = "config"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=main#a9d8bc31895cfabe7fa42dcfdbb2d847e031807c"
+source = "git+https://github.com/a2-ai/pharos?branch=migrate-run-start#4ae5bc456ff4820d36b683e1d5ef2808fbc9973d"
 dependencies = [
  "anyhow",
  "fs-err",
@@ -109,6 +109,7 @@ dependencies = [
  "jiff",
  "log",
  "nonmem-parser",
+ "regex",
  "serde",
  "tera",
  "toml",
@@ -271,9 +272,9 @@ checksum = "da7c62ceae207dd37ea5b845da6a0696c799f85e97da1ab5b7910be3c1c80223"
 
 [[package]]
 name = "find-msvc-tools"
-version = "0.1.10"
+version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "26b73573e6edcd2af0cdf47bd6cb58f0b3839491263c314eaad1ccf24430e1de"
+checksum = "d45db016d36b838f563236e9193d0ee6ce38f3f68b6c94e914b4929c96bbb890"
 
 [[package]]
 name = "fnv"
@@ -532,7 +533,7 @@ checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
 [[package]]
 name = "nonmem"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=main#a9d8bc31895cfabe7fa42dcfdbb2d847e031807c"
+source = "git+https://github.com/a2-ai/pharos?branch=migrate-run-start#4ae5bc456ff4820d36b683e1d5ef2808fbc9973d"
 dependencies = [
  "anyhow",
  "blake3",
@@ -557,7 +558,7 @@ dependencies = [
 [[package]]
 name = "nonmem-parser"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=main#a9d8bc31895cfabe7fa42dcfdbb2d847e031807c"
+source = "git+https://github.com/a2-ai/pharos?branch=migrate-run-start#4ae5bc456ff4820d36b683e1d5ef2808fbc9973d"
 dependencies = [
  "anyhow",
  "distrs",
@@ -732,7 +733,7 @@ dependencies = [
 [[package]]
 name = "scheduler"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=main#a9d8bc31895cfabe7fa42dcfdbb2d847e031807c"
+source = "git+https://github.com/a2-ai/pharos?branch=migrate-run-start#4ae5bc456ff4820d36b683e1d5ef2808fbc9973d"
 dependencies = [
  "anyhow",
  "config",
@@ -872,9 +873,9 @@ dependencies = [
 
 [[package]]
 name = "tera"
-version = "2.1.0"
+version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "511f07fd91a70e92efbe4793d111aaa9035f8474dd157aaa1e31e7c27f5051da"
+checksum = "638c0720e7c1f61722366256d369ea46139634e77738735d6d9bb287bbbad35f"
 dependencies = [
  "serde",
 ]
@@ -947,7 +948,7 @@ checksum = "e6e4313cd5fcd3dad5cafa179702e2b244f760991f45397d14d4ebf38247da75"
 [[package]]
 name = "utils"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=main#a9d8bc31895cfabe7fa42dcfdbb2d847e031807c"
+source = "git+https://github.com/a2-ai/pharos?branch=migrate-run-start#4ae5bc456ff4820d36b683e1d5ef2808fbc9973d"
 dependencies = [
  "anyhow",
  "fs-err",

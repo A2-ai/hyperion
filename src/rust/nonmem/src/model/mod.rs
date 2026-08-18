@@ -15,6 +15,7 @@ pub mod comment_info;
 pub mod copy;
 pub mod lineage;
 pub mod metadata;
+pub mod migrate;
 pub mod parameters;
 pub mod run_status;
 pub mod summary;
@@ -143,6 +144,7 @@ extendr_module! {
     use parameters;
     use comment_info;
     use metadata;
+    use migrate;
     use run_status;
 
     fn read_model;

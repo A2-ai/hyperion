@@ -300,6 +300,27 @@ get_model_metadata <- function(model) .Call(wrap__load_model_metadata, model)
 #' }
 clear_metadata_file <- function(model_path, based_on = FALSE, copied_from = FALSE, tags = FALSE) .Call(wrap__clear_metadata_file_wrap, model_path, based_on, copied_from, tags)
 
+#' Migrate pharos run start files to project-relative model paths
+#'
+#' Rewrites every `pharos_start.json` under the project root, replacing the
+#' absolute `model_canonical_path` written by older pharos versions with a
+#' `model_path` relative to the project root. Files already in the current
+#' format are left untouched. `.git` and `rv` directories are skipped.
+#'
+#' @param base_path Project root the runs were originally recorded under.
+#' Only needed when the recorded absolute paths fall outside the current
+#' project root, for example runs executed from another user's home
+#' directory.
+#'
+#' @return nothing
+#' @export
+#'
+#' @examples \dontrun{
+#' migrate_run_start_files()
+#' migrate_run_start_files(base_path = "/data/user-homes/analyst1/project-root")
+#' }
+migrate_run_start_files <- function(base_path = NULL) .Call(wrap__migrate_run_start_files, base_path)
+
 #' Determine run status for a model path, run directory, or model object.
 #'
 #' @param input A hyperion_nonmem_model object, run directory, or model path.

@@ -472,6 +472,48 @@ compute_rse <- function(estimate, se, param_type, transform = 'identity') .Call(
 #' }
 transform_value <- function(value, transform) .Call(wrap__transform_value, value, transform)
 
+#' Build and validate an SCM plan (runs nothing) and write its plan.json
+#'
+#' Internal engine behind [scm_plan()]; use that instead.
+#'
+#' @param model path to the template control stream
+#' @param covariates integer vector of 1-based THETA numbers
+#' @param direction character vector: "forward", "backward", or both
+#' @param out_dir output directory (NULL = scm/<model name> beside the model)
+#' @param forward_alpha significance level for forward selection
+#' @param backward_alpha significance level for backward elimination
+#' @param num_rounds pause after this many rounds per run (NULL = no cap)
+#' @param max_retries retries per failed fit
+#' @param release_init initial estimate for a released covariate theta
+#' @param cov_step whether generated models run the covariance step
+#' @param overwrite replace existing SCM output from a different plan
+#'
+#' @return a `hyperion_scm_plan` object; its `plan_path` attribute is the
+#'   `plan.json` just written
+#' @keywords internal
+scm_plan_impl <- function(model, covariates, direction, out_dir = NULL, forward_alpha = 0.05, backward_alpha = 0.001, num_rounds = NULL, max_retries = 3, release_init = 0.1, cov_step = TRUE, overwrite = FALSE) .Call(wrap__scm_plan_wrap, model, covariates, direction, out_dir, forward_alpha, backward_alpha, num_rounds, max_retries, release_init, cov_step, overwrite)
+
+#' Read the status of an SCM search
+#'
+#' Internal engine behind [scm_status()]; use that instead.
+#'
+#' @param path the SCM out_dir
+#'
+#' @return a `hyperion_scm_status` object
+#' @keywords internal
+scm_status_impl <- function(path) .Call(wrap__scm_status_wrap, path)
+
+#' Build the SCM decision log
+#'
+#' Internal engine behind [summary.hyperion_scm_status()]; use that instead.
+#'
+#' @param path the SCM out_dir
+#' @param write whether to (re)write scm_decision_log.csv / .md into out_dir
+#'
+#' @return the decision log as a data.frame
+#' @keywords internal
+scm_decision_log_impl <- function(path, write = TRUE) .Call(wrap__scm_decision_log_wrap, path, write)
+
 #' Gets the pharos.toml configuration as an R object
 #'
 #' @return pharos config as nested list structure

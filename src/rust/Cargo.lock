@@ -101,7 +101,6 @@ dependencies = [
 [[package]]
 name = "config"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=main#a9d8bc31895cfabe7fa42dcfdbb2d847e031807c"
 dependencies = [
  "anyhow",
  "fs-err",
@@ -109,6 +108,7 @@ dependencies = [
  "jiff",
  "log",
  "nonmem-parser",
+ "regex",
  "serde",
  "tera",
  "toml",
@@ -532,7 +532,6 @@ checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
 [[package]]
 name = "nonmem"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=main#a9d8bc31895cfabe7fa42dcfdbb2d847e031807c"
 dependencies = [
  "anyhow",
  "blake3",
@@ -557,7 +556,6 @@ dependencies = [
 [[package]]
 name = "nonmem-parser"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=main#a9d8bc31895cfabe7fa42dcfdbb2d847e031807c"
 dependencies = [
  "anyhow",
  "distrs",
@@ -732,7 +730,6 @@ dependencies = [
 [[package]]
 name = "scheduler"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=main#a9d8bc31895cfabe7fa42dcfdbb2d847e031807c"
 dependencies = [
  "anyhow",
  "config",
@@ -947,7 +944,6 @@ checksum = "e6e4313cd5fcd3dad5cafa179702e2b244f760991f45397d14d4ebf38247da75"
 [[package]]
 name = "utils"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=main#a9d8bc31895cfabe7fa42dcfdbb2d847e031807c"
 dependencies = [
  "anyhow",
  "fs-err",

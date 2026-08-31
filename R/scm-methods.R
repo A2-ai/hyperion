@@ -4,8 +4,9 @@
 # (an S3 object wrapping the pharos ScmPlan struct) and writes the plan.json
 # to out_dir, `scm_run()` hands it to the pharos CLI in the
 # background, and `scm_status()` checks on the search in its entirety while
-# it runs. pharos writes the decision log the moment the search completes;
-# `summary()` on a status reads it into R as a data.frame.
+# it runs. pharos rewrites the decision log after every round (and leaves a
+# round_summary.json/.md in each round directory as it concludes);
+# `summary()` on a status reads the decision log into R as a data.frame.
 
 #' Plan a stepwise covariate modeling (SCM) search
 #'
@@ -14,8 +15,7 @@
 #' object, and writes it to `<out_dir>/plan.json` —
 #' [scm_run()] and `pharos nonmem scm run` execute. Nothing is fitted. The
 #' template carries the candidate effects already written into `$PK` and
-#' fixed to zero in `$THETA` (`(0 FIX)`); the tool releases and tests them,
-#' it never generates covariate code.
+#' fixed to zero in `$THETA` (`(0 FIX)`); the tool releases and tests them.
 #'
 #' @param mod path to the template control stream (.mod/.ctl)
 #' @param covariates 1-based THETA numbers of the candidate covariate
@@ -38,8 +38,10 @@
 #' @param max_retries retries per failed fit (default 3). Retries are never
 #'   jittered: each retry starts from wherever the previous attempt left off
 #'   (its final estimates, or its last iteration if it never finished).
-#' @param release_init initial estimate a covariate theta is released at
-#'   (default 0.1); covariate thetas not in a given model stay `0 FIX`.
+#' @param release_init initial estimate a newly released covariate theta
+#'   starts at (default 0.1); parameters already free in the round's
+#'   reference fit continue from its estimates, and covariate thetas not in
+#'   a given model stay `0 FIX`.
 #' @param cov_step whether generated models run the covariance step
 #'   (`$COVARIANCE`, default `TRUE`)
 #' @param overwrite replace existing SCM output from a *different* plan in
@@ -143,9 +145,8 @@ scm_out_dir <- function(x) {
 #'
 #' Everything that defines the search lives in the plan (see [scm_plan()]).
 #' `scm_run()` takes only run control: where the fits run, and how many
-#' rounds to run this invocation. Scheduler details beyond that (account,
-#' NONMEM version, polling cadence, concurrency caps) come from pharos.toml
-#' and the pharos CLI defaults; the pharos executable itself is found on the
+#' rounds to run this invocation. Everything else (NONMEM version, account,
+#' concurrency caps) comes from pharos.toml and the pharos CLI defaults; the pharos executable itself is found on the
 #' PATH, or set `options(hyperion.pharos_exe = "/path/to/pharos")` to use
 #' another build.
 #'
@@ -434,10 +435,10 @@ knit_print.hyperion_scm_status <- function(x, ...) {
 #' Returns the decision log — every model fitted, every attempt, ΔOFV
 #' (candidate − reference, negative when the candidate improves), degrees of
 #' freedom, p-values, heuristic checks that fired, and each round's decision.
-#' pharos already writes `scm_decision_log.csv` and `scm_decision_log.md`
-#' into the search's output directory the moment the search completes; this
-#' is how you get the same record into R (re-writing the files by default,
-#' so they always match the current state — useful mid-search too).
+#' pharos rewrites `scm_decision_log.csv` and `scm_decision_log.md` in the
+#' search's output directory after every round; this is how you get the same
+#' record into R (re-writing the files by default, so they always match the
+#' current state — useful mid-search too).
 #'
 #' @param object a `hyperion_scm_status` from [scm_status()]
 #' @param write whether to (re)write the decision log files (default `TRUE`)

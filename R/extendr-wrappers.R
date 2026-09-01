@@ -484,7 +484,9 @@ transform_value <- function(value, transform) .Call(wrap__transform_value, value
 #' @param backward_alpha significance level for backward elimination
 #' @param num_rounds pause after this many rounds per run (NULL = no cap)
 #' @param max_retries retries per failed fit
-#' @param release_init initial estimate for a released covariate theta
+#' @param release_init initial estimate a newly released covariate theta
+#'   starts at; parameters already free in the round's reference fit
+#'   continue from its estimates
 #' @param cov_step whether generated models run the covariance step
 #' @param overwrite replace existing SCM output from a different plan
 #'

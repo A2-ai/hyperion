@@ -231,7 +231,7 @@ fabricate_completed_state <- function(out_dir) {
           "status": "succeeded",
           "ofv": 1000.0,
           "delta_ofv": null,
-          "df": 1,
+          "df": 0,
           "p_value": null,
           "significant": null,
           "heuristics": [],
@@ -239,7 +239,7 @@ fabricate_completed_state <- function(out_dir) {
         }
       ],
       "winner": null,
-      "decision": "",
+      "decision": "base model fitted (OFV 1000.000)",
       "complete": true
     },
     {
@@ -343,8 +343,10 @@ test_that("scm_status and summary read a completed search", {
       "significant", "selected", "heuristics", "decision"
     )
   )
-  # the reference round carries the base model's own OFV in reference_ofv
-  expect_equal(log$reference_ofv[log$round == "reference"], 1000.0)
+  # the reference round has no reference: its OFV lives in the decision
+  # text ("base model fitted (OFV ...)"), never in the reference_ofv column
+  expect_true(is.na(log$reference_ofv[log$round == "reference"]))
+  expect_match(log$decision[log$round == "reference"], "OFV 1000")
 
   wt_cl <- log[log$candidate == "WT_CL", ]
   expect_equal(wt_cl$attempts, 2L)
@@ -394,15 +396,19 @@ test_that("scm_run refuses a plan whose plan.json is gone", {
   expect_error(scm_run(plan), "scm_plan\\(\\)")
 })
 
-test_that("scm_run validates the num_rounds override", {
+test_that("scm_plan validates num_rounds", {
   dir <- withr::local_tempdir()
-  plan <- make_plan(dir)
 
-  # invalid values error before anything is launched
-  expect_error(scm_run(plan, num_rounds = 0), "num_rounds")
-  expect_error(scm_run(plan, num_rounds = 1.5), "num_rounds")
-  expect_error(scm_run(plan, num_rounds = -Inf), "num_rounds")
-  expect_error(scm_run(plan, num_rounds = NA), "num_rounds")
-  expect_error(scm_run(plan, num_rounds = c(1, 2)), "num_rounds")
-  expect_error(scm_run(plan, num_rounds = "all"), "num_rounds")
+  # invalid values error before anything is written
+  expect_error(make_plan(dir, num_rounds = 0), "num_rounds")
+  expect_error(make_plan(dir, num_rounds = -1), "num_rounds")
+  expect_error(make_plan(dir, num_rounds = 1.5), "num_rounds")
+  expect_error(make_plan(dir, num_rounds = Inf), "num_rounds")
+  expect_error(make_plan(dir, num_rounds = NA), "num_rounds")
+  expect_error(make_plan(dir, num_rounds = c(1, 2)), "num_rounds")
+
+  # pacing lives in the plan, not in scm_run()
+  plan <- make_plan(dir, num_rounds = 2)
+  expect_equal(plan$options$num_rounds, 2)
+  expect_error(scm_run(plan, num_rounds = 1), "unused argument")
 })

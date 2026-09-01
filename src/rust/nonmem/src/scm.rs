@@ -78,6 +78,13 @@ pub fn scm_plan_wrap(
     if max_retries < 0 {
         return Err(extendr_err!("max_retries must be non-negative"));
     }
+    // Guard before the i32 -> usize cast: a negative would wrap to a huge
+    // cap, silently meaning "never pause".
+    if let Some(n) = num_rounds
+        && n < 1
+    {
+        return Err(extendr_err!("num_rounds must be at least 1, got {n}"));
+    }
 
     let options = ScmOptions {
         direction: parse_directions(&direction)?,

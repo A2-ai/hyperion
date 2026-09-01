@@ -1,3 +1,17 @@
 {
-    "rust-analyzer.linkedProjects": ["src/rust/Cargo.toml"]
+    "rust-analyzer.linkedProjects": ["src/rust/Cargo.toml"],
+    // src/.cargo is a per-build CARGO_HOME (see src/Makevars): a cache of
+    // unpacked third-party crates. Their own TOML files trip Tombi's schema
+    // checks and paint src/ red in the explorer — keep the cache out of the
+    // editor entirely.
+    "files.exclude": {
+        "src/.cargo": true
+    },
+    "files.watcherExclude": {
+        "**/src/.cargo/**": true
+    },
+    "search.exclude": {
+        "**/src/.cargo/**": true,
+        "**/src/rust/target/**": true
+    }
 }

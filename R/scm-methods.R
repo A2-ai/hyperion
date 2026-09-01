@@ -89,6 +89,14 @@ scm_plan <- function(mod,
     )
   }
   direction <- match.arg(direction, c("forward", "backward"), several.ok = TRUE)
+  if (!is.null(num_rounds)) {
+    ok <- is.numeric(num_rounds) && length(num_rounds) == 1L &&
+      !is.na(num_rounds) && is.finite(num_rounds) &&
+      num_rounds %% 1 == 0 && num_rounds >= 1
+    if (!ok) {
+      rlang::abort("`num_rounds` must be a whole number >= 1, or NULL for no cap")
+    }
+  }
 
   plan <- scm_plan_impl(
     model = mod,
@@ -143,10 +151,11 @@ scm_out_dir <- function(x) {
 #' resumable state. The R session stays free; check on the search with
 #' [scm_status()].
 #'
-#' Everything that defines the search lives in the plan (see [scm_plan()]).
-#' `scm_run()` takes only run control: where the fits run, and how many
-#' rounds to run this invocation. Everything else (NONMEM version, account,
-#' concurrency caps) comes from pharos.toml and the pharos CLI defaults; the pharos executable itself is found on the
+#' Everything that defines the search lives in the plan (see [scm_plan()]),
+#' including `num_rounds`, which paces how many rounds run before the search
+#' pauses. `scm_run()` takes only run control: where the fits run. Everything
+#' else (NONMEM version, account, concurrency caps) comes from pharos.toml
+#' and the pharos CLI defaults; the pharos executable itself is found on the
 #' PATH, or set `options(hyperion.pharos_exe = "/path/to/pharos")` to use
 #' another build.
 #'
@@ -156,10 +165,6 @@ scm_out_dir <- function(x) {
 #'   fits locally on this machine
 #' @param partition Slurm partition; `NULL` uses the pharos.toml / cluster
 #'   default
-#' @param num_rounds override the plan's `num_rounds` for this invocation
-#'   only — the plan file is not modified and resumability is unaffected. A
-#'   number pauses after that many rounds now; `Inf` runs to completion
-#'   regardless of the plan's cap. `NULL` (default) honors the plan.
 #'
 #' @return invisibly, a list with `out_dir`, `plan_path`, and `log` (the
 #'   file the background run streams into)
@@ -168,23 +173,10 @@ scm_out_dir <- function(x) {
 #' @examples \dontrun{
 #' scm_run(plan)
 #' scm_run("model/nonmem/scm/1001/plan.json", slurm = FALSE)
-#' scm_run(plan, num_rounds = 1)    # just one more round, then pause
-#' scm_run(plan, num_rounds = Inf)  # ignore the plan's cap, run to the end
 #' }
 scm_run <- function(plan,
                     slurm = TRUE,
-                    partition = NULL,
-                    num_rounds = NULL) {
-  if (!is.null(num_rounds)) {
-    ok <- is.numeric(num_rounds) && length(num_rounds) == 1L && !is.na(num_rounds) &&
-      (is.infinite(num_rounds) && num_rounds > 0 ||
-        (is.finite(num_rounds) && num_rounds %% 1 == 0 && num_rounds >= 1))
-    if (!ok) {
-      rlang::abort(
-        "`num_rounds` must be a whole number >= 1, `Inf` to run to completion, or NULL to honor the plan"
-      )
-    }
-  }
+                    partition = NULL) {
   if (inherits(plan, "hyperion_scm_plan")) {
     plan_path <- attr(plan, "plan_path")
     if (is.null(plan_path) || !file.exists(plan_path)) {
@@ -227,13 +219,6 @@ scm_run <- function(plan,
   if (!is.null(partition)) {
     args <- c(args, "--partition", partition)
   }
-  if (!is.null(num_rounds)) {
-    args <- c(
-      args, "--num-rounds",
-      if (is.infinite(num_rounds)) "all" else format(as.integer(num_rounds))
-    )
-  }
-
   log_file <- file.path(out_dir, "scm_run.log")
   dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
@@ -345,7 +330,7 @@ print.hyperion_scm_plan <- function(x, ...) {
   cli::cli_h2("Candidates")
   for (i in seq_len(nrow(parts$candidates))) {
     cli::cli_text(
-      "{.strong {parts$candidates$name[i]}} THETA({parts$candidates$theta[i]}) -> release {parts$release_init}"
+      "{.strong {parts$candidates$name[i]}} THETA({parts$candidates$theta[i]}) -> released at {parts$release_init} when first tested"
     )
   }
   cli::cli_h2("Search size")
@@ -385,7 +370,7 @@ knit_print.hyperion_scm_plan <- function(x, ...) {
       paste0("- **num rounds:** pause after ", parts$num_rounds, " (resumable)")
     },
     "",
-    "| candidate | theta | release |",
+    "| candidate | theta | first release |",
     "|---|---|---|",
     sprintf(
       "| %s | THETA(%d) | %s |",

@@ -13,70 +13,41 @@ use extendr_api::prelude::*;
 use extendr_api::serializer::to_robj;
 
 use nonmem::scm::{
-    self as pharos_scm, Direction, ScmOptions, ScmPlan, decision_log_rows, log as scm_log,
-    state::ScmState,
+    self as pharos_scm, ScmPlan, decision_log_rows, log as scm_log, state::ScmState,
 };
 
 use hyperion_core::{ResultExt, extendr_err};
-
-fn parse_directions(direction: &[String]) -> Result<Vec<Direction>> {
-    direction
-        .iter()
-        .map(|d| d.parse::<Direction>().map_err(|e| extendr_err!("{e}")))
-        .collect()
-}
 
 /// Build and validate an SCM plan (runs nothing) and write its plan.json
 ///
 /// Internal engine behind [scm_plan()]; use that instead.
 ///
-/// @param model path to the template control stream
-/// @param covariates integer vector of 1-based THETA numbers
-/// @param direction character vector: "forward", "backward", or both
-/// @param out_dir output directory (NULL = scm/<model name> beside the model)
-/// @param forward_alpha significance level for forward selection
-/// @param backward_alpha significance level for backward elimination
+/// @param config path to the SCM config file (TOML): model, out_dir,
+///   covariates, direction, forward_alpha, backward_alpha, max_retries,
+///   cov_step, release_init. Relative paths resolve against the config file
 /// @param num_rounds pause after this many rounds per run (NULL = no cap)
-/// @param max_retries retries per failed fit
-/// @param release_init initial estimate a newly released covariate theta
-///   starts at; parameters already free in the round's reference fit
-///   continue from its estimates
-/// @param cov_step whether generated models run the covariance step
+/// @param max_retries override the config's retries per failed fit
+/// @param cov_step override whether generated models run the covariance step
+/// @param release_init override the initial estimate a newly released
+///   covariate theta starts at
 /// @param overwrite replace existing SCM output from a different plan
 ///
 /// @return a `hyperion_scm_plan` object; its `plan_path` attribute is the
 ///   `plan.json` just written
 /// @keywords internal
 #[extendr(r_name = "scm_plan_impl")]
-#[allow(clippy::too_many_arguments)]
 pub fn scm_plan_wrap(
-    model: &str,
-    covariates: Vec<i32>,
-    direction: Vec<String>,
-    #[extendr(default = "NULL")] out_dir: Option<&str>,
-    #[extendr(default = "0.05")] forward_alpha: f64,
-    #[extendr(default = "0.001")] backward_alpha: f64,
+    config: &str,
     #[extendr(default = "NULL")] num_rounds: Option<i32>,
-    #[extendr(default = "3")] max_retries: i32,
-    #[extendr(default = "0.1")] release_init: f64,
-    #[extendr(default = "TRUE")] cov_step: bool,
+    #[extendr(default = "NULL")] max_retries: Option<i32>,
+    #[extendr(default = "NULL")] cov_step: Option<bool>,
+    #[extendr(default = "NULL")] release_init: Option<f64>,
     #[extendr(default = "FALSE")] overwrite: bool,
 ) -> Result<Robj> {
-    let covariates: Vec<usize> = covariates
-        .into_iter()
-        .map(|c| {
-            if c < 1 {
-                Err(extendr_err!(
-                    "covariates must be positive THETA numbers, got {c}"
-                ))
-            } else {
-                Ok(c as usize)
-            }
-        })
-        .collect::<Result<_>>()?;
-
-    if max_retries < 0 {
-        return Err(extendr_err!("max_retries must be non-negative"));
+    if let Some(m) = max_retries
+        && m < 0
+    {
+        return Err(extendr_err!("max_retries must be non-negative, got {m}"));
     }
     // Guard before the i32 -> usize cast: a negative would wrap to a huge
     // cap, silently meaning "never pause".
@@ -86,22 +57,17 @@ pub fn scm_plan_wrap(
         return Err(extendr_err!("num_rounds must be at least 1, got {n}"));
     }
 
-    let options = ScmOptions {
-        direction: parse_directions(&direction)?,
-        forward_alpha,
-        backward_alpha,
+    let overrides = pharos_scm::ScmPlanOverrides {
         num_rounds: num_rounds.map(|n| n as usize),
-        max_retries: max_retries as usize,
-        release_init,
+        max_retries: max_retries.map(|m| m as usize),
         cov_step,
+        release_init,
         overwrite,
     };
 
-    let built = pharos_scm::build_plan(
-        Path::new(model),
-        &covariates,
-        out_dir.map(Path::new),
-        options,
+    let built = pharos_scm::build_plan_from_config(
+        Path::new(config),
+        &overrides,
         env!("CARGO_PKG_VERSION"),
     )
     .map_to_extendr_err("Failed to build SCM plan")?;
@@ -176,6 +142,28 @@ impl From<pharos_scm::DecisionLogRow> for DecisionLogRow {
     }
 }
 
+/// Detailed view of one round of an SCM search
+///
+/// Internal engine behind [scm_summary()]; use that instead.
+///
+/// @param path the SCM out_dir
+/// @param round which round: the Nth search round ("2" / "round 2"), a round
+///   name (forward_round1, backward_round1), or "reference"
+///
+/// @return a `hyperion_scm_round` object
+/// @keywords internal
+#[extendr(r_name = "scm_summary_impl")]
+pub fn scm_summary_wrap(path: &str, round: &str) -> Result<Robj> {
+    let detail = pharos_scm::read_round_detail(Path::new(path), round)
+        .map_to_extendr_err("Failed to read SCM round")?;
+
+    let mut robj =
+        to_robj(&detail).map_to_extendr_err("Failed to convert round detail to Robj")?;
+    robj.set_attrib("rendered", detail.render_text().into_robj())?;
+    let robj = robj.set_class(["hyperion_scm_round"])?.to_owned();
+    Ok(robj)
+}
+
 /// Build the SCM decision log
 ///
 /// Internal engine behind [summary.hyperion_scm_status()]; use that instead.
@@ -228,5 +216,6 @@ extendr_module! {
     mod scm;
     fn scm_plan_wrap;
     fn scm_status_wrap;
+    fn scm_summary_wrap;
     fn scm_decision_log_wrap;
 }

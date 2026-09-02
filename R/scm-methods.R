@@ -10,40 +10,51 @@
 
 #' Plan a stepwise covariate modeling (SCM) search
 #'
-#' Validates the covariate candidates against a user-authored
-#' template control stream, returns the plan as a `hyperion_scm_plan`
-#' object, and writes it to `<out_dir>/plan.json` —
-#' [scm_run()] and `pharos nonmem scm run` execute. Nothing is fitted. The
-#' template carries the candidate effects already written into `$PK` and
-#' fixed to zero in `$THETA` (`(0 FIX)`); the tool releases and tests them.
+#' Reads the search setup from an SCM config file (TOML), validates the
+#' covariate candidates against the user-authored template control stream it
+#' names, returns the plan as a `hyperion_scm_plan` object, and writes it to
+#' `<out_dir>/plan.json` — [scm_run()] and `pharos nonmem scm run` execute.
+#' Nothing is fitted. The template carries the candidate effects already
+#' written into `$PK` and fixed to zero in `$THETA` (`(0 FIX)`); the tool
+#' releases and tests them.
 #'
-#' @param mod path to the template control stream (.mod/.ctl)
-#' @param covariates 1-based THETA numbers of the candidate covariate
-#'   effects, as numbers only — e.g. `c(6, 7, 11)` or `6:11`. Candidate names
-#'   are read from each theta's comment in whatever form it takes (`; WT_CL`,
-#'   `; WT_CL cov`, `; WT_CL (L/h)`, and the numbered style
-#'   `; 6 WT_CL WT on clearance` all name `WT_CL`), and fall back to
-#'   `THETA<n>` for a theta with no comment.
-#' @param direction which phases to run: `"forward"`, `"backward"`, or
-#'   `c("forward", "backward")` (forward runs first). Required — there is
-#'   no default, matching `pharos nonmem scm plan`.
-#' @param out_dir output directory for the search. `NULL` (default) uses
-#'   `scm/<model name>` beside the model.
-#' @param forward_alpha significance level for adding a covariate in forward
-#'   selection (default 0.05)
-#' @param backward_alpha significance level for keeping a covariate in
-#'   backward elimination (default 0.001)
+#' The config file defines the search; the `scm_plan()` call carries only
+#' per-invocation control (`num_rounds`, overrides, `overwrite`):
+#'
+#' ```toml
+#' model = "model/nonmem/PK/scm-demo.mod"
+#' # out_dir = "model/nonmem/PK/scm/scm-demo"   # default: scm/<stem> beside the model
+#' covariates = ["WT_CL", "CRCL_CL", "AGE_CL"]  # or THETA numbers: [6, 7, 8]
+#' direction = ["forward", "backward"]
+#'
+#' # optional, with the usual defaults:
+#' # forward_alpha = 0.05
+#' # backward_alpha = 0.001
+#' # max_retries = 3
+#' # cov_step = true
+#' # release_init = 0.1
+#' ```
+#'
+#' Relative paths in the config resolve against the config file's own
+#' directory. `covariates` is either an array of `$PK` term names — the
+#' names of the `$PK` assignments holding the candidate effects, exactly as
+#' the template's author wrote them (matched case-insensitively), each
+#' referencing exactly one THETA — or an array of 1-based THETA numbers
+#' (candidate names then come from the theta comments).
+#'
+#' @param config path to the SCM config file (TOML), as above
 #' @param num_rounds pause the search after this many rounds per
 #'   [scm_run()] invocation; the search is resumable. `NULL` = no cap.
-#' @param max_retries retries per failed fit (default 3). Retries are never
-#'   jittered: each retry starts from wherever the previous attempt left off
-#'   (its final estimates, or its last iteration if it never finished).
-#' @param release_init initial estimate a newly released covariate theta
-#'   starts at (default 0.1); parameters already free in the round's
-#'   reference fit continue from its estimates, and covariate thetas not in
-#'   a given model stay `0 FIX`.
-#' @param cov_step whether generated models run the covariance step
-#'   (`$COVARIANCE`, default `TRUE`)
+#' @param max_retries override the config's retries per failed fit
+#'   (config default 3). Retries are never jittered: each retry starts from
+#'   wherever the previous attempt left off (its final estimates, or its
+#'   last iteration if it never finished). `NULL` = use the config.
+#' @param cov_step override whether generated models run the covariance step
+#'   (`$COVARIANCE`, config default `TRUE`). `NULL` = use the config.
+#' @param release_init override the initial estimate a newly released
+#'   covariate theta starts at (config default 0.1); parameters already free
+#'   in the round's reference fit continue from its estimates, and covariate
+#'   thetas not in a given model stay `0 FIX`. `NULL` = use the config.
 #' @param overwrite replace existing SCM output from a *different* plan in
 #'   `out_dir` (re-running the same plan resumes and needs no overwrite)
 #'
@@ -53,42 +64,26 @@
 #' @export
 #'
 #' @examples \dontrun{
-#' plan <- scm_plan(
-#'   mod        = "model/nonmem/1001.mod",
-#'   covariates = c(6, 7, 8, 9, 10, 11),
-#'   direction  = c("forward", "backward")
-#' )
+#' plan <- scm_plan("model/nonmem/PK/scm-demo-scm.toml")
+#'
+#' # pause after 2 rounds, and retry harder than the config says
+#' plan <- scm_plan("model/nonmem/PK/scm-demo-scm.toml",
+#'                  num_rounds = 2, max_retries = 5)
 #' plan
 #' scm_run(plan)
 #' }
-scm_plan <- function(mod,
-                     covariates,
-                     direction,
-                     out_dir = NULL,
-                     forward_alpha = 0.05,
-                     backward_alpha = 0.001,
+scm_plan <- function(config,
                      num_rounds = NULL,
-                     max_retries = 3,
-                     cov_step = TRUE,
-                     overwrite = FALSE,
-                     release_init = 0.1) {
-  if (!is.character(mod) || length(mod) != 1L) {
-    rlang::abort("`mod` must be a single path to a control stream")
+                     max_retries = NULL,
+                     cov_step = NULL,
+                     release_init = NULL,
+                     overwrite = FALSE) {
+  if (!is.character(config) || length(config) != 1L || is.na(config)) {
+    rlang::abort("`config` must be a single path to an SCM config file (TOML)")
   }
-  if (!is.numeric(covariates)) {
-    rlang::abort(
-      "`covariates` must be THETA numbers, e.g. `c(6, 7, 11)` or `6:11`"
-    )
+  if (!file.exists(config)) {
+    rlang::abort(paste0("SCM config file not found: ", config))
   }
-  if (any(covariates != as.integer(covariates))) {
-    rlang::abort("`covariates` must be whole THETA numbers")
-  }
-  if (missing(direction)) {
-    rlang::abort(
-      "`direction` is required: \"forward\", \"backward\", or c(\"forward\", \"backward\")"
-    )
-  }
-  direction <- match.arg(direction, c("forward", "backward"), several.ok = TRUE)
   if (!is.null(num_rounds)) {
     ok <- is.numeric(num_rounds) && length(num_rounds) == 1L &&
       !is.na(num_rounds) && is.finite(num_rounds) &&
@@ -97,18 +92,31 @@ scm_plan <- function(mod,
       rlang::abort("`num_rounds` must be a whole number >= 1, or NULL for no cap")
     }
   }
+  if (!is.null(max_retries)) {
+    ok <- is.numeric(max_retries) && length(max_retries) == 1L &&
+      !is.na(max_retries) && is.finite(max_retries) &&
+      max_retries %% 1 == 0 && max_retries >= 0
+    if (!ok) {
+      rlang::abort("`max_retries` must be a whole number >= 0, or NULL to use the config")
+    }
+  }
+  if (!is.null(cov_step) && !(isTRUE(cov_step) || isFALSE(cov_step))) {
+    rlang::abort("`cov_step` must be TRUE, FALSE, or NULL to use the config")
+  }
+  if (!is.null(release_init)) {
+    ok <- is.numeric(release_init) && length(release_init) == 1L &&
+      !is.na(release_init) && is.finite(release_init) && release_init != 0
+    if (!ok) {
+      rlang::abort("`release_init` must be a non-zero number, or NULL to use the config")
+    }
+  }
 
   plan <- scm_plan_impl(
-    model = mod,
-    covariates = as.integer(covariates),
-    direction = direction,
-    out_dir = out_dir,
-    forward_alpha = forward_alpha,
-    backward_alpha = backward_alpha,
+    config = config,
     num_rounds = if (is.null(num_rounds)) NULL else as.integer(num_rounds),
-    max_retries = as.integer(max_retries),
+    max_retries = if (is.null(max_retries)) NULL else as.integer(max_retries),
+    cov_step = cov_step,
     release_init = release_init,
-    cov_step = isTRUE(cov_step),
     overwrite = isTRUE(overwrite)
   )
 
@@ -212,9 +220,10 @@ scm_run <- function(plan,
     found$path
   }
 
+  # slurm is the pharos default; only opting out needs a flag
   args <- c("nonmem", "scm", "run", "--plan", plan_path)
-  if (isTRUE(slurm)) {
-    args <- c(args, "--slurm")
+  if (!isTRUE(slurm)) {
+    args <- c(args, "--local")
   }
   if (!is.null(partition)) {
     args <- c(args, "--partition", partition)
@@ -410,6 +419,79 @@ print.hyperion_scm_status <- function(x, ...) {
 #' @return knitr asis output
 #' @exportS3Method knitr::knit_print hyperion_scm_status
 knit_print.hyperion_scm_status <- function(x, ...) {
+  rendered <- attr(x, "rendered")
+  output <- c("```", strsplit(rendered, "\n")[[1]], "```", "")
+  knitr::asis_output(paste(output, collapse = "\n"))
+}
+
+#' Drill into one round of an SCM search
+#'
+#' Where [scm_status()] shows the whole search one line per round,
+#' `scm_summary()` shows everything about a single round: every model file
+#' run in it — every retry included — with its outcome, the round's
+#' reference model and OFV, per-candidate scoring (ΔOFV, p-value,
+#' significance, selection), the heuristic checks that fired, and where the
+#' round's own `round_summary.md` lives (the full per-run record, heuristics
+#' included).
+#'
+#' @param x a `hyperion_scm_plan`, an SCM output directory, or a plan.json
+#'   path
+#' @param round which round: the Nth search round (`2` or `"round 2"` — the
+#'   reference fit is not a round), a round name (`"forward_round1"`,
+#'   `"backward_round1"`), or `"reference"`
+#'
+#' @return a `hyperion_scm_round` object; print it for the rendered view
+#' @export
+#'
+#' @examples \dontrun{
+#' scm_summary(plan, 2)
+#' scm_summary("model/nonmem/PK/scm/scm-demo", "round 2")
+#' scm_summary(plan, "backward_round1")
+#' }
+scm_summary <- function(x, round) {
+  out_dir <- scm_out_dir(x)
+  if (missing(round)) {
+    rlang::abort(
+      "`round` is required: a number (2), \"round 2\", a round name (\"forward_round1\"), or \"reference\""
+    )
+  }
+  if (is.numeric(round)) {
+    ok <- length(round) == 1L && !is.na(round) && is.finite(round) &&
+      round %% 1 == 0 && round >= 1
+    if (!ok) {
+      rlang::abort("`round` must be a whole number >= 1, or a round name")
+    }
+    round <- as.character(as.integer(round))
+  }
+  if (!is.character(round) || length(round) != 1L || is.na(round) ||
+        !nzchar(trimws(round))) {
+    rlang::abort(
+      "`round` must be a round number or name, e.g. 2, \"round 2\", or \"forward_round1\""
+    )
+  }
+  scm_summary_impl(path = out_dir, round = round)
+}
+
+#' Print method for hyperion_scm_round objects
+#'
+#' @param x a `hyperion_scm_round`
+#' @param ... ignored
+#' @return invisible copy of x
+#' @exportS3Method base::print hyperion_scm_round
+print.hyperion_scm_round <- function(x, ...) {
+  # pharos renders the round; printing its text verbatim keeps hyperion and
+  # `pharos nonmem scm summary` from ever drifting apart.
+  cat(attr(x, "rendered"), "\n")
+  invisible(x)
+}
+
+#' Knit print method for hyperion_scm_round objects
+#'
+#' @param x a `hyperion_scm_round`
+#' @param ... ignored
+#' @return knitr asis output
+#' @exportS3Method knitr::knit_print hyperion_scm_round
+knit_print.hyperion_scm_round <- function(x, ...) {
   rendered <- attr(x, "rendered")
   output <- c("```", strsplit(rendered, "\n")[[1]], "```", "")
   knitr::asis_output(paste(output, collapse = "\n"))

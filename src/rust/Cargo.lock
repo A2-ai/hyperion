@@ -549,6 +549,7 @@ dependencies = [
  "signal-hook",
  "tempfile",
  "tera",
+ "toml",
  "utils",
  "walkdir",
 ]

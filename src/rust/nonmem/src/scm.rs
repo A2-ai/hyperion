@@ -13,7 +13,8 @@ use extendr_api::prelude::*;
 use extendr_api::serializer::to_robj;
 
 use nonmem::scm::{
-    self as pharos_scm, ScmPlan, decision_log_rows, log as scm_log, state::ScmState,
+    self as pharos_scm, ScmPlan, decision_log_rows, log as scm_log,
+    reconcile_state_with_disk, state::ScmState,
 };
 
 use hyperion_core::{ResultExt, extendr_err};
@@ -178,9 +179,14 @@ pub fn scm_decision_log_wrap(path: &str, #[extendr(default = "TRUE")] write: boo
     let out_dir = Path::new(path);
     let plan = ScmPlan::load(out_dir.join(pharos_scm::PLAN_FILENAME))
         .map_to_extendr_err("Failed to load plan.json")?;
-    let state = ScmState::load(out_dir)
+    let mut state = ScmState::load(out_dir)
         .map_to_extendr_err("Failed to read scm_state.json")?
         .ok_or_else(|| extendr_err!("No scm_state.json yet — the search has not started"))?;
+    // The driver writes a wave's outcomes back only once the whole batch
+    // returns, so mid-round the state still calls finished runs `running`.
+    // Read them off disk the way the status and round views do, so all three
+    // describe the same search.
+    reconcile_state_with_disk(&mut state, out_dir);
 
     let mut written: Vec<String> = vec![];
     if write {

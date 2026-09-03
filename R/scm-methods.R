@@ -278,7 +278,12 @@ scm_plan_display_parts <- function(x) {
   )
   direction <- unlist(x$options$direction)
   n <- nrow(candidates)
-  worst_case_per_phase <- n * (n + 1) / 2
+  # pharos computes max_models into the plan; recompute only for a plan
+  # object predating the field
+  max_models <- x$max_models
+  if (is.null(max_models) || as.integer(max_models) == 0L) {
+    max_models <- 1L + length(direction) * n * (n + 1) / 2
+  }
   list(
     model = x$model,
     out_dir = x$out_dir,
@@ -293,9 +298,7 @@ scm_plan_display_parts <- function(x) {
     cov_step = isTRUE(x$options$cov_step),
     candidates = candidates,
     n_candidates = n,
-    worst_case_fits = 1L +
-      (if ("forward" %in% direction) worst_case_per_phase else 0L) +
-      (if ("backward" %in% direction) worst_case_per_phase else 0L)
+    max_models = as.integer(max_models)
   )
 }
 
@@ -344,7 +347,7 @@ print.hyperion_scm_plan <- function(x, ...) {
   }
   cli::cli_h2("Search size")
   cli::cli_text(
-    "{parts$n_candidates} candidate{?s}; worst case {parts$worst_case_fits} fits (incl. reference, excl. retries)"
+    "{parts$n_candidates} candidate{?s}; max models {parts$max_models} (incl. reference fit, excl. retries)"
   )
   invisible(x)
 }
@@ -389,10 +392,10 @@ knit_print.hyperion_scm_plan <- function(x, ...) {
     ),
     "",
     sprintf(
-      "%d candidate%s; worst case %d fits (incl. reference, excl. retries)",
+      "%d candidate%s; max models %d (incl. reference fit, excl. retries)",
       parts$n_candidates,
       if (parts$n_candidates == 1) "" else "s",
-      parts$worst_case_fits
+      parts$max_models
     ),
     ""
   )

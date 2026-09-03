@@ -58,6 +58,10 @@ make_plan <- function(dir, ...) {
   scm_plan(write_scm_config(dir), ...)
 }
 
+cli_text_of <- function(expr) {
+  paste(cli::cli_fmt(expr), collapse = "\n")
+}
+
 test_that("scm_plan names candidates from their comments and carries defaults", {
   dir <- withr::local_tempdir()
   plan <- make_plan(dir)
@@ -214,6 +218,25 @@ test_that("direction accepts single directions", {
   expect_equal(unlist(bwd$options$direction), "backward")
 })
 
+test_that("max_models is in the plan and depends on direction", {
+  dir <- withr::local_tempdir()
+  write_scm_fixture(dir)
+
+  # 3 candidates: one phase = 1 + 3(3+1)/2 = 7; both phases = 13
+  fwd <- scm_plan(write_scm_config(dir, direction = '["forward"]'))
+  expect_equal(as.integer(fwd$max_models), 7L)
+  bwd <- scm_plan(write_scm_config(dir, direction = '["backward"]'))
+  expect_equal(as.integer(bwd$max_models), 7L)
+  both <- scm_plan(write_scm_config(dir))
+  expect_equal(as.integer(both$max_models), 13L)
+
+  # it's in plan.json on disk, and in the printed plan
+  plan_json <- paste(readLines(attr(both, "plan_path")), collapse = "\n")
+  expect_match(plan_json, '"max_models": 13', fixed = TRUE)
+  plan_text <- cli_text_of(print(both))
+  expect_match(plan_text, "max models 13")
+})
+
 test_that("unrequested (0 FIX) thetas raise a warning, annotated or not", {
   dir <- withr::local_tempdir()
   write_scm_fixture(dir)
@@ -277,10 +300,6 @@ test_that("scm_plan writes plan.json that scm_status reads back", {
   expect_length(st$rounds, 0)
 })
 
-cli_text_of <- function(expr) {
-  paste(cli::cli_fmt(expr), collapse = "\n")
-}
-
 test_that("plan and status display methods run", {
   dir <- withr::local_tempdir()
   plan <- make_plan(dir)
@@ -296,7 +315,7 @@ test_that("plan and status display methods run", {
   knit <- knitr::knit_print(plan)
   expect_s3_class(knit, "knit_asis")
   expect_match(as.character(knit), "WT_CL")
-  expect_match(as.character(knit), "worst case")
+  expect_match(as.character(knit), "max models")
 
   st <- scm_status(plan)
   expect_match(paste(capture.output(print(st)), collapse = "\n"), "planned")
@@ -432,8 +451,12 @@ test_that("scm_status and summary read a completed search", {
   expect_match(st_text, "candidates : WT_CL, CRCL_CL, WT_V", fixed = TRUE)
   expect_match(st_text, "added WT_CL")
   expect_match(st_text, "unusable")
-  # the search is completed, so the retained line shows
+  # no reference line; the search is completed, so retained shows and the
+  # final model carries the last reference fit's OFV
+  expect_no_match(st_text, "reference  :", fixed = TRUE)
   expect_match(st_text, "retained   : WT_CL", fixed = TRUE)
+  expect_match(st_text, "final model: final/1001_scm_final.mod (OFV 980.000)",
+               fixed = TRUE)
 
   # summary() returns the decision log as a data.frame
   log <- suppressMessages(summary(st))

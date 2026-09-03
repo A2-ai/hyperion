@@ -5,41 +5,27 @@
 \title{Build and validate an SCM plan (runs nothing) and write its plan.json}
 \usage{
 scm_plan_impl(
-  model,
-  covariates,
-  direction,
-  out_dir = NULL,
-  forward_alpha = 0.05,
-  backward_alpha = 0.001,
+  config,
   num_rounds = NULL,
-  max_retries = 3,
-  release_init = 0.1,
-  cov_step = TRUE,
+  max_retries = NULL,
+  cov_step = NULL,
+  release_init = NULL,
   overwrite = FALSE
 )
 }
 \arguments{
-\item{model}{path to the template control stream}
-
-\item{covariates}{integer vector of 1-based THETA numbers}
-
-\item{direction}{character vector: "forward", "backward", or both}
-
-\item{out_dir}{output directory (NULL = scm/\if{html}{\out{<model name>}} beside the model)}
-
-\item{forward_alpha}{significance level for forward selection}
-
-\item{backward_alpha}{significance level for backward elimination}
+\item{config}{path to the SCM config file (TOML): model, out_dir,
+covariates, direction, forward_alpha, backward_alpha, max_retries,
+cov_step, release_init. Relative paths resolve against the config file}
 
 \item{num_rounds}{pause after this many rounds per run (NULL = no cap)}
 
-\item{max_retries}{retries per failed fit}
+\item{max_retries}{override the config's retries per failed fit}
 
-\item{release_init}{initial estimate a newly released covariate theta
-starts at; parameters already free in the round's reference fit
-continue from its estimates}
+\item{cov_step}{override whether generated models run the covariance step}
 
-\item{cov_step}{whether generated models run the covariance step}
+\item{release_init}{override the initial estimate a newly released
+covariate theta starts at}
 
 \item{overwrite}{replace existing SCM output from a different plan}
 }

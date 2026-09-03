@@ -5,59 +5,35 @@
 \title{Plan a stepwise covariate modeling (SCM) search}
 \usage{
 scm_plan(
-  mod,
-  covariates,
-  direction,
-  out_dir = NULL,
-  forward_alpha = 0.05,
-  backward_alpha = 0.001,
+  config,
   num_rounds = NULL,
-  max_retries = 3,
-  cov_step = TRUE,
-  overwrite = FALSE,
-  release_init = 0.1
+  max_retries = NULL,
+  cov_step = NULL,
+  release_init = NULL,
+  overwrite = FALSE
 )
 }
 \arguments{
-\item{mod}{path to the template control stream (.mod/.ctl)}
-
-\item{covariates}{1-based THETA numbers of the candidate covariate
-effects, as numbers only — e.g. \code{c(6, 7, 11)} or \code{6:11}. Candidate names
-are read from each theta's comment in whatever form it takes (\verb{; WT_CL},
-\verb{; WT_CL cov}, \verb{; WT_CL (L/h)}, and the numbered style
-\verb{; 6 WT_CL WT on clearance} all name \code{WT_CL}), and fall back to
-\verb{THETA<n>} for a theta with no comment.}
-
-\item{direction}{which phases to run: \code{"forward"}, \code{"backward"}, or
-\code{c("forward", "backward")} (forward runs first). Required — there is
-no default, matching \verb{pharos nonmem scm plan}.}
-
-\item{out_dir}{output directory for the search. \code{NULL} (default) uses
-\verb{scm/<model name>} beside the model.}
-
-\item{forward_alpha}{significance level for adding a covariate in forward
-selection (default 0.05)}
-
-\item{backward_alpha}{significance level for keeping a covariate in
-backward elimination (default 0.001)}
+\item{config}{path to the SCM config file (TOML), as above}
 
 \item{num_rounds}{pause the search after this many rounds per
 \code{\link[=scm_run]{scm_run()}} invocation; the search is resumable. \code{NULL} = no cap.}
 
-\item{max_retries}{retries per failed fit (default 3). Retries are never
-jittered: each retry starts from wherever the previous attempt left off
-(its final estimates, or its last iteration if it never finished).}
+\item{max_retries}{override the config's retries per failed fit
+(config default 3). Retries are never jittered: each retry starts from
+wherever the previous attempt left off (its final estimates, or its
+last iteration if it never finished). \code{NULL} = use the config.}
 
-\item{cov_step}{whether generated models run the covariance step
-(\verb{$COVARIANCE}, default \code{TRUE})}
+\item{cov_step}{override whether generated models run the covariance step
+(\verb{$COVARIANCE}, config default \code{TRUE}). \code{NULL} = use the config.}
+
+\item{release_init}{override the initial estimate a newly released
+covariate theta starts at (config default 0.1); parameters already free
+in the round's reference fit continue from its estimates, and covariate
+thetas not in a given model stay \verb{0 FIX}. \code{NULL} = use the config.}
 
 \item{overwrite}{replace existing SCM output from a \emph{different} plan in
 \code{out_dir} (re-running the same plan resumes and needs no overwrite)}
-
-\item{release_init}{initial estimate a newly released covariate theta
-starts at (default 0.1); parameters already free in the round's
-reference fit continue from its estimates, and covariate thetas not in
-a given model stay \verb{0 FIX}.}
 }
 \value{
 A \code{hyperion_scm_plan} object; \code{plan.json} is already on disk in
@@ -65,20 +41,45 @@ A \code{hyperion_scm_plan} object; \code{plan.json} is already on disk in
 \code{\link[=scm_run]{scm_run()}}.
 }
 \description{
-Validates the covariate candidates against a user-authored
-template control stream, returns the plan as a \code{hyperion_scm_plan}
-object, and writes it to \verb{<out_dir>/plan.json} —
-\code{\link[=scm_run]{scm_run()}} and \verb{pharos nonmem scm run} execute. Nothing is fitted. The
-template carries the candidate effects already written into \verb{$PK} and
-fixed to zero in \verb{$THETA} (\verb{(0 FIX)}); the tool releases and tests them.
+Reads the search setup from an SCM config file (TOML), validates the
+covariate candidates against the user-authored template control stream it
+names, returns the plan as a \code{hyperion_scm_plan} object, and writes it to
+\verb{<out_dir>/plan.json} — \code{\link[=scm_run]{scm_run()}} and \verb{pharos nonmem scm run} execute.
+Nothing is fitted. The template carries the candidate effects already
+written into \verb{$PK} and fixed to zero in \verb{$THETA} (\verb{(0 FIX)}); the tool
+releases and tests them.
+}
+\details{
+The config file defines the search; the \code{scm_plan()} call carries only
+per-invocation control (\code{num_rounds}, overrides, \code{overwrite}):
+
+\if{html}{\out{<div class="sourceCode toml">}}\preformatted{model = "model/nonmem/PK/scm-demo.mod"
+# out_dir = "model/nonmem/PK/scm/scm-demo"   # default: scm/<stem> beside the model
+covariates = ["WT_CL", "CRCL_CL", "AGE_CL"]  # or THETA numbers: [6, 7, 8]
+direction = ["forward", "backward"]
+
+# optional, with the usual defaults:
+# forward_alpha = 0.05
+# backward_alpha = 0.001
+# max_retries = 3
+# cov_step = true
+# release_init = 0.1
+}\if{html}{\out{</div>}}
+
+Relative paths in the config resolve against the config file's own
+directory. \code{covariates} is either an array of \verb{$PK} term names — the
+names of the \verb{$PK} assignments holding the candidate effects, exactly as
+the template's author wrote them (matched case-insensitively), each
+referencing exactly one THETA — or an array of 1-based THETA numbers
+(candidate names then come from the theta comments).
 }
 \examples{
 \dontrun{
-plan <- scm_plan(
-  mod        = "model/nonmem/1001.mod",
-  covariates = c(6, 7, 8, 9, 10, 11),
-  direction  = c("forward", "backward")
-)
+plan <- scm_plan("model/nonmem/PK/scm-demo-scm.toml")
+
+# pause after 2 rounds, and retry harder than the config says
+plan <- scm_plan("model/nonmem/PK/scm-demo-scm.toml",
+                 num_rounds = 2, max_retries = 5)
 plan
 scm_run(plan)
 }

@@ -4,7 +4,7 @@
 \alias{scm_run}
 \title{Run (or resume) an SCM search}
 \usage{
-scm_run(plan, slurm = TRUE, partition = NULL)
+scm_run(plan, slurm = TRUE, partition = NULL, max_concurrent = NULL)
 }
 \arguments{
 \item{plan}{a \code{hyperion_scm_plan} from \code{\link[=scm_plan]{scm_plan()}}, or a path to a
@@ -15,6 +15,12 @@ fits locally on this machine}
 
 \item{partition}{Slurm partition; \code{NULL} uses the pharos.toml / cluster
 default}
+
+\item{max_concurrent}{how many of a round's fits run at once — the cap on
+Slurm jobs in flight (\code{0} = submit them all, no cap), or the number of
+fits run in parallel when \code{slurm = FALSE}. Further models start as
+earlier ones finish. \code{NULL} uses the pharos default (6 concurrent Slurm
+jobs; one local fit per core).}
 }
 \value{
 invisibly, a list with \code{out_dir}, \code{plan_path}, and \code{log} (the
@@ -30,15 +36,16 @@ resumable state. The R session stays free; check on the search with
 \details{
 Everything that defines the search lives in the plan (see \code{\link[=scm_plan]{scm_plan()}}),
 including \code{num_rounds}, which paces how many rounds run before the search
-pauses. \code{scm_run()} takes only run control: where the fits run. Everything
-else (NONMEM version, account, concurrency caps) comes from pharos.toml
-and the pharos CLI defaults; the pharos executable itself is found on the
-PATH, or set \code{options(hyperion.pharos_exe = "/path/to/pharos")} to use
-another build.
+pauses. \code{scm_run()} takes only run control: where the fits run, and how
+many at a time. Everything else (NONMEM version, account) comes from
+pharos.toml and the pharos CLI defaults; the pharos executable itself is
+found on the PATH, or set
+\code{options(hyperion.pharos_exe = "/path/to/pharos")} to use another build.
 }
 \examples{
 \dontrun{
 scm_run(plan)
-scm_run("model/nonmem/scm/1001/plan.json", slurm = FALSE)
+scm_run(plan, max_concurrent = 12)
+scm_run("model/nonmem/scm/1001/plan.json", slurm = FALSE, max_concurrent = 4)
 }
 }

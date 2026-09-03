@@ -561,6 +561,20 @@ test_that("scm_run refuses a plan whose plan.json is gone", {
   expect_error(scm_run(plan), "scm_plan\\(\\)")
 })
 
+test_that("scm_run validates max_concurrent", {
+  dir <- withr::local_tempdir()
+  plan <- make_plan(dir)
+
+  expect_error(scm_run(plan, max_concurrent = -1), "max_concurrent")
+  expect_error(scm_run(plan, max_concurrent = 1.5), "max_concurrent")
+  expect_error(scm_run(plan, max_concurrent = Inf), "max_concurrent")
+  expect_error(scm_run(plan, max_concurrent = NA), "max_concurrent")
+  expect_error(scm_run(plan, max_concurrent = c(1, 2)), "max_concurrent")
+
+  # 0 is "no cap" on slurm, but locally it would mean no fits at all
+  expect_error(scm_run(plan, slurm = FALSE, max_concurrent = 0), "max_concurrent")
+})
+
 test_that("scm_plan validates num_rounds", {
   dir <- withr::local_tempdir()
 

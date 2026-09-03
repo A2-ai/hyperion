@@ -161,11 +161,11 @@ scm_out_dir <- function(x) {
 #'
 #' Everything that defines the search lives in the plan (see [scm_plan()]),
 #' including `num_rounds`, which paces how many rounds run before the search
-#' pauses. `scm_run()` takes only run control: where the fits run. Everything
-#' else (NONMEM version, account, concurrency caps) comes from pharos.toml
-#' and the pharos CLI defaults; the pharos executable itself is found on the
-#' PATH, or set `options(hyperion.pharos_exe = "/path/to/pharos")` to use
-#' another build.
+#' pauses. `scm_run()` takes only run control: where the fits run, and how
+#' many at a time. Everything else (NONMEM version, account) comes from
+#' pharos.toml and the pharos CLI defaults; the pharos executable itself is
+#' found on the PATH, or set
+#' `options(hyperion.pharos_exe = "/path/to/pharos")` to use another build.
 #'
 #' @param plan a `hyperion_scm_plan` from [scm_plan()], or a path to a
 #'   plan.json
@@ -173,6 +173,11 @@ scm_out_dir <- function(x) {
 #'   fits locally on this machine
 #' @param partition Slurm partition; `NULL` uses the pharos.toml / cluster
 #'   default
+#' @param max_concurrent how many of a round's fits run at once — the cap on
+#'   Slurm jobs in flight (`0` = submit them all, no cap), or the number of
+#'   fits run in parallel when `slurm = FALSE`. Further models start as
+#'   earlier ones finish. `NULL` uses the pharos default (6 concurrent Slurm
+#'   jobs; one local fit per core).
 #'
 #' @return invisibly, a list with `out_dir`, `plan_path`, and `log` (the
 #'   file the background run streams into)
@@ -180,11 +185,13 @@ scm_out_dir <- function(x) {
 #'
 #' @examples \dontrun{
 #' scm_run(plan)
-#' scm_run("model/nonmem/scm/1001/plan.json", slurm = FALSE)
+#' scm_run(plan, max_concurrent = 12)
+#' scm_run("model/nonmem/scm/1001/plan.json", slurm = FALSE, max_concurrent = 4)
 #' }
 scm_run <- function(plan,
                     slurm = TRUE,
-                    partition = NULL) {
+                    partition = NULL,
+                    max_concurrent = NULL) {
   if (inherits(plan, "hyperion_scm_plan")) {
     plan_path <- attr(plan, "plan_path")
     if (is.null(plan_path) || !file.exists(plan_path)) {
@@ -199,6 +206,21 @@ scm_run <- function(plan,
     out_dir <- dirname(plan)
   } else {
     rlang::abort("`plan` must be a hyperion_scm_plan or a path to plan.json")
+  }
+
+  if (!is.null(max_concurrent)) {
+    floor_ <- if (isTRUE(slurm)) 0 else 1
+    ok <- is.numeric(max_concurrent) && length(max_concurrent) == 1L &&
+      !is.na(max_concurrent) && is.finite(max_concurrent) &&
+      max_concurrent %% 1 == 0 && max_concurrent >= floor_
+    if (!ok) {
+      # 0 means "no cap" only on slurm; locally it would mean no fits at all
+      rlang::abort(paste0(
+        "`max_concurrent` must be a whole number >= ", floor_,
+        if (isTRUE(slurm)) " (0 = no cap)" else " when `slurm = FALSE`",
+        ", or NULL for the pharos default"
+      ))
+    }
   }
 
   pharos_exe <- getOption("hyperion.pharos_exe", NULL)
@@ -227,6 +249,11 @@ scm_run <- function(plan,
   }
   if (!is.null(partition)) {
     args <- c(args, "--partition", partition)
+  }
+  if (!is.null(max_concurrent)) {
+    # the cluster caps jobs in flight; locally it is the parallel fit count
+    flag <- if (isTRUE(slurm)) "--max-concurrent" else "--num-parallel"
+    args <- c(args, flag, format(as.integer(max_concurrent)))
   }
   log_file <- file.path(out_dir, "scm_run.log")
   dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)

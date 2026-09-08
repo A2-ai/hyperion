@@ -14,9 +14,10 @@ scm_plan_impl(
 )
 }
 \arguments{
-\item{config}{path to the SCM config file (TOML): model, out_dir,
-covariates, direction, forward_alpha, backward_alpha, max_retries,
-cov_step, release_init. Relative paths resolve against the config file}
+\item{config}{path to the SCM config file (TOML) written by
+\code{\link[=scm_init]{scm_init()}}: model, covariates, direction, forward_alpha,
+backward_alpha, max_retries, cov_step, release_init. Relative paths
+resolve against the config file}
 
 \item{num_rounds}{pause after this many rounds per run (NULL = no cap)}
 
@@ -31,7 +32,9 @@ covariate theta starts at}
 }
 \value{
 a \code{hyperion_scm_plan} object; its \code{plan_path} attribute is the
-\code{plan.json} just written
+\code{plan.json} just written, and its \code{context} attribute is where the
+SCM process in the out_dir already stands plus what this plan changed about
+the plan.json it replaced
 }
 \description{
 Internal engine behind \code{\link[=scm_plan]{scm_plan()}}; use that instead.

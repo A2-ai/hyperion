@@ -2,9 +2,15 @@
 % Please edit documentation in R/scm-methods.R
 \name{scm_run}
 \alias{scm_run}
-\title{Run (or resume) an SCM search}
+\title{Run (or resume) an SCM process}
 \usage{
-scm_run(plan, slurm = TRUE, partition = NULL, max_concurrent = NULL)
+scm_run(
+  plan,
+  slurm = TRUE,
+  partition = NULL,
+  max_concurrent = NULL,
+  choose = NULL
+)
 }
 \arguments{
 \item{plan}{a \code{hyperion_scm_plan} from \code{\link[=scm_plan]{scm_plan()}}, or a path to a
@@ -19,8 +25,16 @@ default}
 \item{max_concurrent}{how many of a round's fits run at once — the cap on
 Slurm jobs in flight (\code{0} = submit them all, no cap), or the number of
 fits run in parallel when \code{slurm = FALSE}. Further models start as
-earlier ones finish. \code{NULL} uses the pharos default (6 concurrent Slurm
+earlier ones finish. \code{NULL} uses the pharos default (4 concurrent Slurm
 jobs; one local fit per core).}
+
+\item{choose}{which tied candidate wins, when the SCM process has paused on a
+tie the scores could not break — \code{\link[=scm_status]{scm_status()}} names the candidates and
+the round. Must be one of those candidates; the SCM process resumes from the
+still-open round, re-scoring it without refitting anything. The choice
+settles that one tie and is spent there: a later tie pauses for its own
+decision. \code{NULL} (the default) leaves a tie unresolved, so an SCM process
+paused on one pauses again at the same place.}
 }
 \value{
 invisibly, a list with \code{out_dir}, \code{plan_path}, and \code{log} (the
@@ -28,16 +42,17 @@ file the background run streams into)
 }
 \description{
 Launches \verb{pharos nonmem scm run} in the background so pharos drives the whole
-search — building each round from the template, submitting the fits,
+SCM process — building each round from the template, submitting the fits,
 retrying failures from where they left off, scoring, and persisting
-resumable state. The R session stays free; check on the search with
+resumable state. The R session stays free; check on the SCM process with
 \code{\link[=scm_status]{scm_status()}}.
 }
 \details{
-Everything that defines the search lives in the plan (see \code{\link[=scm_plan]{scm_plan()}}),
-including \code{num_rounds}, which paces how many rounds run before the search
-pauses. \code{scm_run()} takes only run control: where the fits run, and how
-many at a time. Everything else (NONMEM version, account) comes from
+Everything that defines the SCM process lives in the plan (see \code{\link[=scm_plan]{scm_plan()}}),
+including \code{num_rounds}, which paces how many rounds run before the SCM process
+pauses. \code{scm_run()} takes only run control: where the fits run, how many
+at a time, and which candidate breaks a tie the SCM process paused on.
+Everything else (NONMEM version, account) comes from
 pharos.toml and the pharos CLI defaults; the pharos executable itself is
 found on the PATH, or set
 \code{options(hyperion.pharos_exe = "/path/to/pharos")} to use another build.
@@ -46,6 +61,7 @@ found on the PATH, or set
 \dontrun{
 scm_run(plan)
 scm_run(plan, max_concurrent = 12)
+scm_run(plan, choose = "CRCL_CL") # break a tie the SCM process paused on
 scm_run("model/nonmem/scm/1001/plan.json", slurm = FALSE, max_concurrent = 4)
 }
 }

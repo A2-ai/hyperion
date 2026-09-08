@@ -2,7 +2,7 @@
 % Please edit documentation in R/scm-methods.R
 \name{scm_status}
 \alias{scm_status}
-\title{Check on an SCM search in its entirety}
+\title{Check on an SCM process in its entirety}
 \usage{
 scm_status(x)
 }
@@ -15,9 +15,9 @@ a \code{hyperion_scm_status} object; its \code{\link[=summary]{summary()}} metho
 decision log as a data.frame
 }
 \description{
-Reads the plan and the persistent search state — rounds completed, the
+Reads the plan and the persistent SCM process state — rounds completed, the
 decision each round made, retries used, models running right now, the
-current reference model and OFV — wherever the search currently stands
+current reference model and OFV — wherever the SCM process currently stands
 (planned, running, paused, completed, or failed).
 }
 \examples{

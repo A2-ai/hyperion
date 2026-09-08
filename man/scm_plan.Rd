@@ -2,7 +2,7 @@
 % Please edit documentation in R/scm-methods.R
 \name{scm_plan}
 \alias{scm_plan}
-\title{Plan a stepwise covariate modeling (SCM) search}
+\title{Plan a stepwise covariate modeling (SCM) process}
 \usage{
 scm_plan(
   config,
@@ -16,8 +16,8 @@ scm_plan(
 \arguments{
 \item{config}{path to the SCM config file (TOML), as above}
 
-\item{num_rounds}{pause the search after this many rounds per
-\code{\link[=scm_run]{scm_run()}} invocation; the search is resumable. \code{NULL} = no cap.}
+\item{num_rounds}{pause the SCM process after this many rounds per
+\code{\link[=scm_run]{scm_run()}} invocation; the SCM process is resumable. \code{NULL} = no cap.}
 
 \item{max_retries}{override the config's retries per failed fit
 (config default 3). Retries are never jittered: each retry starts from
@@ -25,53 +25,60 @@ wherever the previous attempt left off (its final estimates, or its
 last iteration if it never finished). \code{NULL} = use the config.}
 
 \item{cov_step}{override whether generated models run the covariance step
-(\verb{$COVARIANCE}, config default \code{TRUE}). \code{NULL} = use the config.}
+(\verb{$COVARIANCE}, config default \code{FALSE}). \code{NULL} = use the config.}
 
-\item{release_init}{override the initial estimate a newly released
-covariate theta starts at (config default 0.1); parameters already free
-in the round's reference fit continue from its estimates, and covariate
-thetas not in a given model stay \verb{0 FIX}. \code{NULL} = use the config.}
+\item{release_init}{override the initial estimate a released covariate
+theta starts at when the template gives it none (config default 0.1);
+a theta the template already carries an initial guess for starts from
+that instead, parameters already free in the round's reference fit
+continue from its estimates, and candidate thetas held out of a given
+model are fixed at zero. \code{NULL} = use the config.}
 
 \item{overwrite}{replace existing SCM output from a \emph{different} plan in
 \code{out_dir} (re-running the same plan resumes and needs no overwrite)}
 }
 \value{
 A \code{hyperion_scm_plan} object; \code{plan.json} is already on disk in
-\code{out_dir} (its path is the \code{plan_path} attribute). Run it with
-\code{\link[=scm_run]{scm_run()}}.
+the output directory (its path is the \code{plan_path} attribute). Run it with
+\code{\link[=scm_run]{scm_run()}}. When the out_dir already holds an SCM process, printing the plan
+also says where that SCM process got to and what this plan changed about the
+plan it replaced (the \code{context} attribute).
 }
 \description{
-Reads the search setup from an SCM config file (TOML), validates the
-covariate candidates against the user-authored template control stream it
-names, returns the plan as a \code{hyperion_scm_plan} object, and writes it to
-\verb{<out_dir>/plan.json} — \code{\link[=scm_run]{scm_run()}} and \verb{pharos nonmem scm run} execute.
-Nothing is fitted. The template carries the candidate effects already
-written into \verb{$PK} and fixed to zero in \verb{$THETA} (\verb{(0 FIX)}); the tool
-releases and tests them.
+Reads the SCM process setup from an SCM config file (TOML) — the one
+\code{\link[=scm_init]{scm_init()}} wrote — validates the covariate candidates against the
+user-authored template control stream it names, returns the plan as a
+\code{hyperion_scm_plan} object, and writes it to \verb{<out_dir>/plan.json} —
+\code{\link[=scm_run]{scm_run()}} and \verb{pharos scm run} execute. Nothing is fitted. The template
+carries the candidate effects already written into \verb{$PK}; \code{covariates}
+names the ones to test, and every model generated holds the rest out by
+fixing their thetas at zero.
 }
 \details{
-The config file defines the search; the \code{scm_plan()} call carries only
+The config file defines the SCM process; the \code{scm_plan()} call carries only
 per-invocation control (\code{num_rounds}, overrides, \code{overwrite}):
 
-\if{html}{\out{<div class="sourceCode toml">}}\preformatted{model = "model/nonmem/PK/scm-demo.mod"
-# out_dir = "model/nonmem/PK/scm/scm-demo"   # default: scm/<stem> beside the model
-covariates = ["WT_CL", "CRCL_CL", "AGE_CL"]  # or THETA numbers: [6, 7, 8]
+\if{html}{\out{<div class="sourceCode toml">}}\preformatted{model = "scm-demo.mod"
+covariates = ["WT_CL", "CRCL_CL", "AGE_CL"]  # $PK term names
 direction = ["forward", "backward"]
 
-# optional, with the usual defaults:
-# forward_alpha = 0.05
-# backward_alpha = 0.001
-# max_retries = 3
-# cov_step = true
-# release_init = 0.1
+# optional, at their defaults:
+forward_alpha = 0.05
+backward_alpha = 0.001
+max_retries = 3
+cov_step = false
+release_init = 0.1
 }\if{html}{\out{</div>}}
 
 Relative paths in the config resolve against the config file's own
-directory. \code{covariates} is either an array of \verb{$PK} term names — the
-names of the \verb{$PK} assignments holding the candidate effects, exactly as
-the template's author wrote them (matched case-insensitively), each
-referencing exactly one THETA — or an array of 1-based THETA numbers
-(candidate names then come from the theta comments).
+directory. The SCM process always writes into \verb{scm/<model stem>} beside the
+model — the directory \code{\link[=scm_init]{scm_init()}} creates; that location is not
+configurable. \code{covariates} names the candidate effects by their \verb{$PK}
+term: the names of the \verb{$PK} assignments holding them, exactly as the
+template's author wrote them (matched case-insensitively), each
+referencing exactly one THETA. That name is the candidate's name
+throughout the SCM process, and a theta comment that disagrees with it only
+warns. THETA numbers are not accepted.
 }
 \examples{
 \dontrun{

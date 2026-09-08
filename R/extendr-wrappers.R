@@ -472,13 +472,27 @@ compute_rse <- function(estimate, se, param_type, transform = 'identity') .Call(
 #' }
 transform_value <- function(value, transform) .Call(wrap__transform_value, value, transform)
 
+#' Set up an SCM process for a model (runs nothing)
+#'
+#' Internal engine behind [scm_init()]; use that instead.
+#'
+#' @param model path to the template control stream (.mod / .ctl); the
+#'   config and the output directory land beside it
+#' @param overwrite replace an existing `<model>-scm.toml`
+#'
+#' @return a list with `config` (the config file written) and `out_dir`
+#'   (the output directory created)
+#' @keywords internal
+scm_init_impl <- function(model, overwrite = FALSE) .Call(wrap__scm_init_wrap, model, overwrite)
+
 #' Build and validate an SCM plan (runs nothing) and write its plan.json
 #'
 #' Internal engine behind [scm_plan()]; use that instead.
 #'
-#' @param config path to the SCM config file (TOML): model, out_dir,
-#'   covariates, direction, forward_alpha, backward_alpha, max_retries,
-#'   cov_step, release_init. Relative paths resolve against the config file
+#' @param config path to the SCM config file (TOML) written by
+#'   [scm_init()]: model, covariates, direction, forward_alpha,
+#'   backward_alpha, max_retries, cov_step, release_init. Relative paths
+#'   resolve against the config file
 #' @param num_rounds pause after this many rounds per run (NULL = no cap)
 #' @param max_retries override the config's retries per failed fit
 #' @param cov_step override whether generated models run the covariance step
@@ -487,11 +501,13 @@ transform_value <- function(value, transform) .Call(wrap__transform_value, value
 #' @param overwrite replace existing SCM output from a different plan
 #'
 #' @return a `hyperion_scm_plan` object; its `plan_path` attribute is the
-#'   `plan.json` just written
+#'   `plan.json` just written, and its `context` attribute is where the
+#'   SCM process in the out_dir already stands plus what this plan changed about
+#'   the plan.json it replaced
 #' @keywords internal
 scm_plan_impl <- function(config, num_rounds = NULL, max_retries = NULL, cov_step = NULL, release_init = NULL, overwrite = FALSE) .Call(wrap__scm_plan_wrap, config, num_rounds, max_retries, cov_step, release_init, overwrite)
 
-#' Read the status of an SCM search
+#' Read the status of an SCM process
 #'
 #' Internal engine behind [scm_status()]; use that instead.
 #'
@@ -501,12 +517,12 @@ scm_plan_impl <- function(config, num_rounds = NULL, max_retries = NULL, cov_ste
 #' @keywords internal
 scm_status_impl <- function(path) .Call(wrap__scm_status_wrap, path)
 
-#' Detailed view of one round of an SCM search
+#' Detailed view of one round of an SCM process
 #'
 #' Internal engine behind [scm_summary()]; use that instead.
 #'
 #' @param path the SCM out_dir
-#' @param round which round: the Nth search round ("2" / "round 2"), a round
+#' @param round which round: the Nth SCM round ("2" / "round 2"), a round
 #'   name (forward_round1, backward_round1), or "reference"
 #'
 #' @return a `hyperion_scm_round` object

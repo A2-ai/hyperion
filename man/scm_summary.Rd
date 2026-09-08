@@ -2,7 +2,7 @@
 % Please edit documentation in R/scm-methods.R
 \name{scm_summary}
 \alias{scm_summary}
-\title{Drill into one round of an SCM search}
+\title{Drill into one round of an SCM process}
 \usage{
 scm_summary(x, round)
 }
@@ -10,7 +10,7 @@ scm_summary(x, round)
 \item{x}{a \code{hyperion_scm_plan}, an SCM output directory, or a plan.json
 path}
 
-\item{round}{which round: the Nth search round (\code{2} or \code{"round 2"} — the
+\item{round}{which round: the Nth SCM round (\code{2} or \code{"round 2"} — the
 reference fit is not a round), a round name (\code{"forward_round1"},
 \code{"backward_round1"}), or \code{"reference"}}
 }
@@ -18,7 +18,7 @@ reference fit is not a round), a round name (\code{"forward_round1"},
 a \code{hyperion_scm_round} object; print it for the rendered view
 }
 \description{
-Where \code{\link[=scm_status]{scm_status()}} shows the whole search one line per round,
+Where \code{\link[=scm_status]{scm_status()}} shows the whole SCM process one line per round,
 \code{scm_summary()} shows everything about a single round: every model file
 run in it — every retry included — with its outcome, the round's
 reference model and OFV, per-candidate scoring (ΔOFV, p-value,

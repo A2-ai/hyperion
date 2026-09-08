@@ -16,7 +16,11 @@ invisible copy of x
 }
 \description{
 The canonical, complete display of a plan — candidates, alphas, retry
-policy, and the worst-case search size. There is deliberately no
+policy, and the worst-case size. A plan built over an out_dir that
+already holds an SCM process says so too: how far it got, which
+covariates it has selected, and what this plan changed about the plan it
+replaced — a sketch, where \code{\link[=scm_status]{scm_status()}} and \code{\link[=scm_summary]{scm_summary()}} are the
+detailed views. There is deliberately no
 \code{summary()} for a plan: a plan is a static declaration with nothing to
 compute beyond what printing shows. (\code{summary()} on a \emph{status} is
 different — it returns the decision log; see

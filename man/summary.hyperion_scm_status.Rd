@@ -2,7 +2,7 @@
 % Please edit documentation in R/scm-methods.R
 \name{summary.hyperion_scm_status}
 \alias{summary.hyperion_scm_status}
-\title{Summarize an SCM search: the decision log as a data.frame}
+\title{Summarize an SCM process: the decision log as a data.frame}
 \usage{
 \method{summary}{hyperion_scm_status}(object, write = TRUE, ...)
 }
@@ -15,7 +15,7 @@
 }
 \value{
 the decision log as a data.frame, with attributes
-\code{files_written}, \code{retained}, and (when the search completed)
+\code{files_written}, \code{retained}, and (when the SCM process completed)
 \code{final_model}
 }
 \description{
@@ -23,7 +23,7 @@ Returns the decision log — every model fitted, every attempt, ΔOFV
 (candidate − reference, negative when the candidate improves), degrees of
 freedom, p-values, heuristic checks that fired, and each round's decision.
 pharos rewrites \code{scm_decision_log.csv} and \code{scm_decision_log.md} in the
-search's output directory after every round; this is how you get the same
+SCM output directory after every round; this is how you get the same
 record into R (re-writing the files by default, so they always match the
-current state — useful mid-search too).
+current state — useful mid-run too).
 }

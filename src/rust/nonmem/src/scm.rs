@@ -1,10 +1,11 @@
 //! Stepwise covariate modeling (SCM) wrappers.
 //!
-//! `scm_plan_wrap` builds the validated plan and writes `plan.json` through
-//! the same Rust serializer the pharos CLI reads, and `scm_status_wrap` /
-//! `scm_decision_log_wrap` read a search wherever it stands. Running happens
-//! through the pharos CLI in the background (see `scm_run()` on the R side),
-//! never in-process.
+//! `scm_init_wrap` writes the starter config beside a model, `scm_plan_wrap`
+//! builds the validated plan and writes `plan.json` through the same Rust
+//! serializer the pharos CLI reads, and `scm_status_wrap` /
+//! `scm_decision_log_wrap` read an SCM process wherever it stands. Running
+//! happens through the pharos CLI in the background (see `scm_run()` on the
+//! R side), never in-process.
 
 use std::path::Path;
 
@@ -19,13 +20,37 @@ use nonmem::scm::{
 
 use hyperion_core::{ResultExt, extendr_err};
 
+/// Set up an SCM process for a model (runs nothing)
+///
+/// Internal engine behind [scm_init()]; use that instead.
+///
+/// @param model path to the template control stream (.mod / .ctl); the
+///   config and the output directory land beside it
+/// @param overwrite replace an existing `<model>-scm.toml`
+///
+/// @return a list with `config` (the config file written) and `out_dir`
+///   (the output directory created)
+/// @keywords internal
+#[extendr(r_name = "scm_init_impl")]
+pub fn scm_init_wrap(model: &str, #[extendr(default = "FALSE")] overwrite: bool) -> Result<Robj> {
+    let init = pharos_scm::init_scm(Path::new(model), overwrite)
+        .map_to_extendr_err("Failed to set up the SCM process")?;
+
+    Ok(list!(
+        config = init.config_path.to_string_lossy().to_string(),
+        out_dir = init.out_dir.to_string_lossy().to_string()
+    )
+    .into_robj())
+}
+
 /// Build and validate an SCM plan (runs nothing) and write its plan.json
 ///
 /// Internal engine behind [scm_plan()]; use that instead.
 ///
-/// @param config path to the SCM config file (TOML): model, out_dir,
-///   covariates, direction, forward_alpha, backward_alpha, max_retries,
-///   cov_step, release_init. Relative paths resolve against the config file
+/// @param config path to the SCM config file (TOML) written by
+///   [scm_init()]: model, covariates, direction, forward_alpha,
+///   backward_alpha, max_retries, cov_step, release_init. Relative paths
+///   resolve against the config file
 /// @param num_rounds pause after this many rounds per run (NULL = no cap)
 /// @param max_retries override the config's retries per failed fit
 /// @param cov_step override whether generated models run the covariance step
@@ -34,7 +59,9 @@ use hyperion_core::{ResultExt, extendr_err};
 /// @param overwrite replace existing SCM output from a different plan
 ///
 /// @return a `hyperion_scm_plan` object; its `plan_path` attribute is the
-///   `plan.json` just written
+///   `plan.json` just written, and its `context` attribute is where the
+///   SCM process in the out_dir already stands plus what this plan changed about
+///   the plan.json it replaced
 /// @keywords internal
 #[extendr(r_name = "scm_plan_impl")]
 pub fn scm_plan_wrap(
@@ -81,11 +108,18 @@ pub fn scm_plan_wrap(
     let mut robj = to_robj(&built.plan).map_to_extendr_err("Failed to convert plan to Robj")?;
     robj.set_attrib("warnings", built.warnings.iter().collect_robj())?;
     robj.set_attrib("plan_path", written.to_string_lossy().into_robj())?;
+    // Read while the plan was built, i.e. before the save above replaced the
+    // plan.json it compares against: how far the SCM process in the out_dir got,
+    // and what this plan changed. Printing leans on it; a fresh out_dir has
+    // nothing to say and renders exactly as it always did.
+    let context =
+        to_robj(&built.context).map_to_extendr_err("Failed to convert plan context to Robj")?;
+    robj.set_attrib("context", context)?;
     let robj = robj.set_class(["hyperion_scm_plan"])?.to_owned();
     Ok(robj)
 }
 
-/// Read the status of an SCM search
+/// Read the status of an SCM process
 ///
 /// Internal engine behind [scm_status()]; use that instead.
 ///
@@ -143,12 +177,12 @@ impl From<pharos_scm::DecisionLogRow> for DecisionLogRow {
     }
 }
 
-/// Detailed view of one round of an SCM search
+/// Detailed view of one round of an SCM process
 ///
 /// Internal engine behind [scm_summary()]; use that instead.
 ///
 /// @param path the SCM out_dir
-/// @param round which round: the Nth search round ("2" / "round 2"), a round
+/// @param round which round: the Nth SCM round ("2" / "round 2"), a round
 ///   name (forward_round1, backward_round1), or "reference"
 ///
 /// @return a `hyperion_scm_round` object
@@ -181,11 +215,11 @@ pub fn scm_decision_log_wrap(path: &str, #[extendr(default = "TRUE")] write: boo
         .map_to_extendr_err("Failed to load plan.json")?;
     let mut state = ScmState::load(out_dir)
         .map_to_extendr_err("Failed to read scm_state.json")?
-        .ok_or_else(|| extendr_err!("No scm_state.json yet — the search has not started"))?;
+        .ok_or_else(|| extendr_err!("No scm_state.json yet — the SCM process has not started"))?;
     // The driver writes a wave's outcomes back only once the whole batch
     // returns, so mid-round the state still calls finished runs `running`.
     // Read them off disk the way the status and round views do, so all three
-    // describe the same search.
+    // describe the same SCM process.
     reconcile_state_with_disk(&mut state, out_dir);
 
     let mut written: Vec<String> = vec![];
@@ -220,6 +254,7 @@ pub fn scm_decision_log_wrap(path: &str, #[extendr(default = "TRUE")] write: boo
 
 extendr_module! {
     mod scm;
+    fn scm_init_wrap;
     fn scm_plan_wrap;
     fn scm_status_wrap;
     fn scm_summary_wrap;

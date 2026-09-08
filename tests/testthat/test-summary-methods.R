@@ -17,6 +17,25 @@ test_that("process_heuristics_data orders and labels results", {
   )
 })
 
+test_that("process_heuristics_data reports an aborted estimation", {
+  run_heuristics <- data.frame(
+    heuristic_name = c("minimization_terminated", "program_aborted"),
+    value = c(FALSE, TRUE),
+    stringsAsFactors = FALSE
+  )
+
+  result <- process_heuristics_data(run_heuristics)
+
+  # A run NONMEM aborted still reports MINIMIZATION as "not terminated",
+  # so the abort is the only thing that marks it as failed.
+  expect_equal(result$heuristic, c("minimization_terminated", "program_aborted"))
+  expect_equal(
+    result$message,
+    c("Minimization Successful", "Estimation Aborted (PROGRAM TERMINATED BY OBJ)")
+  )
+  expect_equal(result$has_issue, c(FALSE, TRUE))
+})
+
 test_that("process_heuristics_data handles NA values with 3-way messages", {
   run_heuristics <- data.frame(
     heuristic_name = c(

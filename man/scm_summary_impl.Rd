@@ -2,14 +2,14 @@
 % Please edit documentation in R/extendr-wrappers.R
 \name{scm_summary_impl}
 \alias{scm_summary_impl}
-\title{Detailed view of one round of an SCM search}
+\title{Detailed view of one round of an SCM process}
 \usage{
 scm_summary_impl(path, round)
 }
 \arguments{
 \item{path}{the SCM out_dir}
 
-\item{round}{which round: the Nth search round ("2" / "round 2"), a round
+\item{round}{which round: the Nth SCM round ("2" / "round 2"), a round
 name (forward_round1, backward_round1), or "reference"}
 }
 \value{

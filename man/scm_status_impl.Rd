@@ -2,7 +2,7 @@
 % Please edit documentation in R/extendr-wrappers.R
 \name{scm_status_impl}
 \alias{scm_status_impl}
-\title{Read the status of an SCM search}
+\title{Read the status of an SCM process}
 \usage{
 scm_status_impl(path)
 }

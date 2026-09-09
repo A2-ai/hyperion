@@ -70,9 +70,11 @@ cov_step = false
 [covariates]
 initial = 0.1   # default: where an effect is released when first tested
 off = 0         # default: what a held-out effect's theta is fixed at
+# lower / upper # optional default $THETA bounds; omitted = the template's own
 effects = [
   "WT_CL", "CRCL_CL", "AGE_CL",                   # $PK term names, at the defaults
   \{ name = "SEXEFF_CL", initial = 1.2, off = 1 \}, # a fold-change effect: 1 = no effect
+  \{ name = "WT_V", lower = 0, upper = 5 \},        # bounded while it is in the model
 ]
 }\if{html}{\out{</div>}}
 
@@ -87,6 +89,15 @@ throughout the SCM process, and a theta comment that disagrees with it only
 warns. THETA numbers are not accepted. A bare name takes the section's
 \code{initial} and \code{off} defaults; a row overrides them for one effect, which a
 fold-change form such as \code{SEXEFF_CL = THETA(n)**SEX} needs (\code{off = 1}).
+
+\code{lower} and \code{upper}, in the section or on a row, are the \verb{$THETA} bounds
+each effect is estimated under in every model that has it in — the usual
+answer to a covariate whose estimation runs off somewhere absurd. Each
+bound comes from the row, else the section, else the bound the template's
+own \verb{$THETA} spec carries, so a config that says nothing about bounds
+leaves every candidate exactly as the template authored it. A held-out
+effect is written \verb{(off FIX)} and needs no bounds; \code{initial} must sit
+strictly inside them, which the plan checks.
 
 Re-planning without a candidate that has never won a round is not a new
 SCM process: \code{\link[=scm_run]{scm_run()}} carries on without it, keeping every round already

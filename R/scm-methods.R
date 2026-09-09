@@ -94,9 +94,11 @@ scm_init <- function(model, overwrite = FALSE) {
 #' [covariates]
 #' initial = 0.1   # default: where an effect is released when first tested
 #' off = 0         # default: what a held-out effect's theta is fixed at
+#' # lower / upper # optional default $THETA bounds; omitted = the template's own
 #' effects = [
 #'   "WT_CL", "CRCL_CL", "AGE_CL",                   # $PK term names, at the defaults
 #'   { name = "SEXEFF_CL", initial = 1.2, off = 1 }, # a fold-change effect: 1 = no effect
+#'   { name = "WT_V", lower = 0, upper = 5 },        # bounded while it is in the model
 #' ]
 #' ```
 #'
@@ -111,6 +113,15 @@ scm_init <- function(model, overwrite = FALSE) {
 #' warns. THETA numbers are not accepted. A bare name takes the section's
 #' `initial` and `off` defaults; a row overrides them for one effect, which a
 #' fold-change form such as `SEXEFF_CL = THETA(n)**SEX` needs (`off = 1`).
+#'
+#' `lower` and `upper`, in the section or on a row, are the `$THETA` bounds
+#' each effect is estimated under in every model that has it in — the usual
+#' answer to a covariate whose estimation runs off somewhere absurd. Each
+#' bound comes from the row, else the section, else the bound the template's
+#' own `$THETA` spec carries, so a config that says nothing about bounds
+#' leaves every candidate exactly as the template authored it. A held-out
+#' effect is written `(off FIX)` and needs no bounds; `initial` must sit
+#' strictly inside them, which the plan checks.
 #'
 #' Re-planning without a candidate that has never won a round is not a new
 #' SCM process: [scm_run()] carries on without it, keeping every round already
@@ -404,6 +415,21 @@ scm_status <- function(x) {
 
 # Display methods ---------------------------------------------------------
 
+#' The bounds of one plan candidate, spelled the way pharos writes them into
+#' `$THETA`: `(0, INF)`, `(-INF, 2)`, `(0.01, 10)`; `""` when unbounded.
+#' @noRd
+scm_bounds_label <- function(candidate) {
+  lower <- candidate$lower
+  upper <- candidate$upper
+  if (is.null(lower) && is.null(upper)) {
+    return("")
+  }
+  num <- function(v, infinite) {
+    if (is.null(v)) infinite else format(as.numeric(v))
+  }
+  paste0("(", num(lower, "-INF"), ", ", num(upper, "INF"), ")")
+}
+
 #' @noRd
 scm_plan_display_parts <- function(x) {
   candidates <- data.frame(
@@ -425,6 +451,10 @@ scm_plan_display_parts <- function(x) {
       function(c) if (is.null(c$off)) 0 else as.numeric(c$off),
       numeric(1)
     ),
+    # The $THETA bounds the effect is estimated under while it is in the
+    # model. Absent from the plan -- an older pharos, or a candidate the
+    # config and template both leave unbounded -- means no bounds.
+    bounds = vapply(x$candidates, scm_bounds_label, character(1)),
     stringsAsFactors = FALSE
   )
   direction <- unlist(x$options$direction)
@@ -643,8 +673,10 @@ print.hyperion_scm_plan <- function(x, ...) {
   }
   cli::cli_h2("Candidates")
   for (i in seq_len(nrow(parts$candidates))) {
+    bounds <- parts$candidates$bounds[i]
+    bounds <- if (nzchar(bounds)) paste0(", bounded to ", bounds) else ""
     cli::cli_text(
-      "{.strong {parts$candidates$name[i]}} THETA({parts$candidates$theta[i]}) -> released at {parts$candidates$initial[i]} when first tested, fixed at {parts$candidates$off[i]} when held out"
+      "{.strong {parts$candidates$name[i]}} THETA({parts$candidates$theta[i]}) -> released at {parts$candidates$initial[i]} when first tested, fixed at {parts$candidates$off[i]} when held out{bounds}"
     )
   }
   cli::cli_h2("SCM size")
@@ -698,6 +730,26 @@ scm_change_line <- function(c) {
 #' @exportS3Method knitr::knit_print hyperion_scm_plan
 knit_print.hyperion_scm_plan <- function(x, ...) {
   parts <- scm_plan_display_parts(x)
+  # The bounds column only earns its width when something is bounded.
+  bounded <- any(nzchar(parts$candidates$bounds))
+  candidate_rows <- if (bounded) {
+    sprintf(
+      "| %s | THETA(%d) | %s | %s | %s |",
+      parts$candidates$name,
+      parts$candidates$theta,
+      format(parts$candidates$initial),
+      format(parts$candidates$off),
+      ifelse(nzchar(parts$candidates$bounds), parts$candidates$bounds, "-")
+    )
+  } else {
+    sprintf(
+      "| %s | THETA(%d) | %s | %s |",
+      parts$candidates$name,
+      parts$candidates$theta,
+      format(parts$candidates$initial),
+      format(parts$candidates$off)
+    )
+  }
 
   output <- c(
     "### SCM plan",
@@ -720,15 +772,13 @@ knit_print.hyperion_scm_plan <- function(x, ...) {
       paste0("- **num rounds:** pause after ", parts$num_rounds, " (resumable)")
     },
     "",
-    "| candidate | theta | initial (first release) | off (held out) |",
-    "|---|---|---|---|",
-    sprintf(
-      "| %s | THETA(%d) | %s | %s |",
-      parts$candidates$name,
-      parts$candidates$theta,
-      format(parts$candidates$initial),
-      format(parts$candidates$off)
-    ),
+    if (bounded) {
+      "| candidate | theta | initial (first release) | off (held out) | bounds |"
+    } else {
+      "| candidate | theta | initial (first release) | off (held out) |"
+    },
+    if (bounded) "|---|---|---|---|---|" else "|---|---|---|---|",
+    candidate_rows,
     "",
     sprintf(
       "%d candidate%s; max models %d (incl. reference fit, excl. retries)",

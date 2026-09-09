@@ -17,7 +17,7 @@ scm_plan_impl(
 \item{config}{path to the SCM config file (TOML) written by
 \code{\link[=scm_init]{scm_init()}}: model, direction, forward_alpha, backward_alpha,
 max_retries, cov_step, and the \verb{[covariates]} section (initial, off,
-effects). Relative paths resolve against the config file}
+lower, upper, effects). Relative paths resolve against the config file}
 
 \item{num_rounds}{pause after this many rounds per run (NULL = no cap)}
 

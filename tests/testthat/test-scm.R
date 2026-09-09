@@ -277,6 +277,61 @@ test_that("the covariates section takes names, rows, and defaults", {
   expect_equal(vapply(plan$candidates, function(c) c$initial, numeric(1)), c(0.05, 0.3))
 })
 
+test_that("the covariates section bounds effects, in the section and per row", {
+  dir <- withr::local_tempdir()
+  # WT_CL is authored bounded in the template; the rest are (0 FIX).
+  bounded <- sub(
+    "$THETA (0 FIX)   ; WT_CL cov",
+    "$THETA (-2, 0.4, 2)   ; WT_CL cov",
+    scm_template,
+    fixed = TRUE
+  )
+  write_scm_fixture(dir, template = bounded)
+
+  plan <- scm_plan(write_scm_config(
+    dir,
+    covariates = paste(
+      '["WT_CL", "CRCL_CL",',
+      '{ name = "WT_V", initial = 1.2, lower = 0.01, upper = 10 }]'
+    ),
+    section = "lower = 0"
+  ))
+  bound <- function(field) {
+    vapply(
+      plan$candidates,
+      function(c) if (is.null(c[[field]])) NA_real_ else as.numeric(c[[field]]),
+      numeric(1)
+    )
+  }
+  # the section's lower beats the template's -2, which still supplies the
+  # upper the config leaves out; a row's own bounds beat the section's
+  expect_equal(bound("lower"), c(0, 0, 0.01))
+  expect_equal(bound("upper"), c(2, NA, 10))
+
+  txt <- cli_text_of(print(plan))
+  expect_match(txt, "bounded to (0, 2)", fixed = TRUE)
+  expect_match(txt, "bounded to (0.01, 10)", fixed = TRUE)
+  knit <- as.character(knitr::knit_print(plan))
+  expect_match(knit, "| off (held out) | bounds |", fixed = TRUE)
+  expect_match(knit, "| CRCL_CL | THETA(5) | 0.1 | 0 | (0, INF) |", fixed = TRUE)
+
+  # a config that says nothing about bounds leaves them out entirely, and
+  # the bounds column stays off the table
+  plain_dir <- withr::local_tempdir()
+  write_scm_fixture(plain_dir)
+  plain <- scm_plan(write_scm_config(plain_dir, covariates = '["CRCL_CL"]'))
+  expect_null(plain$candidates[[1]]$lower)
+  expect_match(
+    as.character(knitr::knit_print(plain)),
+    "| candidate | theta | initial (first release) | off (held out) |\n",
+    fixed = TRUE
+  )
+
+  # `initial` has to sit strictly inside the bounds
+  bad <- write_scm_config(plain_dir, covariates = '["CRCL_CL"]', section = "upper = 0.05")
+  expect_error(scm_plan(bad), "must be below upper")
+})
+
 test_that("covariates are keyed by $PK term name, case-insensitively", {
   dir <- withr::local_tempdir()
   write_scm_fixture(dir)

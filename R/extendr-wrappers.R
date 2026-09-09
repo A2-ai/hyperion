@@ -492,7 +492,7 @@ scm_init_impl <- function(model, overwrite = FALSE) .Call(wrap__scm_init_wrap, m
 #' @param config path to the SCM config file (TOML) written by
 #'   [scm_init()]: model, direction, forward_alpha, backward_alpha,
 #'   max_retries, cov_step, and the `[covariates]` section (initial, off,
-#'   effects). Relative paths resolve against the config file
+#'   lower, upper, effects). Relative paths resolve against the config file
 #' @param num_rounds pause after this many rounds per run (NULL = no cap)
 #' @param max_retries override the config's retries per failed fit
 #' @param cov_step override whether generated models run the covariance step

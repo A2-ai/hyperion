@@ -6,26 +6,29 @@
 # (an S3 object wrapping the pharos ScmPlan struct) and writes the plan.json
 # to out_dir, `scm_run()` hands it to the pharos CLI in the
 # background, and `scm_status()` checks on the SCM process in its entirety while
-# it runs. pharos rewrites the decision log after every round (and leaves a
-# round_summary.json/.md in each round directory as it concludes);
-# `summary()` on a status reads the decision log into R as a data.frame.
+# it runs. pharos rewrites the decision log and scm_summary.json after every
+# round (and leaves a round_summary.json/.md in each round directory as it
+# concludes); `scm_summary()` renders that record for every round to date or
+# a selection of it, and `summary()` on a status reads the decision log into
+# R as a data.frame.
 
 #' Set up an SCM process for a model
 #'
 #' Writes the SCM config file beside `model` as `<model>-scm.toml` and
 #' creates the `scm/<model>` directory the SCM process writes into. The
 #' config comes with `direction` and every optional setting already filled
-#' in at its default and `covariates` left empty: name the covariate effects
-#' to be tested — by their `$PK` term, e.g. `["WT_CL", "CRCL_CL"]` — then
-#' [scm_plan()] the file. Nothing is planned and nothing is fitted — the
-#' candidates are yours to choose.
+#' in at its default and the `[covariates]` section's `effects` left empty:
+#' name the covariate effects to be tested — by their `$PK` term, e.g.
+#' `effects = ["WT_CL", "CRCL_CL"]` — then [scm_plan()] the file. Nothing is
+#' planned and nothing is fitted — the candidates are yours to choose.
 #'
 #' The model is the *template* control stream: it carries the candidate
 #' effects already written into `$PK`, each its own term over a single
 #' THETA. How that theta is written is up to you — `(0 FIX)` for an effect
 #' the template leaves out, or an ordinary theta carrying an initial guess.
-#' `covariates` alone decides what is tested: pharos fixes every candidate
-#' it is not testing at zero in the models it generates.
+#' `effects` alone decides what is tested: pharos fixes every candidate it is
+#' not testing at its `off` value (0 unless the config says otherwise) in
+#' the models it generates.
 #'
 #' @param model path to the template control stream (`.mod` / `.ctl`). The
 #'   config file and the output directory are created beside it.
@@ -58,7 +61,7 @@ scm_init <- function(model, overwrite = FALSE) {
     "v" = "SCM setup created for {.file {model}}",
     "i" = "config: {.file {setup$config}}",
     "i" = "output directory: {.file {setup$out_dir}}",
-    "*" = "fill in {.code covariates}, then {.code scm_plan(\"{setup$config}\")}"
+    "*" = "fill in {.code effects} under {.code [covariates]}, then {.code scm_plan(\"{setup$config}\")}"
   ))
 
   invisible(setup)
@@ -71,16 +74,15 @@ scm_init <- function(model, overwrite = FALSE) {
 #' user-authored template control stream it names, returns the plan as a
 #' `hyperion_scm_plan` object, and writes it to `<out_dir>/plan.json` —
 #' [scm_run()] and `pharos scm run` execute. Nothing is fitted. The template
-#' carries the candidate effects already written into `$PK`; `covariates`
-#' names the ones to test, and every model generated holds the rest out by
-#' fixing their thetas at zero.
+#' carries the candidate effects already written into `$PK`; the
+#' `[covariates]` section names the ones to test, and every model generated
+#' holds the rest out by fixing their thetas at their `off` value.
 #'
 #' The config file defines the SCM process; the `scm_plan()` call carries only
 #' per-invocation control (`num_rounds`, overrides, `overwrite`):
 #'
 #' ```toml
 #' model = "scm-demo.mod"
-#' covariates = ["WT_CL", "CRCL_CL", "AGE_CL"]  # $PK term names
 #' direction = ["forward", "backward"]
 #'
 #' # optional, at their defaults:
@@ -88,18 +90,32 @@ scm_init <- function(model, overwrite = FALSE) {
 #' backward_alpha = 0.001
 #' max_retries = 3
 #' cov_step = false
-#' release_init = 0.1
+#'
+#' [covariates]
+#' initial = 0.1   # default: where an effect is released when first tested
+#' off = 0         # default: what a held-out effect's theta is fixed at
+#' effects = [
+#'   "WT_CL", "CRCL_CL", "AGE_CL",                   # $PK term names, at the defaults
+#'   { name = "SEXEFF_CL", initial = 1.2, off = 1 }, # a fold-change effect: 1 = no effect
+#' ]
 #' ```
 #'
 #' Relative paths in the config resolve against the config file's own
 #' directory. The SCM process always writes into `scm/<model stem>` beside the
 #' model — the directory [scm_init()] creates; that location is not
-#' configurable. `covariates` names the candidate effects by their `$PK`
+#' configurable. `effects` names the candidate effects by their `$PK`
 #' term: the names of the `$PK` assignments holding them, exactly as the
 #' template's author wrote them (matched case-insensitively), each
 #' referencing exactly one THETA. That name is the candidate's name
 #' throughout the SCM process, and a theta comment that disagrees with it only
-#' warns. THETA numbers are not accepted.
+#' warns. THETA numbers are not accepted. A bare name takes the section's
+#' `initial` and `off` defaults; a row overrides them for one effect, which a
+#' fold-change form such as `SEXEFF_CL = THETA(n)**SEX` needs (`off = 1`).
+#'
+#' Re-planning without a candidate that has never won a round is not a new
+#' SCM process: [scm_run()] carries on without it, keeping every round already
+#' fitted. Removing a candidate that has won a round, adding one, or changing
+#' any other SCM-defining setting needs `overwrite`.
 #'
 #' @param config path to the SCM config file (TOML), as above
 #' @param num_rounds pause the SCM process after this many rounds per
@@ -110,12 +126,12 @@ scm_init <- function(model, overwrite = FALSE) {
 #'   last iteration if it never finished). `NULL` = use the config.
 #' @param cov_step override whether generated models run the covariance step
 #'   (`$COVARIANCE`, config default `FALSE`). `NULL` = use the config.
-#' @param release_init override the initial estimate a released covariate
-#'   theta starts at when the template gives it none (config default 0.1);
-#'   a theta the template already carries an initial guess for starts from
-#'   that instead, parameters already free in the round's reference fit
-#'   continue from its estimates, and candidate thetas held out of a given
-#'   model are fixed at zero. `NULL` = use the config.
+#' @param initial override the `[covariates]` section's default `initial`:
+#'   where an effect is released the first time it is tested when neither
+#'   its own row nor the template gives it a value (config default 0.1).
+#'   Parameters already free in the round's reference fit continue from its
+#'   estimates, and candidate thetas held out of a given model are fixed at
+#'   their `off` value. `NULL` = use the config.
 #' @param overwrite replace existing SCM output from a *different* plan in
 #'   `out_dir` (re-running the same plan resumes and needs no overwrite)
 #'
@@ -139,7 +155,7 @@ scm_plan <- function(config,
                      num_rounds = NULL,
                      max_retries = NULL,
                      cov_step = NULL,
-                     release_init = NULL,
+                     initial = NULL,
                      overwrite = FALSE) {
   if (!is.character(config) || length(config) != 1L || is.na(config)) {
     rlang::abort("`config` must be a single path to an SCM config file (TOML)")
@@ -166,11 +182,11 @@ scm_plan <- function(config,
   if (!is.null(cov_step) && !(isTRUE(cov_step) || isFALSE(cov_step))) {
     rlang::abort("`cov_step` must be TRUE, FALSE, or NULL to use the config")
   }
-  if (!is.null(release_init)) {
-    ok <- is.numeric(release_init) && length(release_init) == 1L &&
-      !is.na(release_init) && is.finite(release_init) && release_init != 0
+  if (!is.null(initial)) {
+    ok <- is.numeric(initial) && length(initial) == 1L &&
+      !is.na(initial) && is.finite(initial)
     if (!ok) {
-      rlang::abort("`release_init` must be a non-zero number, or NULL to use the config")
+      rlang::abort("`initial` must be a finite number, or NULL to use the config")
     }
   }
 
@@ -179,7 +195,7 @@ scm_plan <- function(config,
     num_rounds = if (is.null(num_rounds)) NULL else as.integer(num_rounds),
     max_retries = if (is.null(max_retries)) NULL else as.integer(max_retries),
     cov_step = cov_step,
-    release_init = release_init,
+    initial = initial,
     overwrite = isTRUE(overwrite)
   )
 
@@ -393,18 +409,24 @@ scm_plan_display_parts <- function(x) {
   candidates <- data.frame(
     name = vapply(x$candidates, function(c) c$name, character(1)),
     theta = vapply(x$candidates, function(c) as.integer(c$theta), integer(1)),
-    # Where pharos releases the effect the first time it is tested: the
-    # template's own initial estimate for the theta when it has one, else
-    # `release_init`. Plans from an older pharos carry no per-candidate
-    # value, so fall back to the option.
-    init = vapply(
+    # Where pharos releases the effect the first time it is tested, and what
+    # it fixes the theta at when the effect is held out. A plan from an
+    # older pharos spells the first `init` and has no `off` (always 0).
+    initial = vapply(
       x$candidates,
-      function(c) if (is.null(c$init)) NA_real_ else as.numeric(c$init),
+      function(c) {
+        v <- c$initial %||% c$init
+        if (is.null(v)) NA_real_ else as.numeric(v)
+      },
+      numeric(1)
+    ),
+    off = vapply(
+      x$candidates,
+      function(c) if (is.null(c$off)) 0 else as.numeric(c$off),
       numeric(1)
     ),
     stringsAsFactors = FALSE
   )
-  candidates$init[is.na(candidates$init)] <- as.numeric(x$options$release_init)
   direction <- unlist(x$options$direction)
   n <- nrow(candidates)
   # pharos computes max_models into the plan; recompute only for a plan
@@ -423,7 +445,6 @@ scm_plan_display_parts <- function(x) {
     backward_alpha = x$options$backward_alpha,
     num_rounds = x$options$num_rounds,
     max_retries = x$options$max_retries,
-    release_init = x$options$release_init,
     cov_step = isTRUE(x$options$cov_step),
     candidates = candidates,
     n_candidates = n,
@@ -466,6 +487,7 @@ scm_plan_context_parts <- function(x) {
         )
       },
       retained = unlist(progress$retained) %||% character(),
+      removed = unlist(progress$removed) %||% character(),
       final_model = unlist(progress$final_model),
       models_running = as.integer(unlist(progress$models_running)),
       updated = unlist(progress$updated),
@@ -486,7 +508,9 @@ scm_plan_context_parts <- function(x) {
     had_previous_plan = had_previous,
     progress = progress,
     changes = changes,
-    state_is_stale = isTRUE(unlist(ctx$state_is_stale))
+    removals = unlist(ctx$removals) %||% character(),
+    state_is_stale = isTRUE(unlist(ctx$state_is_stale)),
+    stale_reasons = unlist(ctx$stale_reasons) %||% character()
   )
 }
 
@@ -518,6 +542,9 @@ scm_context_progress_lines <- function(ctx) {
       "none"
     }
   )
+  if (length(p$removed)) {
+    lines["removed"] <- paste(p$removed, collapse = ", ")
+  }
   if (!is.null(p$current_round)) {
     lines["in round"] <- paste0(
       p$current_round$name, " -- ", p$current_round$concluded, "/",
@@ -541,16 +568,35 @@ scm_context_progress_lines <- function(ctx) {
   lines
 }
 
+#' Removals of never-selected candidates take effect on the next run without
+#' disturbing anything already fitted.
+#' @noRd
+scm_context_removal_note <- function(ctx) {
+  if (!length(ctx$removals) || is.null(ctx$progress)) {
+    return(NULL)
+  }
+  paste0(
+    "Removing ", paste(ctx$removals, collapse = ", "),
+    " -- never selected; takes effect from the next round, earlier rounds",
+    " keep their results."
+  )
+}
+
 #' The one consequence of a changed plan the user has to act on.
 #' @noRd
 scm_context_stale_note <- function(ctx) {
   if (!isTRUE(ctx$state_is_stale)) {
     return(NULL)
   }
-  paste(
+  reasons <- if (length(ctx$stale_reasons)) {
+    paste0(" ", paste(ctx$stale_reasons, collapse = "; "), ".")
+  } else {
+    ""
+  }
+  paste0(
     "The SCM process in out_dir belongs to the previous plan and cannot resume",
-    "under this one; re-plan with `overwrite = TRUE` to discard it and start",
-    "the SCM process fresh."
+    " under this one:", reasons,
+    " Re-plan with `overwrite = TRUE` to discard it and start the SCM process fresh."
   )
 }
 
@@ -598,7 +644,7 @@ print.hyperion_scm_plan <- function(x, ...) {
   cli::cli_h2("Candidates")
   for (i in seq_len(nrow(parts$candidates))) {
     cli::cli_text(
-      "{.strong {parts$candidates$name[i]}} THETA({parts$candidates$theta[i]}) -> released at {parts$candidates$init[i]} when first tested"
+      "{.strong {parts$candidates$name[i]}} THETA({parts$candidates$theta[i]}) -> released at {parts$candidates$initial[i]} when first tested, fixed at {parts$candidates$off[i]} when held out"
     )
   }
   cli::cli_h2("SCM size")
@@ -621,6 +667,10 @@ print.hyperion_scm_plan <- function(x, ...) {
       } else {
         cli::cli_ul(vapply(ctx$changes, scm_change_line, character(1)))
       }
+    }
+    removal <- scm_context_removal_note(ctx)
+    if (!is.null(removal)) {
+      cli::cli_alert_info(removal)
     }
     note <- scm_context_stale_note(ctx)
     if (!is.null(note)) {
@@ -670,13 +720,14 @@ knit_print.hyperion_scm_plan <- function(x, ...) {
       paste0("- **num rounds:** pause after ", parts$num_rounds, " (resumable)")
     },
     "",
-    "| candidate | theta | first release |",
-    "|---|---|---|",
+    "| candidate | theta | initial (first release) | off (held out) |",
+    "|---|---|---|---|",
     sprintf(
-      "| %s | THETA(%d) | %s |",
+      "| %s | THETA(%d) | %s | %s |",
       parts$candidates$name,
       parts$candidates$theta,
-      format(parts$candidates$init)
+      format(parts$candidates$initial),
+      format(parts$candidates$off)
     ),
     "",
     sprintf(
@@ -711,6 +762,10 @@ knit_print.hyperion_scm_plan <- function(x, ...) {
         ""
       )
     }
+    removal <- scm_context_removal_note(ctx)
+    if (!is.null(removal)) {
+      output <- c(output, removal, "")
+    }
     note <- scm_context_stale_note(ctx)
     if (!is.null(note)) {
       output <- c(output, paste0("**Note:** ", note), "")
@@ -744,77 +799,233 @@ knit_print.hyperion_scm_status <- function(x, ...) {
   knitr::asis_output(paste(output, collapse = "\n"))
 }
 
-#' Drill into one round of an SCM process
+#' The SCM summary: every round to date, with what each candidate scored
 #'
-#' Where [scm_status()] shows the whole SCM process one line per round,
-#' `scm_summary()` shows everything about a single round: every model file
-#' run in it — every retry included — with its outcome, the round's
-#' reference model and OFV, per-candidate scoring (ΔOFV, p-value,
-#' significance, selection), the heuristic checks that fired, and where the
-#' round's own `round_summary.md` lives (the full per-run record, heuristics
-#' included).
+#' Where [scm_status()] shows where the SCM process stands (what is running,
+#' what to do next), `scm_summary()` is the scientific record: every round
+#' to date, each candidate's ΔOFV and p-value against the round's critical
+#' value, sorted winner-first, plus the reference fit and the retained set.
+#' The same record pharos writes to `scm_summary.json` and to each round's
+#' `round_summary.json`, so the file and the screen never disagree.
+#'
+#' Flags stack detail onto the default view, in the spirit of `ls -la -t`:
+#'
+#' - `long`: absolute OFV, the LRT statistic against its critical value, the
+#'   effect's estimate with RSE and 95% CI, df, attempts, condition number
+#'   and heuristics on every candidate line
+#' - `all`: what the default hides — the reference fit's attempts, every
+#'   attempt of every candidate (retries included) with its model path
+#' - `time`: start, end and wall time per fit and per round, estimation
+#'   time, totals
+#' - `parameters`: each round's winner's parameter table beside its
+#'   reference, and the IIV change on every diagonal OMEGA
+#' - `matrix`: a candidates × rounds grid of p-values (`"p"`) or ΔOFV
+#'   (`"dofv"`), winners bracketed
+#' - `candidate`: one candidate traced through every round it was tested in
+#' - `files`: run directory, `.lst`, `.ext` and summary JSON per candidate
 #'
 #' @param x a `hyperion_scm_plan`, an SCM output directory, or a plan.json
 #'   path
-#' @param round which round: the Nth SCM round (`2` or `"round 2"` — the
+#' @param round only this round: the Nth SCM round (`2` or `"round 2"` — the
 #'   reference fit is not a round), a round name (`"forward_round1"`,
-#'   `"backward_round1"`), or `"reference"`
+#'   `"backward_round1"`), or `"reference"`. A single round always lists
+#'   its attempts. `NULL` (the default) shows every round to date.
+#' @param phase only this phase: `"forward"` or `"backward"`
+#' @param candidate trace one candidate, by name, through every round
+#' @param long,all,time,parameters,files the detail flags described above
+#' @param matrix `"p"` or `"dofv"` for the candidates × rounds grid; `TRUE`
+#'   means `"p"`
+#' @param sort order within a round: `"p"` (winner-first for the phase, the
+#'   default), `"dofv"`, or `"name"` (plan order)
+#' @param reverse reverse the order within a round
+#' @param digits decimals for OFV, ΔOFV and estimates (default 3)
 #'
-#' @return a `hyperion_scm_round` object; print it for the rendered view
+#' @return a `hyperion_scm_summary` object: the summary record restricted to
+#'   the rounds selected (`x$rounds[[i]]$candidates[[j]]` holds every
+#'   number), with the rendered text as its `rendered` attribute. Print it
+#'   for the rendered view; [as.data.frame()] gives one row per candidate
+#'   per round.
 #' @export
 #'
 #' @examples \dontrun{
-#' scm_summary(plan, 2)
-#' scm_summary("model/nonmem/PK/scm/scm-demo", "round 2")
-#' scm_summary(plan, "backward_round1")
+#' scm_summary(plan)                        # every round to date
+#' scm_summary(plan, long = TRUE, all = TRUE)
+#' scm_summary(plan, matrix = "p")
+#' scm_summary(plan, candidate = "AGE_CL")  # why did it never get in?
+#' scm_summary(plan, 2)                     # one round, every attempt
+#' scm_summary("model/nonmem/PK/scm/scm-demo", "backward_round1", time = TRUE)
+#' as.data.frame(scm_summary(plan))
 #' }
-scm_summary <- function(x, round) {
+scm_summary <- function(x,
+                        round = NULL,
+                        phase = NULL,
+                        candidate = NULL,
+                        long = FALSE,
+                        all = FALSE,
+                        time = FALSE,
+                        parameters = FALSE,
+                        matrix = NULL,
+                        files = FALSE,
+                        sort = c("p", "dofv", "name"),
+                        reverse = FALSE,
+                        digits = 3) {
   out_dir <- scm_out_dir(x)
-  if (missing(round)) {
-    rlang::abort(
-      "`round` is required: a number (2), \"round 2\", a round name (\"forward_round1\"), or \"reference\""
-    )
-  }
-  if (is.numeric(round)) {
-    ok <- length(round) == 1L && !is.na(round) && is.finite(round) &&
-      round %% 1 == 0 && round >= 1
-    if (!ok) {
-      rlang::abort("`round` must be a whole number >= 1, or a round name")
+  if (!is.null(round)) {
+    if (is.numeric(round)) {
+      ok <- length(round) == 1L && !is.na(round) && is.finite(round) &&
+        round %% 1 == 0 && round >= 1
+      if (!ok) {
+        rlang::abort("`round` must be a whole number >= 1, a round name, or NULL for every round")
+      }
+      round <- as.character(as.integer(round))
     }
-    round <- as.character(as.integer(round))
+    if (!is.character(round) || length(round) != 1L || is.na(round) ||
+          !nzchar(trimws(round))) {
+      rlang::abort(
+        "`round` must be a round number or name, e.g. 2, \"round 2\", or \"forward_round1\""
+      )
+    }
   }
-  if (!is.character(round) || length(round) != 1L || is.na(round) ||
-        !nzchar(trimws(round))) {
-    rlang::abort(
-      "`round` must be a round number or name, e.g. 2, \"round 2\", or \"forward_round1\""
-    )
+  if (!is.null(phase)) {
+    phase <- match.arg(phase, c("forward", "backward"))
   }
-  scm_summary_impl(path = out_dir, round = round)
+  if (!is.null(candidate)) {
+    ok <- is.character(candidate) && length(candidate) == 1L &&
+      !is.na(candidate) && nzchar(trimws(candidate))
+    if (!ok) {
+      rlang::abort("`candidate` must be a single candidate name, or NULL")
+    }
+    candidate <- trimws(candidate)
+  }
+  for (flag in c("long", "all", "time", "parameters", "files", "reverse")) {
+    value <- get(flag)
+    if (!(isTRUE(value) || isFALSE(value))) {
+      rlang::abort(paste0("`", flag, "` must be TRUE or FALSE"))
+    }
+  }
+  if (isTRUE(matrix)) {
+    matrix <- "p"
+  } else if (isFALSE(matrix)) {
+    matrix <- NULL
+  }
+  if (!is.null(matrix)) {
+    matrix <- match.arg(matrix, c("p", "dofv"))
+  }
+  sort <- match.arg(sort)
+  ok <- is.numeric(digits) && length(digits) == 1L && !is.na(digits) &&
+    is.finite(digits) && digits %% 1 == 0 && digits >= 0
+  if (!ok) {
+    rlang::abort("`digits` must be a whole number >= 0")
+  }
+
+  scm_summary_impl(
+    path = out_dir,
+    round = round,
+    phase = phase,
+    candidate = candidate,
+    long = long,
+    all = all,
+    time = time,
+    parameters = parameters,
+    matrix = matrix,
+    files = files,
+    sort = sort,
+    reverse = reverse,
+    digits = as.integer(digits)
+  )
 }
 
-#' Print method for hyperion_scm_round objects
+#' Print method for hyperion_scm_summary objects
 #'
-#' @param x a `hyperion_scm_round`
+#' @param x a `hyperion_scm_summary`
 #' @param ... ignored
 #' @return invisible copy of x
-#' @exportS3Method base::print hyperion_scm_round
-print.hyperion_scm_round <- function(x, ...) {
-  # pharos renders the round; printing its text verbatim keeps hyperion and
+#' @exportS3Method base::print hyperion_scm_summary
+print.hyperion_scm_summary <- function(x, ...) {
+  # pharos renders the summary; printing its text verbatim keeps hyperion and
   # `pharos nonmem scm summary` from ever drifting apart.
   cat(attr(x, "rendered"), "\n")
   invisible(x)
 }
 
-#' Knit print method for hyperion_scm_round objects
+#' Knit print method for hyperion_scm_summary objects
 #'
-#' @param x a `hyperion_scm_round`
+#' Emits pharos's markdown rendering — real tables, one per round — rather
+#' than the terminal text in a fenced block.
+#'
+#' @param x a `hyperion_scm_summary`
 #' @param ... ignored
 #' @return knitr asis output
-#' @exportS3Method knitr::knit_print hyperion_scm_round
-knit_print.hyperion_scm_round <- function(x, ...) {
-  rendered <- attr(x, "rendered")
-  output <- c("```", strsplit(rendered, "\n")[[1]], "```", "")
-  knitr::asis_output(paste(output, collapse = "\n"))
+#' @exportS3Method knitr::knit_print hyperion_scm_summary
+knit_print.hyperion_scm_summary <- function(x, ...) {
+  md <- attr(x, "markdown")
+  if (is.null(md)) {
+    md <- paste(c("```", strsplit(attr(x, "rendered"), "\n")[[1]], "```"), collapse = "\n")
+  }
+  knitr::asis_output(paste0(md, "\n"))
+}
+
+#' One row per candidate per round of an SCM summary
+#'
+#' @param x a `hyperion_scm_summary`
+#' @param ... ignored
+#' @return a data.frame with the round, candidate, status, scoring (OFV,
+#'   ΔOFV, statistic, df, p, alpha, critical ΔOFV, significance, selection,
+#'   rank), the effect's theta / initial / off and its estimate, stderr and
+#'   RSE, the fit's condition number, and the heuristics that fired
+#' @exportS3Method base::as.data.frame hyperion_scm_summary
+as.data.frame.hyperion_scm_summary <- function(x, ...) {
+  num <- function(v) if (is.null(v)) NA_real_ else as.numeric(v)
+  lgl <- function(v) if (is.null(v)) NA else isTRUE(v)
+  rows <- list()
+  for (r in x$rounds) {
+    for (c in r$candidates) {
+      est <- if (length(c$effect_estimates)) c$effect_estimates[[1]] else NULL
+      rows[[length(rows) + 1L]] <- data.frame(
+        round = unlist(r$round),
+        direction = unlist(r$direction),
+        candidate = unlist(c$candidate),
+        status = unlist(c$status),
+        model = unlist(c$model),
+        attempts = length(c$attempts),
+        ofv = num(c$ofv),
+        reference_ofv = num(c$reference_ofv),
+        delta_ofv = num(c$delta_ofv),
+        statistic = num(c$statistic),
+        df = as.integer(c$df),
+        p_value = num(c$p_value),
+        alpha = num(c$alpha),
+        critical_delta_ofv = num(c$critical_delta_ofv),
+        significant = lgl(c$significant),
+        selected = isTRUE(c$selected),
+        rank = if (is.null(c$rank)) NA_integer_ else as.integer(c$rank),
+        theta = if (length(c$thetas)) as.integer(c$thetas[[1]]) else NA_integer_,
+        initial = num(c$initial),
+        off = num(c$off),
+        estimate = num(est$estimate),
+        stderr = num(est$stderr),
+        rse = num(est$rse),
+        condition_number = num(c$fit$condition_number),
+        heuristics = paste(unlist(c$heuristics), collapse = "; "),
+        stringsAsFactors = FALSE
+      )
+    }
+  }
+  if (!length(rows)) {
+    return(data.frame(
+      round = character(), direction = character(), candidate = character(),
+      status = character(), model = character(), attempts = integer(),
+      ofv = numeric(), reference_ofv = numeric(), delta_ofv = numeric(),
+      statistic = numeric(), df = integer(), p_value = numeric(),
+      alpha = numeric(), critical_delta_ofv = numeric(),
+      significant = logical(), selected = logical(), rank = integer(),
+      theta = integer(), initial = numeric(), off = numeric(),
+      estimate = numeric(), stderr = numeric(), rse = numeric(),
+      condition_number = numeric(), heuristics = character(),
+      stringsAsFactors = FALSE
+    ))
+  }
+  do.call(rbind, rows)
 }
 
 #' Summarize an SCM process: the decision log as a data.frame

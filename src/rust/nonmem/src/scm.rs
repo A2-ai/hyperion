@@ -3,9 +3,9 @@
 //! `scm_init_wrap` writes the starter config beside a model, `scm_plan_wrap`
 //! builds the validated plan and writes `plan.json` through the same Rust
 //! serializer the pharos CLI reads, and `scm_status_wrap` /
-//! `scm_decision_log_wrap` read an SCM process wherever it stands. Running
-//! happens through the pharos CLI in the background (see `scm_run()` on the
-//! R side), never in-process.
+//! `scm_summary_wrap` / `scm_decision_log_wrap` read an SCM process wherever
+//! it stands. Running happens through the pharos CLI in the background (see
+//! `scm_run()` on the R side), never in-process.
 
 use std::path::Path;
 
@@ -14,8 +14,8 @@ use extendr_api::prelude::*;
 use extendr_api::serializer::to_robj;
 
 use nonmem::scm::{
-    self as pharos_scm, ScmPlan, decision_log_rows, log as scm_log,
-    reconcile_state_with_disk, state::ScmState,
+    self as pharos_scm, ScmPlan, SummaryFormat, SummaryOptions, decision_log_rows,
+    log as scm_log, reconcile_state_with_disk, state::ScmState,
 };
 
 use hyperion_core::{ResultExt, extendr_err};
@@ -48,14 +48,14 @@ pub fn scm_init_wrap(model: &str, #[extendr(default = "FALSE")] overwrite: bool)
 /// Internal engine behind [scm_plan()]; use that instead.
 ///
 /// @param config path to the SCM config file (TOML) written by
-///   [scm_init()]: model, covariates, direction, forward_alpha,
-///   backward_alpha, max_retries, cov_step, release_init. Relative paths
-///   resolve against the config file
+///   [scm_init()]: model, direction, forward_alpha, backward_alpha,
+///   max_retries, cov_step, and the `[covariates]` section (initial, off,
+///   effects). Relative paths resolve against the config file
 /// @param num_rounds pause after this many rounds per run (NULL = no cap)
 /// @param max_retries override the config's retries per failed fit
 /// @param cov_step override whether generated models run the covariance step
-/// @param release_init override the initial estimate a newly released
-///   covariate theta starts at
+/// @param initial override the `[covariates]` section's default `initial`,
+///   where an effect is released the first time it is tested
 /// @param overwrite replace existing SCM output from a different plan
 ///
 /// @return a `hyperion_scm_plan` object; its `plan_path` attribute is the
@@ -69,7 +69,7 @@ pub fn scm_plan_wrap(
     #[extendr(default = "NULL")] num_rounds: Option<i32>,
     #[extendr(default = "NULL")] max_retries: Option<i32>,
     #[extendr(default = "NULL")] cov_step: Option<bool>,
-    #[extendr(default = "NULL")] release_init: Option<f64>,
+    #[extendr(default = "NULL")] initial: Option<f64>,
     #[extendr(default = "FALSE")] overwrite: bool,
 ) -> Result<Robj> {
     if let Some(m) = max_retries
@@ -89,7 +89,7 @@ pub fn scm_plan_wrap(
         num_rounds: num_rounds.map(|n| n as usize),
         max_retries: max_retries.map(|m| m as usize),
         cov_step,
-        release_init,
+        initial,
         overwrite,
     };
 
@@ -177,25 +177,90 @@ impl From<pharos_scm::DecisionLogRow> for DecisionLogRow {
     }
 }
 
-/// Detailed view of one round of an SCM process
+/// The SCM summary: every round to date, or a selection, rendered
 ///
 /// Internal engine behind [scm_summary()]; use that instead.
 ///
 /// @param path the SCM out_dir
-/// @param round which round: the Nth SCM round ("2" / "round 2"), a round
-///   name (forward_round1, backward_round1), or "reference"
+/// @param round only this round: the Nth SCM round ("2" / "round 2"), a
+///   round name (forward_round1, backward_round1), or "reference"; NULL for
+///   every round
+/// @param phase only this phase ("forward" / "backward"); NULL for both
+/// @param candidate trace one candidate through every round it was tested in
+/// @param long,all,time,parameters,files the `scm summary` detail flags
+/// @param matrix "p" or "dofv" for the candidates x rounds grid; NULL for none
+/// @param sort order within a round: "p", "dofv" or "name"
+/// @param reverse reverse the order within a round
+/// @param digits decimals for OFV, dOFV and estimates
 ///
-/// @return a `hyperion_scm_round` object
+/// @return a `hyperion_scm_summary` object: the summary record (the rounds
+///   selected), with the rendered text as its `rendered` attribute and the
+///   markdown rendering as `markdown`
 /// @keywords internal
 #[extendr(r_name = "scm_summary_impl")]
-pub fn scm_summary_wrap(path: &str, round: &str) -> Result<Robj> {
-    let detail = pharos_scm::read_round_detail(Path::new(path), round)
-        .map_to_extendr_err("Failed to read SCM round")?;
+#[allow(clippy::too_many_arguments)]
+pub fn scm_summary_wrap(
+    path: &str,
+    #[extendr(default = "NULL")] round: Option<String>,
+    #[extendr(default = "NULL")] phase: Option<String>,
+    #[extendr(default = "NULL")] candidate: Option<String>,
+    #[extendr(default = "FALSE")] long: bool,
+    #[extendr(default = "FALSE")] all: bool,
+    #[extendr(default = "FALSE")] time: bool,
+    #[extendr(default = "FALSE")] parameters: bool,
+    #[extendr(default = "NULL")] matrix: Option<String>,
+    #[extendr(default = "FALSE")] files: bool,
+    #[extendr(default = "\"p\"")] sort: &str,
+    #[extendr(default = "FALSE")] reverse: bool,
+    #[extendr(default = "3")] digits: i32,
+) -> Result<Robj> {
+    let phase = match phase {
+        Some(p) => Some(p.parse().map_err(|e: String| extendr_err!("{e}"))?),
+        None => None,
+    };
+    let matrix = match matrix {
+        Some(m) => Some(m.parse().map_err(|e: String| extendr_err!("{e}"))?),
+        None => None,
+    };
+    let sort = sort.parse().map_err(|e: String| extendr_err!("{e}"))?;
+    if digits < 0 {
+        return Err(extendr_err!("digits must be non-negative, got {digits}"));
+    }
+    let opts = SummaryOptions {
+        round,
+        phase,
+        candidate,
+        long,
+        all,
+        time,
+        parameters,
+        matrix,
+        files,
+        sort,
+        reverse,
+        digits: digits as usize,
+        format: SummaryFormat::Text,
+    };
 
-    let mut robj =
-        to_robj(&detail).map_to_extendr_err("Failed to convert round detail to Robj")?;
-    robj.set_attrib("rendered", detail.render_text().into_robj())?;
-    let robj = robj.set_class(["hyperion_scm_round"])?.to_owned();
+    let summary =
+        pharos_scm::read_summary(Path::new(path)).map_to_extendr_err("Failed to read SCM summary")?;
+    let rendered = summary
+        .render(&opts)
+        .map_to_extendr_err("Failed to render SCM summary")?;
+    let markdown = summary
+        .render(&SummaryOptions {
+            format: SummaryFormat::Markdown,
+            ..opts.clone()
+        })
+        .map_to_extendr_err("Failed to render SCM summary")?;
+    let selected = summary
+        .filtered(&opts)
+        .map_to_extendr_err("Failed to select SCM rounds")?;
+
+    let mut robj = to_robj(&selected).map_to_extendr_err("Failed to convert summary to Robj")?;
+    robj.set_attrib("rendered", rendered.into_robj())?;
+    robj.set_attrib("markdown", markdown.into_robj())?;
+    let robj = robj.set_class(["hyperion_scm_summary"])?.to_owned();
     Ok(robj)
 }
 

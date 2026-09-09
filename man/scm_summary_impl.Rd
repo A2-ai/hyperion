@@ -2,18 +2,49 @@
 % Please edit documentation in R/extendr-wrappers.R
 \name{scm_summary_impl}
 \alias{scm_summary_impl}
-\title{Detailed view of one round of an SCM process}
+\title{The SCM summary: every round to date, or a selection, rendered}
 \usage{
-scm_summary_impl(path, round)
+scm_summary_impl(
+  path,
+  round = NULL,
+  phase = NULL,
+  candidate = NULL,
+  long = FALSE,
+  all = FALSE,
+  time = FALSE,
+  parameters = FALSE,
+  matrix = NULL,
+  files = FALSE,
+  sort = "p",
+  reverse = FALSE,
+  digits = 3
+)
 }
 \arguments{
 \item{path}{the SCM out_dir}
 
-\item{round}{which round: the Nth SCM round ("2" / "round 2"), a round
-name (forward_round1, backward_round1), or "reference"}
+\item{round}{only this round: the Nth SCM round ("2" / "round 2"), a
+round name (forward_round1, backward_round1), or "reference"; NULL for
+every round}
+
+\item{phase}{only this phase ("forward" / "backward"); NULL for both}
+
+\item{candidate}{trace one candidate through every round it was tested in}
+
+\item{long, all, time, parameters, files}{the \verb{scm summary} detail flags}
+
+\item{matrix}{"p" or "dofv" for the candidates x rounds grid; NULL for none}
+
+\item{sort}{order within a round: "p", "dofv" or "name"}
+
+\item{reverse}{reverse the order within a round}
+
+\item{digits}{decimals for OFV, dOFV and estimates}
 }
 \value{
-a \code{hyperion_scm_round} object
+a \code{hyperion_scm_summary} object: the summary record (the rounds
+selected), with the rendered text as its \code{rendered} attribute and the
+markdown rendering as \code{markdown}
 }
 \description{
 Internal engine behind \code{\link[=scm_summary]{scm_summary()}}; use that instead.

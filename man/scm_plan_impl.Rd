@@ -9,15 +9,15 @@ scm_plan_impl(
   num_rounds = NULL,
   max_retries = NULL,
   cov_step = NULL,
-  release_init = NULL,
+  initial = NULL,
   overwrite = FALSE
 )
 }
 \arguments{
 \item{config}{path to the SCM config file (TOML) written by
-\code{\link[=scm_init]{scm_init()}}: model, covariates, direction, forward_alpha,
-backward_alpha, max_retries, cov_step, release_init. Relative paths
-resolve against the config file}
+\code{\link[=scm_init]{scm_init()}}: model, direction, forward_alpha, backward_alpha,
+max_retries, cov_step, and the \verb{[covariates]} section (initial, off,
+effects). Relative paths resolve against the config file}
 
 \item{num_rounds}{pause after this many rounds per run (NULL = no cap)}
 
@@ -25,8 +25,8 @@ resolve against the config file}
 
 \item{cov_step}{override whether generated models run the covariance step}
 
-\item{release_init}{override the initial estimate a newly released
-covariate theta starts at}
+\item{initial}{override the \verb{[covariates]} section's default \code{initial},
+where an effect is released the first time it is tested}
 
 \item{overwrite}{replace existing SCM output from a different plan}
 }

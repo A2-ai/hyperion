@@ -9,7 +9,7 @@ scm_plan(
   num_rounds = NULL,
   max_retries = NULL,
   cov_step = NULL,
-  release_init = NULL,
+  initial = NULL,
   overwrite = FALSE
 )
 }
@@ -27,12 +27,12 @@ last iteration if it never finished). \code{NULL} = use the config.}
 \item{cov_step}{override whether generated models run the covariance step
 (\verb{$COVARIANCE}, config default \code{FALSE}). \code{NULL} = use the config.}
 
-\item{release_init}{override the initial estimate a released covariate
-theta starts at when the template gives it none (config default 0.1);
-a theta the template already carries an initial guess for starts from
-that instead, parameters already free in the round's reference fit
-continue from its estimates, and candidate thetas held out of a given
-model are fixed at zero. \code{NULL} = use the config.}
+\item{initial}{override the \verb{[covariates]} section's default \code{initial}:
+where an effect is released the first time it is tested when neither
+its own row nor the template gives it a value (config default 0.1).
+Parameters already free in the round's reference fit continue from its
+estimates, and candidate thetas held out of a given model are fixed at
+their \code{off} value. \code{NULL} = use the config.}
 
 \item{overwrite}{replace existing SCM output from a \emph{different} plan in
 \code{out_dir} (re-running the same plan resumes and needs no overwrite)}
@@ -50,16 +50,15 @@ Reads the SCM process setup from an SCM config file (TOML) — the one
 user-authored template control stream it names, returns the plan as a
 \code{hyperion_scm_plan} object, and writes it to \verb{<out_dir>/plan.json} —
 \code{\link[=scm_run]{scm_run()}} and \verb{pharos scm run} execute. Nothing is fitted. The template
-carries the candidate effects already written into \verb{$PK}; \code{covariates}
-names the ones to test, and every model generated holds the rest out by
-fixing their thetas at zero.
+carries the candidate effects already written into \verb{$PK}; the
+\verb{[covariates]} section names the ones to test, and every model generated
+holds the rest out by fixing their thetas at their \code{off} value.
 }
 \details{
 The config file defines the SCM process; the \code{scm_plan()} call carries only
 per-invocation control (\code{num_rounds}, overrides, \code{overwrite}):
 
 \if{html}{\out{<div class="sourceCode toml">}}\preformatted{model = "scm-demo.mod"
-covariates = ["WT_CL", "CRCL_CL", "AGE_CL"]  # $PK term names
 direction = ["forward", "backward"]
 
 # optional, at their defaults:
@@ -67,18 +66,32 @@ forward_alpha = 0.05
 backward_alpha = 0.001
 max_retries = 3
 cov_step = false
-release_init = 0.1
+
+[covariates]
+initial = 0.1   # default: where an effect is released when first tested
+off = 0         # default: what a held-out effect's theta is fixed at
+effects = [
+  "WT_CL", "CRCL_CL", "AGE_CL",                   # $PK term names, at the defaults
+  \{ name = "SEXEFF_CL", initial = 1.2, off = 1 \}, # a fold-change effect: 1 = no effect
+]
 }\if{html}{\out{</div>}}
 
 Relative paths in the config resolve against the config file's own
 directory. The SCM process always writes into \verb{scm/<model stem>} beside the
 model — the directory \code{\link[=scm_init]{scm_init()}} creates; that location is not
-configurable. \code{covariates} names the candidate effects by their \verb{$PK}
+configurable. \code{effects} names the candidate effects by their \verb{$PK}
 term: the names of the \verb{$PK} assignments holding them, exactly as the
 template's author wrote them (matched case-insensitively), each
 referencing exactly one THETA. That name is the candidate's name
 throughout the SCM process, and a theta comment that disagrees with it only
-warns. THETA numbers are not accepted.
+warns. THETA numbers are not accepted. A bare name takes the section's
+\code{initial} and \code{off} defaults; a row overrides them for one effect, which a
+fold-change form such as \code{SEXEFF_CL = THETA(n)**SEX} needs (\code{off = 1}).
+
+Re-planning without a candidate that has never won a round is not a new
+SCM process: \code{\link[=scm_run]{scm_run()}} carries on without it, keeping every round already
+fitted. Removing a candidate that has won a round, adding one, or changing
+any other SCM-defining setting needs \code{overwrite}.
 }
 \examples{
 \dontrun{

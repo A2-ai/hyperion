@@ -70,19 +70,24 @@ write_scm_fixture <- function(dir, template = scm_template) {
   model_path
 }
 
-# The SCM config file (TOML) defines the SCM process; covariates/direction are
-# TOML fragments so tests can exercise both spellings and bad input.
+# The SCM config file (TOML) defines the SCM process; `covariates` is the
+# `effects` array of the [covariates] section and `direction` a TOML
+# fragment, so tests can exercise both spellings and bad input. `extra` goes
+# above the section (top-level keys); `section` inside it.
 write_scm_config <- function(dir,
                              covariates = '["WT_CL", "CRCL_CL", "WT_V"]',
                              direction = '["forward", "backward"]',
-                             extra = character()) {
+                             extra = character(),
+                             section = character()) {
   config_path <- file.path(dir, "scm.toml")
   writeLines(
     c(
       'model = "1001.mod"',
-      paste0("covariates = ", covariates),
       paste0("direction = ", direction),
-      extra
+      extra,
+      "[covariates]",
+      section,
+      paste0("effects = ", covariates)
     ),
     config_path
   )
@@ -109,14 +114,16 @@ test_that("scm_init writes the config beside the model and makes the SCM process
 
   body <- paste(readLines(setup$config), collapse = "\n")
   expect_match(body, 'model = "1001.mod"', fixed = TRUE)
-  expect_match(body, "covariates = []", fixed = TRUE)
+  expect_match(body, "[covariates]", fixed = TRUE)
+  expect_match(body, "effects = []", fixed = TRUE)
   expect_match(body, 'direction = ["forward", "backward"]', fixed = TRUE)
-  # out_dir is no longer a config key
+  # out_dir and release_init are no longer config keys
   expect_no_match(body, "out_dir", fixed = TRUE)
+  expect_no_match(body, "release_init", fixed = TRUE)
   # every optional setting is present at its default
   for (default in c("forward_alpha = 0.05", "backward_alpha = 0.001",
                     "max_retries = 3", "cov_step = false",
-                    "release_init = 0.1")) {
+                    "initial = 0.1", "off = 0")) {
     expect_match(body, default, fixed = TRUE)
   }
 })
@@ -126,11 +133,11 @@ test_that("the config scm_init writes only needs its covariates filled in", {
   model <- write_scm_fixture(dir)
   setup <- scm_init(model)
 
-  # empty candidates is the one thing left to fill in
-  expect_error(scm_plan(setup$config), "covariates")
+  # empty effects is the one thing left to fill in
+  expect_error(scm_plan(setup$config), "effects")
 
   body <- readLines(setup$config)
-  body <- sub("covariates = []", 'covariates = ["WT_CL", "CRCL_CL"]',
+  body <- sub("effects = []", 'effects = ["WT_CL", "CRCL_CL"]',
               body, fixed = TRUE)
   writeLines(body, setup$config)
 
@@ -159,7 +166,7 @@ test_that("scm_init validates its inputs and never clobbers a filled-in config",
   scm_init(model, overwrite = TRUE)
   expect_match(
     paste(readLines(setup$config), collapse = "\n"),
-    "covariates = []",
+    "effects = []",
     fixed = TRUE
   )
 })
@@ -181,7 +188,9 @@ test_that("scm_plan names candidates from their $PK terms and carries defaults",
   expect_equal(plan$options$forward_alpha, 0.05)
   expect_equal(plan$options$backward_alpha, 0.001)
   expect_equal(as.integer(plan$options$max_retries), 3L)
-  expect_equal(plan$options$release_init, 0.1)
+  # every candidate at the section defaults: released at 0.1, held out at 0
+  expect_equal(vapply(plan$candidates, function(c) c$initial, numeric(1)), rep(0.1, 3))
+  expect_equal(vapply(plan$candidates, function(c) c$off, numeric(1)), rep(0, 3))
   expect_false(plan$options$cov_step)
   expect_false(plan$options$overwrite)
   expect_match(plan$out_dir, "scm/1001$")
@@ -206,9 +215,16 @@ test_that("scm_plan validates its inputs", {
   # direction comes from the config, and is required there
   cfg <- write_scm_config(dir, direction = '["sideways"]')
   expect_error(scm_plan(cfg))
-  writeLines(c('model = "1001.mod"', 'covariates = ["WT_CL"]'),
+  writeLines(c('model = "1001.mod"', "[covariates]", 'effects = ["WT_CL"]'),
              file.path(dir, "scm.toml"))
   expect_error(scm_plan(file.path(dir, "scm.toml")), "direction")
+
+  # the flat spellings from before the [covariates] section point at it
+  writeLines(c('model = "1001.mod"', 'covariates = ["WT_CL"]',
+               'direction = ["forward"]'), file.path(dir, "scm.toml"))
+  expect_error(scm_plan(file.path(dir, "scm.toml")), "now a section")
+  cfg <- write_scm_config(dir, extra = "release_init = 0.2")
+  expect_error(scm_plan(cfg), "`initial` under \\[covariates\\]")
 
   # a typo'd option fails loudly instead of silently using a default
   cfg <- write_scm_config(dir, extra = "foward_alpha = 0.01")
@@ -223,7 +239,42 @@ test_that("scm_plan validates its inputs", {
   expect_error(scm_plan(cfg, max_retries = -1), "max_retries")
   expect_error(scm_plan(cfg, max_retries = 1.5), "max_retries")
   expect_error(scm_plan(cfg, cov_step = "yes"), "cov_step")
-  expect_error(scm_plan(cfg, release_init = 0), "release_init")
+  expect_error(scm_plan(cfg, initial = "a lot"), "initial")
+  # an initial equal to the off value releases nothing: pharos refuses
+  expect_error(scm_plan(cfg, initial = 0), "equals off")
+})
+
+test_that("the covariates section takes names, rows, and defaults", {
+  dir <- withr::local_tempdir()
+  # WT_V written as a fold-change effect, held out at 1
+  fold <- sub("WT_V = (WT/70)**THETA(6)", "WT_V = THETA(6)**(WT/70)", scm_template, fixed = TRUE)
+  fold <- sub("$THETA (0 FIX)   ; WT_V cov", "$THETA (1 FIX)   ; WT_V cov", fold, fixed = TRUE)
+  write_scm_fixture(dir, template = fold)
+
+  plan <- scm_plan(write_scm_config(
+    dir,
+    covariates = paste(
+      '["WT_CL",',
+      '{ name = "CRCL_CL", initial = 0.3 },',
+      '{ name = "WT_V", initial = 1.5, off = 1 }]'
+    ),
+    section = c("initial = 0.2", "off = 0")
+  ))
+  expect_equal(vapply(plan$candidates, function(c) c$initial, numeric(1)), c(0.2, 0.3, 1.5))
+  expect_equal(vapply(plan$candidates, function(c) c$off, numeric(1)), c(0, 0, 1))
+
+  # the plan shows both values per candidate
+  txt <- cli_text_of(print(plan))
+  expect_match(txt, "released at 1.5 when first tested, fixed at 1 when held out", fixed = TRUE)
+  knit <- as.character(knitr::knit_print(plan))
+  expect_match(knit, "| WT_V | THETA(6) | 1.5 | 1 |", fixed = TRUE)
+
+  # the `initial` override moves the section default, never a row's own value
+  plan <- scm_plan(write_scm_config(
+    dir,
+    covariates = '["WT_CL", { name = "CRCL_CL", initial = 0.3 }]'
+  ), initial = 0.05)
+  expect_equal(vapply(plan$candidates, function(c) c$initial, numeric(1)), c(0.05, 0.3))
 })
 
 test_that("covariates are keyed by $PK term name, case-insensitively", {
@@ -374,26 +425,25 @@ test_that("call-site overrides beat the config", {
   cfg <- write_scm_config(dir, extra = c(
     "forward_alpha = 0.01",
     "max_retries = 5",
-    "cov_step = false",
-    "release_init = 0.2"
-  ))
+    "cov_step = false"
+  ), section = "initial = 0.2")
 
   # config alone (cov_step = false + a $COVARIANCE in the template warns)
   expect_warning(plan <- scm_plan(cfg), "cov_step is off")
   expect_equal(plan$options$forward_alpha, 0.01)
   expect_equal(as.integer(plan$options$max_retries), 5L)
   expect_false(plan$options$cov_step)
-  expect_equal(plan$options$release_init, 0.2)
+  expect_equal(plan$candidates[[1]]$initial, 0.2)
   expect_null(plan$options$num_rounds)
 
   # overrides win; untouched config values survive
   plan <- scm_plan(cfg,
                    num_rounds = 2, max_retries = 1,
-                   cov_step = TRUE, release_init = 0.05, overwrite = TRUE)
+                   cov_step = TRUE, initial = 0.05, overwrite = TRUE)
   expect_equal(as.integer(plan$options$num_rounds), 2L)
   expect_equal(as.integer(plan$options$max_retries), 1L)
   expect_true(plan$options$cov_step)
-  expect_equal(plan$options$release_init, 0.05)
+  expect_equal(plan$candidates[[1]]$initial, 0.05)
   expect_true(plan$options$overwrite)
   expect_equal(plan$options$forward_alpha, 0.01)
 })
@@ -577,16 +627,52 @@ test_that("re-planning shows where the SCM process got to and what changed", {
   expect_match(txt, "final model: final/1001_scm_final.mod", fixed = TRUE)
 
   expect_match(txt, "Changes from the previous plan")
-  expect_match(txt, "candidates: removed WT_V THETA(6) (SCM-defining)",
-               fixed = TRUE)
+  # WT_V never won a round, so dropping it is not SCM-defining; the alpha is
+  expect_match(txt, "candidates: removed WT_V THETA(6)", fixed = TRUE)
+  expect_no_match(txt, "removed WT_V THETA(6) (SCM-defining)", fixed = TRUE)
   expect_match(txt, "forward_alpha: 0.05 -> 0.01 (SCM-defining)",
                fixed = TRUE)
   expect_match(txt, "cannot resume")
+  expect_match(txt, "alphas, retries or cov step differ")
 
   # the same story in a knitted document
   knit <- as.character(knitr::knit_print(replan))
   expect_match(knit, "Where the SCM process stands")
   expect_match(knit, "removed WT_V THETA(6)", fixed = TRUE)
+})
+
+test_that("re-planning without a never-selected candidate keeps the SCM process", {
+  dir <- withr::local_tempdir()
+  plan <- suppressWarnings(make_plan(dir))
+  fabricate_completed_state(plan$out_dir)
+
+  # WT_V lost round 1; dropping it alone is a compatible change
+  replan <- suppressWarnings(scm_plan(write_scm_config(
+    dir,
+    covariates = '["WT_CL", "CRCL_CL"]'
+  )))
+  ctx <- attr(replan, "context")
+  expect_false(isTRUE(unlist(ctx$state_is_stale)))
+  expect_equal(unlist(ctx$removals), "WT_V")
+  txt <- cli_text_of(print(replan))
+  expect_match(txt, "Removing WT_V -- never selected", fixed = TRUE)
+  expect_no_match(txt, "cannot resume")
+
+  # WT_CL won round 1: dropping it is a different SCM process. (The
+  # fabricated state predates the roster, so pharos seeds its roster from the
+  # plan.json beside it: put the full plan back first.)
+  suppressWarnings(scm_plan(write_scm_config(dir)))
+  replan <- suppressWarnings(scm_plan(write_scm_config(
+    dir,
+    covariates = '["CRCL_CL", "WT_V"]'
+  )))
+  ctx <- attr(replan, "context")
+  expect_true(isTRUE(unlist(ctx$state_is_stale)))
+  txt <- cli_text_of(print(replan))
+  # (cli wraps the line, so the flag is matched on its own)
+  expect_match(txt, "removed WT_CL THETA(4) \u2014 selected in forward_round1", fixed = TRUE)
+  expect_match(txt, "(SCM-defining)", fixed = TRUE)
+  expect_match(txt, "WT_CL was selected in forward_round1")
 })
 
 test_that("re-planning the same SCM process reports no changes", {
@@ -619,6 +705,7 @@ test_that("scm_status and summary read a completed SCM process", {
 
   st_text <- paste(capture.output(print(st)), collapse = "\n")
   expect_match(st_text, "candidates : WT_CL, CRCL_CL, WT_V", fixed = TRUE)
+  expect_match(st_text, "scm_summary.json", fixed = TRUE)
   expect_match(st_text, "added WT_CL")
   expect_match(st_text, "unusable")
   # no reference line; the SCM process is completed, so retained shows and the
@@ -667,42 +754,80 @@ test_that("scm_status and summary read a completed SCM process", {
   expect_equal(nrow(log2), 4)
 })
 
-test_that("scm_summary drills into a single round", {
+test_that("scm_summary renders every round by default and drills into one", {
   dir <- withr::local_tempdir()
   plan <- make_plan(dir)
   fabricate_completed_state(plan$out_dir)
 
+  # every round to date
+  sm <- scm_summary(plan)
+  expect_s3_class(sm, "hyperion_scm_summary")
+  expect_equal(sm$status, "completed")
+  expect_length(sm$rounds, 2) # reference + forward_round1
+  txt <- paste(capture.output(print(sm)), collapse = "\n")
+  expect_match(txt, "<scm summary>", fixed = TRUE)
+  expect_match(txt, "retained   : WT_CL", fixed = TRUE)
+  expect_match(txt, "forward_round1   ref OFV 1000.000", fixed = TRUE)
+  expect_match(txt, "crit dOFV 3.841", fixed = TRUE)
+  expect_match(txt, "<- selected", fixed = TRUE)
+  # sorted winner-first: WT_CL, then CRCL_CL, then the unusable WT_V
+  expect_lt(regexpr("WT_CL        dOFV", txt, fixed = TRUE),
+            regexpr("CRCL_CL      dOFV", txt, fixed = TRUE))
+  expect_match(txt, "unusable")
+
+  # one round: number, "round N", full name, and "reference" all resolve;
+  # so do the plan / out_dir / plan.json addressing forms
   rd <- scm_summary(plan, 1)
-  expect_s3_class(rd, "hyperion_scm_round")
-  expect_equal(rd$round$name, "forward_round1")
+  expect_length(rd$rounds, 1)
+  expect_equal(rd$rounds[[1]]$round, "forward_round1")
+  expect_equal(scm_summary(plan$out_dir, "round 1")$rounds[[1]]$round, "forward_round1")
+  expect_equal(scm_summary(plan, "forward_round1")$rounds[[1]]$round, "forward_round1")
+  expect_equal(scm_summary(plan, "reference")$rounds[[1]]$round, "reference")
+  expect_error(scm_summary(plan, 7), "forward_round1")
 
-  # number, "round N", full name, and "reference" all resolve; so do the
-  # plan / out_dir / plan.json addressing forms
-  expect_equal(scm_summary(plan$out_dir, "round 1")$round$name, "forward_round1")
-  expect_equal(scm_summary(plan, "forward_round1")$round$name, "forward_round1")
-  expect_equal(scm_summary(plan, "reference")$round$name, "reference")
-
+  # a single round lists every attempt, retries included
   txt <- paste(capture.output(print(rd)), collapse = "\n")
-  # every model run that round, retries included, each with its outcome
   expect_match(txt, "forward_round1/1001_wt_cl.mod", fixed = TRUE)
   expect_match(txt, "no ofv")
   expect_match(txt, "forward_round1/1001_wt_cl_try2.mod", fixed = TRUE)
-  expect_match(txt, "<- selected", fixed = TRUE)
-  expect_match(txt, "unusable")
   expect_match(txt, "heuristics: parameter near boundary")
-  expect_match(txt, "round_summary.md")
 
-  # once the per-round markdown exists, the pointer names it
-  dir.create(file.path(plan$out_dir, "forward_round1"), recursive = TRUE)
-  writeLines("x", file.path(plan$out_dir, "forward_round1", "round_summary.md"))
-  rd2 <- scm_summary(plan, 1)
-  expect_equal(rd2$summary_md, "forward_round1/round_summary.md")
+  # the detail flags stack
+  long <- paste(capture.output(print(scm_summary(plan, long = TRUE, all = TRUE))), collapse = "\n")
+  expect_match(long, "candidate             OFV       dOFV      LRT", fixed = TRUE)
+  expect_match(long, "base/1001_base.mod", fixed = TRUE)
+  mat <- paste(capture.output(print(scm_summary(plan, matrix = TRUE))), collapse = "\n")
+  expect_match(mat, "p-value", fixed = TRUE)
+  expect_match(mat, "[7.7e-6]", fixed = TRUE)
+  trace <- paste(capture.output(print(scm_summary(plan, candidate = "CRCL_CL"))), collapse = "\n")
+  expect_match(trace, "CRCL_CL  THETA(5)", fixed = TRUE)
+  expect_match(trace, "never selected")
+  expect_error(scm_summary(plan, candidate = "AGE_CL"), "no candidate named AGE_CL")
 
-  # unknown rounds error and name what exists; bad input is caught R-side
-  expect_error(scm_summary(plan, 9), "forward_round1")
-  expect_error(scm_summary(plan, "sideways"), "rounds so far")
-  expect_error(scm_summary(plan, 0), "round")
-  expect_error(scm_summary(plan), "required")
+  # as.data.frame: one row per candidate per round
+  df <- as.data.frame(sm)
+  expect_s3_class(df, "data.frame")
+  expect_equal(nrow(df), 4) # base + 3 candidates
+  wt_cl <- df[df$candidate == "WT_CL", ]
+  expect_equal(wt_cl$delta_ofv, -20)
+  expect_equal(wt_cl$rank, 1L)
+  expect_true(wt_cl$selected)
+  expect_equal(wt_cl$theta, 4L)
+  expect_equal(wt_cl$initial, 0.1)
+  expect_equal(wt_cl$off, 0)
+  expect_true(abs(wt_cl$critical_delta_ofv - 3.841) < 1e-3)
+  expect_equal(df$status[df$candidate == "WT_V"], "unusable")
+
+  # knit_print emits markdown tables
+  knit <- knitr::knit_print(sm)
+  expect_s3_class(knit, "knit_asis")
+  expect_match(as.character(knit), "| candidate | model |", fixed = TRUE)
+
+  # input validation
+  expect_error(scm_summary(plan, round = 0), "whole number")
+  expect_error(scm_summary(plan, phase = "sideways"))
+  expect_error(scm_summary(plan, long = "yes"), "TRUE or FALSE")
+  expect_error(scm_summary(plan, digits = -1), "digits")
 })
 
 test_that("scm_status resolves plans, dirs, and plan.json paths", {

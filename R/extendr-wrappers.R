@@ -490,14 +490,14 @@ scm_init_impl <- function(model, overwrite = FALSE) .Call(wrap__scm_init_wrap, m
 #' Internal engine behind [scm_plan()]; use that instead.
 #'
 #' @param config path to the SCM config file (TOML) written by
-#'   [scm_init()]: model, covariates, direction, forward_alpha,
-#'   backward_alpha, max_retries, cov_step, release_init. Relative paths
-#'   resolve against the config file
+#'   [scm_init()]: model, direction, forward_alpha, backward_alpha,
+#'   max_retries, cov_step, and the `[covariates]` section (initial, off,
+#'   effects). Relative paths resolve against the config file
 #' @param num_rounds pause after this many rounds per run (NULL = no cap)
 #' @param max_retries override the config's retries per failed fit
 #' @param cov_step override whether generated models run the covariance step
-#' @param release_init override the initial estimate a newly released
-#'   covariate theta starts at
+#' @param initial override the `[covariates]` section's default `initial`,
+#'   where an effect is released the first time it is tested
 #' @param overwrite replace existing SCM output from a different plan
 #'
 #' @return a `hyperion_scm_plan` object; its `plan_path` attribute is the
@@ -505,7 +505,7 @@ scm_init_impl <- function(model, overwrite = FALSE) .Call(wrap__scm_init_wrap, m
 #'   SCM process in the out_dir already stands plus what this plan changed about
 #'   the plan.json it replaced
 #' @keywords internal
-scm_plan_impl <- function(config, num_rounds = NULL, max_retries = NULL, cov_step = NULL, release_init = NULL, overwrite = FALSE) .Call(wrap__scm_plan_wrap, config, num_rounds, max_retries, cov_step, release_init, overwrite)
+scm_plan_impl <- function(config, num_rounds = NULL, max_retries = NULL, cov_step = NULL, initial = NULL, overwrite = FALSE) .Call(wrap__scm_plan_wrap, config, num_rounds, max_retries, cov_step, initial, overwrite)
 
 #' Read the status of an SCM process
 #'
@@ -517,17 +517,27 @@ scm_plan_impl <- function(config, num_rounds = NULL, max_retries = NULL, cov_ste
 #' @keywords internal
 scm_status_impl <- function(path) .Call(wrap__scm_status_wrap, path)
 
-#' Detailed view of one round of an SCM process
+#' The SCM summary: every round to date, or a selection, rendered
 #'
 #' Internal engine behind [scm_summary()]; use that instead.
 #'
 #' @param path the SCM out_dir
-#' @param round which round: the Nth SCM round ("2" / "round 2"), a round
-#'   name (forward_round1, backward_round1), or "reference"
+#' @param round only this round: the Nth SCM round ("2" / "round 2"), a
+#'   round name (forward_round1, backward_round1), or "reference"; NULL for
+#'   every round
+#' @param phase only this phase ("forward" / "backward"); NULL for both
+#' @param candidate trace one candidate through every round it was tested in
+#' @param long,all,time,parameters,files the `scm summary` detail flags
+#' @param matrix "p" or "dofv" for the candidates x rounds grid; NULL for none
+#' @param sort order within a round: "p", "dofv" or "name"
+#' @param reverse reverse the order within a round
+#' @param digits decimals for OFV, dOFV and estimates
 #'
-#' @return a `hyperion_scm_round` object
+#' @return a `hyperion_scm_summary` object: the summary record (the rounds
+#'   selected), with the rendered text as its `rendered` attribute and the
+#'   markdown rendering as `markdown`
 #' @keywords internal
-scm_summary_impl <- function(path, round) .Call(wrap__scm_summary_wrap, path, round)
+scm_summary_impl <- function(path, round = NULL, phase = NULL, candidate = NULL, long = FALSE, all = FALSE, time = FALSE, parameters = FALSE, matrix = NULL, files = FALSE, sort = "p", reverse = FALSE, digits = 3) .Call(wrap__scm_summary_wrap, path, round, phase, candidate, long, all, time, parameters, matrix, files, sort, reverse, digits)
 
 #' Build the SCM decision log
 #'

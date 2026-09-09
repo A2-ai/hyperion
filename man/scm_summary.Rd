@@ -2,34 +2,90 @@
 % Please edit documentation in R/scm-methods.R
 \name{scm_summary}
 \alias{scm_summary}
-\title{Drill into one round of an SCM process}
+\title{The SCM summary: every round to date, with what each candidate scored}
 \usage{
-scm_summary(x, round)
+scm_summary(
+  x,
+  round = NULL,
+  phase = NULL,
+  candidate = NULL,
+  long = FALSE,
+  all = FALSE,
+  time = FALSE,
+  parameters = FALSE,
+  matrix = NULL,
+  files = FALSE,
+  sort = c("p", "dofv", "name"),
+  reverse = FALSE,
+  digits = 3
+)
 }
 \arguments{
 \item{x}{a \code{hyperion_scm_plan}, an SCM output directory, or a plan.json
 path}
 
-\item{round}{which round: the Nth SCM round (\code{2} or \code{"round 2"} — the
+\item{round}{only this round: the Nth SCM round (\code{2} or \code{"round 2"} — the
 reference fit is not a round), a round name (\code{"forward_round1"},
-\code{"backward_round1"}), or \code{"reference"}}
+\code{"backward_round1"}), or \code{"reference"}. A single round always lists
+its attempts. \code{NULL} (the default) shows every round to date.}
+
+\item{phase}{only this phase: \code{"forward"} or \code{"backward"}}
+
+\item{candidate}{trace one candidate, by name, through every round}
+
+\item{long, all, time, parameters, files}{the detail flags described above}
+
+\item{matrix}{\code{"p"} or \code{"dofv"} for the candidates × rounds grid; \code{TRUE}
+means \code{"p"}}
+
+\item{sort}{order within a round: \code{"p"} (winner-first for the phase, the
+default), \code{"dofv"}, or \code{"name"} (plan order)}
+
+\item{reverse}{reverse the order within a round}
+
+\item{digits}{decimals for OFV, ΔOFV and estimates (default 3)}
 }
 \value{
-a \code{hyperion_scm_round} object; print it for the rendered view
+a \code{hyperion_scm_summary} object: the summary record restricted to
+the rounds selected (\code{x$rounds[[i]]$candidates[[j]]} holds every
+number), with the rendered text as its \code{rendered} attribute. Print it
+for the rendered view; \code{\link[=as.data.frame]{as.data.frame()}} gives one row per candidate
+per round.
 }
 \description{
-Where \code{\link[=scm_status]{scm_status()}} shows the whole SCM process one line per round,
-\code{scm_summary()} shows everything about a single round: every model file
-run in it — every retry included — with its outcome, the round's
-reference model and OFV, per-candidate scoring (ΔOFV, p-value,
-significance, selection), the heuristic checks that fired, and where the
-round's own \code{round_summary.md} lives (the full per-run record, heuristics
-included).
+Where \code{\link[=scm_status]{scm_status()}} shows where the SCM process stands (what is running,
+what to do next), \code{scm_summary()} is the scientific record: every round
+to date, each candidate's ΔOFV and p-value against the round's critical
+value, sorted winner-first, plus the reference fit and the retained set.
+The same record pharos writes to \code{scm_summary.json} and to each round's
+\code{round_summary.json}, so the file and the screen never disagree.
+}
+\details{
+Flags stack detail onto the default view, in the spirit of \code{ls -la -t}:
+\itemize{
+\item \code{long}: absolute OFV, the LRT statistic against its critical value, the
+effect's estimate with RSE and 95\% CI, df, attempts, condition number
+and heuristics on every candidate line
+\item \code{all}: what the default hides — the reference fit's attempts, every
+attempt of every candidate (retries included) with its model path
+\item \code{time}: start, end and wall time per fit and per round, estimation
+time, totals
+\item \code{parameters}: each round's winner's parameter table beside its
+reference, and the IIV change on every diagonal OMEGA
+\item \code{matrix}: a candidates × rounds grid of p-values (\code{"p"}) or ΔOFV
+(\code{"dofv"}), winners bracketed
+\item \code{candidate}: one candidate traced through every round it was tested in
+\item \code{files}: run directory, \code{.lst}, \code{.ext} and summary JSON per candidate
+}
 }
 \examples{
 \dontrun{
-scm_summary(plan, 2)
-scm_summary("model/nonmem/PK/scm/scm-demo", "round 2")
-scm_summary(plan, "backward_round1")
+scm_summary(plan)                        # every round to date
+scm_summary(plan, long = TRUE, all = TRUE)
+scm_summary(plan, matrix = "p")
+scm_summary(plan, candidate = "AGE_CL")  # why did it never get in?
+scm_summary(plan, 2)                     # one round, every attempt
+scm_summary("model/nonmem/PK/scm/scm-demo", "backward_round1", time = TRUE)
+as.data.frame(scm_summary(plan))
 }
 }

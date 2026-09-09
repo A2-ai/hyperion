@@ -21,18 +21,19 @@ invisibly, a list with \code{config} (the config file written) and
 Writes the SCM config file beside \code{model} as \verb{<model>-scm.toml} and
 creates the \verb{scm/<model>} directory the SCM process writes into. The
 config comes with \code{direction} and every optional setting already filled
-in at its default and \code{covariates} left empty: name the covariate effects
-to be tested — by their \verb{$PK} term, e.g. \verb{["WT_CL", "CRCL_CL"]} — then
-\code{\link[=scm_plan]{scm_plan()}} the file. Nothing is planned and nothing is fitted — the
-candidates are yours to choose.
+in at its default and the \verb{[covariates]} section's \code{effects} left empty:
+name the covariate effects to be tested — by their \verb{$PK} term, e.g.
+\verb{effects = ["WT_CL", "CRCL_CL"]} — then \code{\link[=scm_plan]{scm_plan()}} the file. Nothing is
+planned and nothing is fitted — the candidates are yours to choose.
 }
 \details{
 The model is the \emph{template} control stream: it carries the candidate
 effects already written into \verb{$PK}, each its own term over a single
 THETA. How that theta is written is up to you — \verb{(0 FIX)} for an effect
 the template leaves out, or an ordinary theta carrying an initial guess.
-\code{covariates} alone decides what is tested: pharos fixes every candidate
-it is not testing at zero in the models it generates.
+\code{effects} alone decides what is tested: pharos fixes every candidate it is
+not testing at its \code{off} value (0 unless the config says otherwise) in
+the models it generates.
 }
 \examples{
 \dontrun{

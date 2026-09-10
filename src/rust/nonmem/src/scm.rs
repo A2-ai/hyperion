@@ -285,7 +285,7 @@ pub fn scm_decision_log_wrap(path: &str, #[extendr(default = "TRUE")] write: boo
     // returns, so mid-round the state still calls finished runs `running`.
     // Read them off disk the way the status and round views do, so all three
     // describe the same SCM process.
-    reconcile_state_with_disk(&mut state, out_dir);
+    reconcile_state_with_disk(&mut state, out_dir, &plan.options);
 
     let mut written: Vec<String> = vec![];
     if write {

@@ -39,6 +39,7 @@ process_heuristics_data <- function(run_heuristics) {
   # Define the order and messages
   heuristic_order <- c(
     "minimization_terminated",
+    "program_terminated_by_obj",
     "covariance_step_aborted",
     "eigenvalue_issues",
     "parameter_near_boundary",
@@ -47,6 +48,7 @@ process_heuristics_data <- function(run_heuristics) {
 
   positive_messages <- list(
     "minimization_terminated" = "Minimization Successful",
+    "program_terminated_by_obj" = "No Objective Function Failure",
     "covariance_step_aborted" = "Covariance Step Successful",
     "eigenvalue_issues" = "No Eigenvalue Issues",
     "parameter_near_boundary" = "No Parameters Near Boundary",
@@ -55,6 +57,7 @@ process_heuristics_data <- function(run_heuristics) {
 
   negative_messages <- list(
     "minimization_terminated" = "Minimization Terminated",
+    "program_terminated_by_obj" = "Program Terminated by Objective Function",
     "covariance_step_aborted" = "Covariance Step Aborted",
     "eigenvalue_issues" = "Eigenvalue Issues Detected",
     "parameter_near_boundary" = "Parameters Near Boundary",
@@ -63,6 +66,7 @@ process_heuristics_data <- function(run_heuristics) {
 
   na_messages <- list(
     "minimization_terminated" = "Minimization Status Unknown",
+    "program_terminated_by_obj" = "Objective Function Check Not Available",
     "covariance_step_aborted" = "Covariance Step Not Run",
     "eigenvalue_issues" = "Eigenvalue Check Not Available",
     "parameter_near_boundary" = "Boundary Check Not Available",

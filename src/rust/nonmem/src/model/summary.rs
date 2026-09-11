@@ -212,6 +212,10 @@ pub fn build_run_heuristics_df(heuristics: &RunHeuristics) -> Result<Robj> {
             heuristic_name: "minimization_terminated".to_string(),
             value: Rbool::from(heuristics.minimization_terminated),
         },
+        RunHeuristicsRow {
+            heuristic_name: "program_terminated_by_obj".to_string(),
+            value: Rbool::from(heuristics.program_terminated_by_obj),
+        },
     ];
 
     let df = rows

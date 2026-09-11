@@ -186,6 +186,25 @@ get_parameters <- function(path, hide_off_diagonal_params = FALSE, only_method =
 #' @keywords internal
 get_model_parameter_names <- function(model) .Call(wrap__get_model_parameter_names, model)
 
+#' Gets names of parameters declared FIX in the model
+#'
+#' Fixed status is read from the control stream, so it is available before a run
+#' completes. Omega and sigma are fixed per record, so a fixed BLOCK contributes
+#' its off-diagonal names as well as its diagonals.
+#'
+#' @param model hyperion_nonmem_model object from read_model()
+#' @param kind character, restrict to "THETA", "OMEGA" or "SIGMA". NULL returns
+#' every kind, ordered theta, omega, sigma.
+#'
+#' @return character vector of NONMEM parameter names
+#' @export
+#'
+#' @examples \dontrun{
+#' model <- read_model("model/nonmem/run001.mod")
+#' get_fixed_parameters(model, kind = "OMEGA")
+#' }
+get_fixed_parameters <- function(model, kind = NULL) .Call(wrap__get_fixed_parameters, model, kind)
+
 #' Build per-parameter comment info from a model object (internal)
 #'
 #' @param model hyperion_nonmem_model object from read_model()

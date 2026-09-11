@@ -287,6 +287,8 @@ pub fn to_config_relative(path: impl AsRef<Path>) -> Result<String> {
 
 /// Convert a config-relative path to an absolute path.
 /// If the path is already absolute, returns it unchanged.
+/// The config dir is canonicalized first so the result is absolute, which keeps
+/// repeated calls on the same path idempotent.
 pub fn from_config_relative(source: impl AsRef<Path>) -> Result<PathBuf> {
     let source_path = source.as_ref();
     if source_path.is_absolute() {
@@ -294,7 +296,8 @@ pub fn from_config_relative(source: impl AsRef<Path>) -> Result<PathBuf> {
     }
 
     if let Some(dir) = find_config_dir().map_to_extendr_err("Failed to find config dir")? {
-        return Ok(dir.join(source_path));
+        let canonical_dir = fs::canonicalize(&dir).unwrap_or(dir);
+        return Ok(canonical_dir.join(source_path));
     }
 
     Ok(source_path.to_path_buf())

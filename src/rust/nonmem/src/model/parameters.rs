@@ -5,6 +5,7 @@ use extendr_api::prelude::*;
 use std::cmp::Ordering;
 
 // pharos nonmem crate
+use nmparser::ParameterOrdering;
 use nonmem::Model;
 use nonmem::output_files::{ext::get_parameter_estimates, shk::ShkReader};
 
@@ -242,9 +243,91 @@ pub fn get_model_parameter_names(model: Robj) -> Result<Robj> {
     Ok(result)
 }
 
+/// Gets names of parameters declared FIX in the model
+///
+/// Fixed status is read from the control stream, so it is available before a run
+/// completes. Omega and sigma are fixed per record, so a fixed BLOCK contributes
+/// its off-diagonal names as well as its diagonals.
+///
+/// @param model hyperion_nonmem_model object from read_model()
+/// @param kind character, restrict to "THETA", "OMEGA" or "SIGMA". NULL returns
+/// every kind, ordered theta, omega, sigma.
+///
+/// @return character vector of NONMEM parameter names
+/// @export
+///
+/// @examples \dontrun{
+/// model <- read_model("model/nonmem/run001.mod")
+/// get_fixed_parameters(model, kind = "OMEGA")
+/// }
+#[extendr]
+pub fn get_fixed_parameters(
+    model: Robj,
+    #[extendr(default = "NULL")] kind: Option<&str>,
+) -> Result<Robj> {
+    let model: Model = from_robj(&model)?;
+
+    let kind = match kind {
+        Some(k) => match k.to_uppercase().as_str() {
+            THETA => Some(THETA),
+            OMEGA => Some(OMEGA),
+            SIGMA => Some(SIGMA),
+            _ => {
+                return Err(extendr_err!(
+                    "kind must be one of \"THETA\", \"OMEGA\", \"SIGMA\", got: {k}"
+                ));
+            }
+        },
+        None => None,
+    };
+    let wanted = |k: &str| kind.is_none_or(|selected| selected == k);
+
+    let mut names: Vec<String> = Vec::new();
+
+    if wanted(THETA) {
+        names.extend(
+            model
+                .thetas
+                .iter()
+                .enumerate()
+                .filter(|(_, theta)| theta.fixed)
+                .map(|(i, _)| format!("THETA{}", i + 1)),
+        );
+    }
+
+    if wanted(OMEGA) {
+        let entries = model
+            .get_omega_parameters(ParameterOrdering::RowMajor)
+            .map_to_extendr_err("Failed to get omega parameters")?;
+        names.extend(
+            entries
+                .into_iter()
+                .filter(|entry| entry.block_fixed)
+                .map(|entry| entry.param_name),
+        );
+    }
+
+    if wanted(SIGMA) {
+        let entries = model
+            .get_sigma_parameters(ParameterOrdering::RowMajor)
+            .map_to_extendr_err("Failed to get sigma parameters")?;
+        names.extend(
+            entries
+                .into_iter()
+                .filter(|entry| entry.block_fixed)
+                .map(|entry| entry.param_name),
+        );
+    }
+
+    names.sort_by(|a, b| compare_param_names(a, b));
+
+    Ok(names.into_robj())
+}
+
 extendr_module! {
     mod parameters;
 
     fn get_parameters;
     fn get_model_parameter_names;
+    fn get_fixed_parameters;
 }

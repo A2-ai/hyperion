@@ -4,10 +4,14 @@
 \alias{get_eta_labels}
 \title{Get ETA labels from model comments}
 \usage{
-get_eta_labels(model_comments)
+get_eta_labels(model_comments, mask = character())
 }
 \arguments{
 \item{model_comments}{A ModelComments object}
+
+\item{mask}{Character vector of omegas to leave out, keyed by NONMEM name,
+user name, or display name. Surviving labels keep their original ETA
+number.}
 }
 \value{
 Character vector of ETA labels (e.g., c("ETA1//ETA-CL", "ETA2//ETA-V"))

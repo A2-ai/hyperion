@@ -21,22 +21,24 @@ test_that("process_heuristics_data handles NA values with 3-way messages", {
   run_heuristics <- data.frame(
     heuristic_name = c(
       "minimization_terminated",
+      "program_terminated_by_obj",
       "covariance_step_aborted",
       "eigenvalue_issues",
       "parameter_near_boundary",
       "hessian_reset"
     ),
-    value = c(FALSE, NA, NA, TRUE, NA),
+    value = c(FALSE, NA, NA, NA, TRUE, NA),
     stringsAsFactors = FALSE
   )
 
   result <- process_heuristics_data(run_heuristics)
 
-  expect_equal(nrow(result), 5)
+  expect_equal(nrow(result), 6)
   expect_equal(
     result$message,
     c(
       "Minimization Successful",
+      "Objective Function Check Not Available",
       "Covariance Step Not Run",
       "Eigenvalue Check Not Available",
       "Parameters Near Boundary",
@@ -45,7 +47,7 @@ test_that("process_heuristics_data handles NA values with 3-way messages", {
   )
   expect_equal(
     result$has_issue,
-    c(FALSE, NA, NA, TRUE, NA)
+    c(FALSE, NA, NA, NA, TRUE, NA)
   )
 })
 

@@ -10,8 +10,7 @@ scm_summary_impl(
   phase = NULL,
   candidate = NULL,
   long = FALSE,
-  all = FALSE,
-  time = FALSE,
+  timing = FALSE,
   parameters = FALSE,
   matrix = NULL,
   files = FALSE,
@@ -31,7 +30,7 @@ every round}
 
 \item{candidate}{trace one candidate through every round it was tested in}
 
-\item{long, all, time, parameters, files}{the \verb{scm summary} detail flags}
+\item{long, timing, parameters, files}{the \verb{scm summary} detail flags}
 
 \item{matrix}{"p" or "dofv" for the candidates x rounds grid; NULL for none}
 

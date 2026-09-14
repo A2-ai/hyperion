@@ -14,24 +14,28 @@
 
 #' Set up an SCM process for a model
 #'
-#' Writes the SCM config file beside `model` as `<model>-scm.toml` and
-#' creates the `scm/<model>` directory the SCM process writes into. The
+#' Creates the `scm/<model>` directory the SCM process writes into and puts
+#' the SCM config file inside it as `<model>-scm.toml`. The
 #' config comes with `direction` and every optional setting already filled
 #' in at its default and the `[covariates]` section's `effects` left empty:
-#' name the covariate effects to be tested — by their `$PK` term, e.g.
-#' `effects = ["WT_CL", "CRCL_CL"]` — then [scm_plan()] the file. Nothing is
-#' planned and nothing is fitted — the candidates are yours to choose.
+#' name the covariate effects to be tested — by the name the initial model's
+#' `$THETA` record gives each one, e.g. `effects = ["WT_CL", "CRCL_CL"]` —
+#' then [scm_plan()] the file. Nothing is planned and nothing is fitted —
+#' the candidates are yours to choose.
 #'
-#' The model is the *template* control stream: it carries the candidate
-#' effects already written into `$PK`, each its own term over a single
-#' THETA. How that theta is written is up to you — `(0 FIX)` for an effect
-#' the template leaves out, or an ordinary theta carrying an initial guess.
-#' `effects` alone decides what is tested: pharos fixes every candidate it is
-#' not testing at its `off` value (0 unless the config says otherwise) in
-#' the models it generates.
+#' The model is the *initial model*: it carries a theta for each candidate
+#' effect, named either by a `$THETA` label (`$THETA WT_CL=(0, 0.4)`, or
+#' `$THETA NAMES(WT_CL, CRCL_CL) ...`) or by the theta's comment
+#' (`; WT_CL cov`, `; WT_CL`, `; 4 WT_CL WT on clearance`). Nothing else in
+#' the model is read — `$PK` is not consulted, so an effect folded into a
+#' structural expression is named the same way as one standing on its own,
+#' and a candidate theta need not be written `(0 FIX)`: an ordinary theta
+#' carrying a guess of its own is fine. `effects` alone decides what is
+#' tested: pharos fixes every candidate it is not testing at its `fixed`
+#' value (0 unless the config says otherwise) in the models it generates.
 #'
-#' @param model path to the template control stream (`.mod` / `.ctl`). The
-#'   config file and the output directory are created beside it.
+#' @param model path to the initial model (`.mod` / `.ctl`). The output
+#'   directory is created beside it, and the config file inside that.
 #' @param overwrite replace an existing `<model>-scm.toml` (default `FALSE`,
 #'   so a config you have already filled in is never clobbered)
 #'
@@ -71,18 +75,18 @@ scm_init <- function(model, overwrite = FALSE) {
 #'
 #' Reads the SCM process setup from an SCM config file (TOML) — the one
 #' [scm_init()] wrote — validates the covariate candidates against the
-#' user-authored template control stream it names, returns the plan as a
+#' user-authored initial model it names, returns the plan as a
 #' `hyperion_scm_plan` object, and writes it to `<out_dir>/plan.json` —
-#' [scm_run()] and `pharos scm run` execute. Nothing is fitted. The template
-#' carries the candidate effects already written into `$PK`; the
+#' [scm_run()] and `pharos scm run` execute. Nothing is fitted. The initial model
+#' names a theta for each candidate effect in its `$THETA` records; the
 #' `[covariates]` section names the ones to test, and every model generated
-#' holds the rest out by fixing their thetas at their `off` value.
+#' holds the rest out by fixing their thetas at their `fixed` value.
 #'
 #' The config file defines the SCM process; the `scm_plan()` call carries only
 #' per-invocation control (`num_rounds`, overrides, `overwrite`):
 #'
 #' ```toml
-#' model = "scm-demo.mod"
+#' model = "../../scm-demo.mod"
 #' direction = ["forward", "backward"]
 #'
 #' # optional, at their defaults:
@@ -90,43 +94,64 @@ scm_init <- function(model, overwrite = FALSE) {
 #' backward_alpha = 0.001
 #' max_retries = 3
 #' cov_step = false
+#' final_cov_step = true
 #'
 #' [covariates]
-#' initial = 0.1   # default: where an effect is released when first tested
-#' off = 0         # default: what a held-out effect's theta is fixed at
-#' # lower / upper # optional default $THETA bounds; omitted = the template's own
+#' initial = 0.1   # default: the initial estimate an effect is first tested at
+#' fixed = 0       # default: what a held-out effect's theta is fixed at
+#' # lower / upper # optional default $THETA bounds; omitted = the initial model's own
 #' effects = [
-#'   "WT_CL", "CRCL_CL", "AGE_CL",                   # $PK term names, at the defaults
-#'   { name = "SEXEFF_CL", initial = 1.2, off = 1 }, # a fold-change effect: 1 = no effect
-#'   { name = "WT_V", lower = 0, upper = 5 },        # bounded while it is in the model
+#'   "WT_CL", "CRCL_CL", "AGE_CL",                     # theta names, at the defaults
+#'   { name = "SEXEFF_CL", initial = 1.2, fixed = 1 }, # a fold-change effect: 1 = no effect
+#'   { name = "WT_V", lower = 0, upper = 5 },          # bounded while it is in the model
 #' ]
 #' ```
 #'
+#' `final_cov_step` (default `TRUE`) re-fits the final model with
+#' `$COVARIANCE` on once the SCM process finishes, whatever the rounds
+#' themselves ran with: the SCM process chooses the covariates, and that one
+#' fit is what reports their estimates with standard errors.
+#'
 #' Relative paths in the config resolve against the config file's own
-#' directory. The SCM process always writes into `scm/<model stem>` beside the
-#' model — the directory [scm_init()] creates; that location is not
-#' configurable. `effects` names the candidate effects by their `$PK`
-#' term: the names of the `$PK` assignments holding them, exactly as the
-#' template's author wrote them (matched case-insensitively), each
-#' referencing exactly one THETA. That name is the candidate's name
-#' throughout the SCM process, and a theta comment that disagrees with it only
-#' warns. THETA numbers are not accepted. A bare name takes the section's
-#' `initial` and `off` defaults; a row overrides them for one effect, which a
-#' fold-change form such as `SEXEFF_CL = THETA(n)**SEX` needs (`off = 1`).
+#' directory. The config lives in the SCM process's own directory,
+#' `scm/<model stem>` beside the model — the directory [scm_init()] creates —
+#' which is why the generated `model` key reads `../../<model>`. That
+#' location is not configurable. `effects` names the candidate effects the way the initial
+#' model's `$THETA` records name them, matched case-insensitively: a `$THETA`
+#' label (`$THETA WT_CL=(0, 0.4)`, `$THETA NAMES(WT_CL, CRCL_CL) ...`), or
+#' the name the theta's comment carries — `; WT_CL cov`, `; WT_CL`,
+#' `; THETA4: WT_CL` and `; 4 WT_CL WT on clearance` all name `WT_CL`. `$PK`
+#' is not read, so an effect written into a structural expression is named
+#' exactly like one standing on its own. A name must pick out one theta: if
+#' two thetas answer to it, planning stops and says which — rename one. Note
+#' that several thetas on one `$THETA` record sharing a single comment all
+#' take that comment's name, so write one theta per record or use `NAMES()`.
+#' The name the model uses is the candidate's name throughout the SCM
+#' process, whichever of its names the config asked for. THETA numbers are
+#' not accepted. A bare name takes the section's `initial` and `fixed`
+#' defaults; a row overrides them for one effect, which a fold-change form
+#' such as `SEXEFF_CL = THETA(n)**SEX` needs (`fixed = 1`). `fixed` was
+#' spelled `off` before; that spelling is still accepted.
 #'
 #' `lower` and `upper`, in the section or on a row, are the `$THETA` bounds
 #' each effect is estimated under in every model that has it in — the usual
 #' answer to a covariate whose estimation runs off somewhere absurd. Each
-#' bound comes from the row, else the section, else the bound the template's
+#' bound comes from the row, else the section, else the bound the initial model's
 #' own `$THETA` spec carries, so a config that says nothing about bounds
-#' leaves every candidate exactly as the template authored it. A held-out
-#' effect is written `(off FIX)` and needs no bounds; `initial` must sit
+#' leaves every candidate exactly as the initial model authored it. A held-out
+#' effect is written `(fixed FIX)` and needs no bounds; `initial` must sit
 #' strictly inside them, which the plan checks.
 #'
 #' Re-planning without a candidate that has never won a round is not a new
 #' SCM process: [scm_run()] carries on without it, keeping every round already
-#' fitted. Removing a candidate that has won a round, adding one, or changing
-#' any other SCM-defining setting needs `overwrite`.
+#' fitted. Neither is a new `initial` or new bounds on a candidate — the
+#' usual fix when a candidate fails on either. Re-plan with the edited config
+#' and [scm_run()] picks up where it left off: the new values apply to every
+#' model written from then on, and a candidate still in the open round is
+#' refitted under them (its earlier attempts kept on record and on disk, but
+#' never scored). Rounds already concluded keep the results they ran under.
+#' Removing a candidate that has won a round, adding one, or changing any
+#' other SCM-defining setting needs `overwrite`.
 #'
 #' @param config path to the SCM config file (TOML), as above
 #' @param num_rounds pause the SCM process after this many rounds per
@@ -138,11 +163,11 @@ scm_init <- function(model, overwrite = FALSE) {
 #' @param cov_step override whether generated models run the covariance step
 #'   (`$COVARIANCE`, config default `FALSE`). `NULL` = use the config.
 #' @param initial override the `[covariates]` section's default `initial`:
-#'   where an effect is released the first time it is tested when neither
-#'   its own row nor the template gives it a value (config default 0.1).
-#'   Parameters already free in the round's reference fit continue from its
-#'   estimates, and candidate thetas held out of a given model are fixed at
-#'   their `off` value. `NULL` = use the config.
+#'   the estimate an effect starts from the first time it is tested when
+#'   neither its own row nor the initial model gives it one (config default
+#'   0.1). Parameters already free in the round's reference fit continue from
+#'   its estimates, and candidate thetas held out of a given model are fixed
+#'   at their `fixed` value. `NULL` = use the config.
 #' @param overwrite replace existing SCM output from a *different* plan in
 #'   `out_dir` (re-running the same plan resumes and needs no overwrite)
 #'
@@ -154,10 +179,10 @@ scm_init <- function(model, overwrite = FALSE) {
 #' @export
 #'
 #' @examples \dontrun{
-#' plan <- scm_plan("model/nonmem/PK/scm-demo-scm.toml")
+#' plan <- scm_plan("model/nonmem/PK/scm/scm-demo/scm-demo-scm.toml")
 #'
 #' # pause after 2 rounds, and retry harder than the config says
-#' plan <- scm_plan("model/nonmem/PK/scm-demo-scm.toml",
+#' plan <- scm_plan("model/nonmem/PK/scm/scm-demo/scm-demo-scm.toml",
 #'                  num_rounds = 2, max_retries = 5)
 #' plan
 #' scm_run(plan)
@@ -244,7 +269,7 @@ scm_out_dir <- function(x) {
 #' Run (or resume) an SCM process
 #'
 #' Launches `pharos nonmem scm run` in the background so pharos drives the whole
-#' SCM process — building each round from the template, submitting the fits,
+#' SCM process — building each round from the initial model, submitting the fits,
 #' retrying failures from where they left off, scoring, and persisting
 #' resumable state. The R session stays free; check on the SCM process with
 #' [scm_status()].
@@ -435,36 +460,17 @@ scm_plan_display_parts <- function(x) {
   candidates <- data.frame(
     name = vapply(x$candidates, function(c) c$name, character(1)),
     theta = vapply(x$candidates, function(c) as.integer(c$theta), integer(1)),
-    # Where pharos releases the effect the first time it is tested, and what
-    # it fixes the theta at when the effect is held out. A plan from an
-    # older pharos spells the first `init` and has no `off` (always 0).
-    initial = vapply(
-      x$candidates,
-      function(c) {
-        v <- c$initial %||% c$init
-        if (is.null(v)) NA_real_ else as.numeric(v)
-      },
-      numeric(1)
-    ),
-    off = vapply(
-      x$candidates,
-      function(c) if (is.null(c$off)) 0 else as.numeric(c$off),
-      numeric(1)
-    ),
+    # The effect's initial estimate the first time it is tested, and what
+    # pharos fixes the theta at when the effect is held out.
+    initial = vapply(x$candidates, function(c) as.numeric(c$initial), numeric(1)),
+    fixed = vapply(x$candidates, function(c) as.numeric(c$fixed), numeric(1)),
     # The $THETA bounds the effect is estimated under while it is in the
-    # model. Absent from the plan -- an older pharos, or a candidate the
-    # config and template both leave unbounded -- means no bounds.
+    # model; a candidate the config and initial model both leave unbounded
+    # has none.
     bounds = vapply(x$candidates, scm_bounds_label, character(1)),
     stringsAsFactors = FALSE
   )
   direction <- unlist(x$options$direction)
-  n <- nrow(candidates)
-  # pharos computes max_models into the plan; recompute only for a plan
-  # object predating the field
-  max_models <- x$max_models
-  if (is.null(max_models) || as.integer(max_models) == 0L) {
-    max_models <- 1L + length(direction) * n * (n + 1) / 2
-  }
   list(
     model = x$model,
     out_dir = x$out_dir,
@@ -476,9 +482,10 @@ scm_plan_display_parts <- function(x) {
     num_rounds = x$options$num_rounds,
     max_retries = x$options$max_retries,
     cov_step = isTRUE(x$options$cov_step),
+    final_cov_step = isTRUE(x$options$final_cov_step),
     candidates = candidates,
-    n_candidates = n,
-    max_models = as.integer(max_models),
+    n_candidates = nrow(candidates),
+    max_models = as.integer(x$max_models),
     context = scm_plan_context_parts(x)
   )
 }
@@ -513,7 +520,10 @@ scm_plan_context_parts <- function(x) {
         list(
           name = unlist(current$name),
           concluded = as.integer(unlist(current$concluded)),
-          total = as.integer(unlist(current$total))
+          total = as.integer(unlist(current$total)),
+          # the candidates the open round holds, so a retune can say which
+          # of them that round refits
+          candidates = unlist(current$candidates) %||% character()
         )
       },
       retained = unlist(progress$retained) %||% character(),
@@ -534,11 +544,24 @@ scm_plan_context_parts <- function(x) {
     )
   })
 
+  # Candidates whose initial estimate or bounds this plan moves. pharos
+  # builds the label off the same two pieces, so keep them side by side.
+  retunes <- lapply(ctx$retunes, function(r) {
+    changes <- unlist(r$changes) %||% character()
+    name <- unlist(r$candidate$name)
+    list(
+      name = name,
+      changes = changes,
+      label = paste0(name, ": ", paste(changes, collapse = "; "))
+    )
+  })
+
   list(
     had_previous_plan = had_previous,
     progress = progress,
     changes = changes,
     removals = unlist(ctx$removals) %||% character(),
+    retunes = retunes,
     state_is_stale = isTRUE(unlist(ctx$state_is_stale)),
     stale_reasons = unlist(ctx$stale_reasons) %||% character()
   )
@@ -612,6 +635,42 @@ scm_context_removal_note <- function(ctx) {
   )
 }
 
+#' A candidate's initial estimate or bounds moved: not a different SCM
+#' process, so the SCM process resumes under the new values. One note per
+#' retuned candidate -- whether the open round refits it or the values only
+#' bear on models still to be written -- plus, when a retuned candidate is
+#' already in the model, the reminder that the rounds it was fitted in keep
+#' the values they ran under. The same notes `pharos scm plan` prints.
+#' @noRd
+scm_context_retune_notes <- function(ctx) {
+  if (!length(ctx$retunes) || is.null(ctx$progress)) {
+    return(character())
+  }
+  open_round <- ctx$progress$current_round
+  notes <- vapply(ctx$retunes, function(r) {
+    effect <- if (!is.null(open_round) && r$name %in% open_round$candidates) {
+      paste0("refitted in ", open_round$name, " under the new values")
+    } else {
+      "takes effect from the next model written"
+    }
+    paste0("Retuning ", r$label, " -- ", effect, ".")
+  }, character(1))
+
+  # A retune bears only on models still to be written; a candidate already in
+  # the model was fitted in earlier rounds under the old values, and those
+  # rounds stand.
+  retained <- ctx$progress$retained
+  in_model <- vapply(ctx$retunes, function(r) r$name, character(1))
+  in_model <- in_model[in_model %in% retained]
+  if (length(in_model)) {
+    notes <- c(notes, paste0(
+      paste(in_model, collapse = ", "), " is already in the model: the rounds",
+      " it was fitted in keep the values they ran under."
+    ))
+  }
+  notes
+}
+
 #' The one consequence of a changed plan the user has to act on.
 #' @noRd
 scm_context_stale_note <- function(ctx) {
@@ -666,6 +725,9 @@ print.hyperion_scm_plan <- function(x, ...) {
   cli::cli_text(
     "{.strong cov step:} {if (parts$cov_step) 'on' else 'off'}"
   )
+  cli::cli_text(
+    "{.strong final fit:} {if (parts$final_cov_step) 're-fit the final model with the cov step on' else 'final model written, not fitted'}"
+  )
   if (!is.null(parts$num_rounds)) {
     cli::cli_text(
       "{.strong num rounds:} pause after {parts$num_rounds} (resumable)"
@@ -676,7 +738,7 @@ print.hyperion_scm_plan <- function(x, ...) {
     bounds <- parts$candidates$bounds[i]
     bounds <- if (nzchar(bounds)) paste0(", bounded to ", bounds) else ""
     cli::cli_text(
-      "{.strong {parts$candidates$name[i]}} THETA({parts$candidates$theta[i]}) -> released at {parts$candidates$initial[i]} when first tested, fixed at {parts$candidates$off[i]} when held out{bounds}"
+      "{.strong {parts$candidates$name[i]}} THETA({parts$candidates$theta[i]}) -> initial estimate {parts$candidates$initial[i]} when first tested, FIXED at {parts$candidates$fixed[i]} when held out{bounds}"
     )
   }
   cli::cli_h2("SCM size")
@@ -703,6 +765,9 @@ print.hyperion_scm_plan <- function(x, ...) {
     removal <- scm_context_removal_note(ctx)
     if (!is.null(removal)) {
       cli::cli_alert_info(removal)
+    }
+    for (note in scm_context_retune_notes(ctx)) {
+      cli::cli_alert_info(note)
     }
     note <- scm_context_stale_note(ctx)
     if (!is.null(note)) {
@@ -738,7 +803,7 @@ knit_print.hyperion_scm_plan <- function(x, ...) {
       parts$candidates$name,
       parts$candidates$theta,
       format(parts$candidates$initial),
-      format(parts$candidates$off),
+      format(parts$candidates$fixed),
       ifelse(nzchar(parts$candidates$bounds), parts$candidates$bounds, "-")
     )
   } else {
@@ -747,7 +812,7 @@ knit_print.hyperion_scm_plan <- function(x, ...) {
       parts$candidates$name,
       parts$candidates$theta,
       format(parts$candidates$initial),
-      format(parts$candidates$off)
+      format(parts$candidates$fixed)
     )
   }
 
@@ -768,14 +833,22 @@ knit_print.hyperion_scm_plan <- function(x, ...) {
       "x from the previous attempt's estimates"
     ),
     paste0("- **cov step:** ", if (parts$cov_step) "on" else "off"),
+    paste0(
+      "- **final fit:** ",
+      if (parts$final_cov_step) {
+        "re-fit the final model with the cov step on"
+      } else {
+        "final model written, not fitted"
+      }
+    ),
     if (!is.null(parts$num_rounds)) {
       paste0("- **num rounds:** pause after ", parts$num_rounds, " (resumable)")
     },
     "",
     if (bounded) {
-      "| candidate | theta | initial (first release) | off (held out) | bounds |"
+      "| candidate | theta | initial estimate | FIXED (held out) | bounds |"
     } else {
-      "| candidate | theta | initial (first release) | off (held out) |"
+      "| candidate | theta | initial estimate | FIXED (held out) |"
     },
     if (bounded) "|---|---|---|---|---|" else "|---|---|---|---|",
     candidate_rows,
@@ -815,6 +888,9 @@ knit_print.hyperion_scm_plan <- function(x, ...) {
     removal <- scm_context_removal_note(ctx)
     if (!is.null(removal)) {
       output <- c(output, removal, "")
+    }
+    for (note in scm_context_retune_notes(ctx)) {
+      output <- c(output, note, "")
     }
     note <- scm_context_stale_note(ctx)
     if (!is.null(note)) {
@@ -860,12 +936,13 @@ knit_print.hyperion_scm_status <- function(x, ...) {
 #'
 #' Flags stack detail onto the default view, in the spirit of `ls -la -t`:
 #'
-#' - `long`: absolute OFV, the LRT statistic against its critical value, the
-#'   effect's estimate with RSE and 95% CI, df, attempts, condition number
-#'   and heuristics on every candidate line
-#' - `all`: what the default hides — the reference fit's attempts, every
-#'   attempt of every candidate (retries included) with its model path
-#' - `time`: start, end and wall time per fit and per round, estimation
+#' - `long`: absolute OFV, the effect's estimate with RSE and 95% CI, df,
+#'   attempts, condition number and heuristics on every candidate line, plus
+#'   what the default hides — the reference fit's attempts, every attempt of
+#'   every candidate (retries included, and any marked `(superseded)`:
+#'   fitted before the candidate's initial estimate or bounds were retuned,
+#'   so kept on disk but never scored) with its model path
+#' - `timing`: start, end and wall time per fit and per round, estimation
 #'   time, totals
 #' - `parameters`: each round's winner's parameter table beside its
 #'   reference, and the IIV change on every diagonal OMEGA
@@ -882,7 +959,7 @@ knit_print.hyperion_scm_status <- function(x, ...) {
 #'   its attempts. `NULL` (the default) shows every round to date.
 #' @param phase only this phase: `"forward"` or `"backward"`
 #' @param candidate trace one candidate, by name, through every round
-#' @param long,all,time,parameters,files the detail flags described above
+#' @param long,timing,parameters,files the detail flags described above
 #' @param matrix `"p"` or `"dofv"` for the candidates × rounds grid; `TRUE`
 #'   means `"p"`
 #' @param sort order within a round: `"p"` (winner-first for the phase, the
@@ -899,11 +976,11 @@ knit_print.hyperion_scm_status <- function(x, ...) {
 #'
 #' @examples \dontrun{
 #' scm_summary(plan)                        # every round to date
-#' scm_summary(plan, long = TRUE, all = TRUE)
+#' scm_summary(plan, long = TRUE)
 #' scm_summary(plan, matrix = "p")
 #' scm_summary(plan, candidate = "AGE_CL")  # why did it never get in?
 #' scm_summary(plan, 2)                     # one round, every attempt
-#' scm_summary("model/nonmem/PK/scm/scm-demo", "backward_round1", time = TRUE)
+#' scm_summary("model/nonmem/PK/scm/scm-demo", "backward_round1", timing = TRUE)
 #' as.data.frame(scm_summary(plan))
 #' }
 scm_summary <- function(x,
@@ -911,8 +988,7 @@ scm_summary <- function(x,
                         phase = NULL,
                         candidate = NULL,
                         long = FALSE,
-                        all = FALSE,
-                        time = FALSE,
+                        timing = FALSE,
                         parameters = FALSE,
                         matrix = NULL,
                         files = FALSE,
@@ -947,7 +1023,7 @@ scm_summary <- function(x,
     }
     candidate <- trimws(candidate)
   }
-  for (flag in c("long", "all", "time", "parameters", "files", "reverse")) {
+  for (flag in c("long", "timing", "parameters", "files", "reverse")) {
     value <- get(flag)
     if (!(isTRUE(value) || isFALSE(value))) {
       rlang::abort(paste0("`", flag, "` must be TRUE or FALSE"))
@@ -974,8 +1050,7 @@ scm_summary <- function(x,
     phase = phase,
     candidate = candidate,
     long = long,
-    all = all,
-    time = time,
+    timing = timing,
     parameters = parameters,
     matrix = matrix,
     files = files,
@@ -1008,18 +1083,16 @@ print.hyperion_scm_summary <- function(x, ...) {
 #' @return knitr asis output
 #' @exportS3Method knitr::knit_print hyperion_scm_summary
 knit_print.hyperion_scm_summary <- function(x, ...) {
-  md <- attr(x, "markdown")
-  if (is.null(md)) {
-    md <- paste(c("```", strsplit(attr(x, "rendered"), "\n")[[1]], "```"), collapse = "\n")
-  }
-  knitr::asis_output(paste0(md, "\n"))
+  knitr::asis_output(paste0(attr(x, "markdown"), "\n"))
 }
 
 #' One row per candidate per round of an SCM summary
 #'
 #' @param x a `hyperion_scm_summary`
 #' @param ... ignored
-#' @return a data.frame with the round, candidate, status, scoring (OFV,
+#' @return a data.frame with the round, candidate, status, attempts (and
+#'   `superseded`, attempts made under an initial estimate or bounds since
+#'   retuned away), scoring (OFV,
 #'   ΔOFV, statistic, df, p, alpha, critical ΔOFV, significance, selection,
 #'   rank), the effect's theta / initial / off and its estimate, stderr and
 #'   RSE, the fit's condition number, and the heuristics that fired
@@ -1038,6 +1111,9 @@ as.data.frame.hyperion_scm_summary <- function(x, ...) {
         status = unlist(c$status),
         model = unlist(c$model),
         attempts = length(c$attempts),
+        # Attempts made before the candidate's initial estimate or bounds
+        # were retuned: fitted and kept on disk, never scored.
+        superseded = length(c$superseded),
         ofv = num(c$ofv),
         reference_ofv = num(c$reference_ofv),
         delta_ofv = num(c$delta_ofv),
@@ -1051,7 +1127,7 @@ as.data.frame.hyperion_scm_summary <- function(x, ...) {
         rank = if (is.null(c$rank)) NA_integer_ else as.integer(c$rank),
         theta = if (length(c$thetas)) as.integer(c$thetas[[1]]) else NA_integer_,
         initial = num(c$initial),
-        off = num(c$off),
+        fixed = num(c$fixed),
         estimate = num(est$estimate),
         stderr = num(est$stderr),
         rse = num(est$rse),
@@ -1065,11 +1141,11 @@ as.data.frame.hyperion_scm_summary <- function(x, ...) {
     return(data.frame(
       round = character(), direction = character(), candidate = character(),
       status = character(), model = character(), attempts = integer(),
-      ofv = numeric(), reference_ofv = numeric(), delta_ofv = numeric(),
+      superseded = integer(), ofv = numeric(), reference_ofv = numeric(), delta_ofv = numeric(),
       statistic = numeric(), df = integer(), p_value = numeric(),
       alpha = numeric(), critical_delta_ofv = numeric(),
       significant = logical(), selected = logical(), rank = integer(),
-      theta = integer(), initial = numeric(), off = numeric(),
+      theta = integer(), initial = numeric(), fixed = numeric(),
       estimate = numeric(), stderr = numeric(), rse = numeric(),
       condition_number = numeric(), heuristics = character(),
       stringsAsFactors = FALSE

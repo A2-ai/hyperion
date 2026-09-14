@@ -476,8 +476,8 @@ transform_value <- function(value, transform) .Call(wrap__transform_value, value
 #'
 #' Internal engine behind [scm_init()]; use that instead.
 #'
-#' @param model path to the template control stream (.mod / .ctl); the
-#'   config and the output directory land beside it
+#' @param model path to the initial model (.mod / .ctl); the output
+#'   directory lands beside it, and the config inside that
 #' @param overwrite replace an existing `<model>-scm.toml`
 #'
 #' @return a list with `config` (the config file written) and `out_dir`
@@ -490,14 +490,15 @@ scm_init_impl <- function(model, overwrite = FALSE) .Call(wrap__scm_init_wrap, m
 #' Internal engine behind [scm_plan()]; use that instead.
 #'
 #' @param config path to the SCM config file (TOML) written by
-#'   [scm_init()]: model, direction, forward_alpha, backward_alpha,
-#'   max_retries, cov_step, and the `[covariates]` section (initial, off,
-#'   lower, upper, effects). Relative paths resolve against the config file
+#'   [scm_init()] into `scm/<model>/`: model, direction, forward_alpha,
+#'   backward_alpha, max_retries, cov_step, final_cov_step, and the
+#'   `[covariates]` section (initial, fixed, lower, upper, effects).
+#'   Relative paths resolve against the config file
 #' @param num_rounds pause after this many rounds per run (NULL = no cap)
 #' @param max_retries override the config's retries per failed fit
 #' @param cov_step override whether generated models run the covariance step
 #' @param initial override the `[covariates]` section's default `initial`,
-#'   where an effect is released the first time it is tested
+#'   the estimate an effect starts from the first time it is tested
 #' @param overwrite replace existing SCM output from a different plan
 #'
 #' @return a `hyperion_scm_plan` object; its `plan_path` attribute is the
@@ -527,7 +528,7 @@ scm_status_impl <- function(path) .Call(wrap__scm_status_wrap, path)
 #'   every round
 #' @param phase only this phase ("forward" / "backward"); NULL for both
 #' @param candidate trace one candidate through every round it was tested in
-#' @param long,all,time,parameters,files the `scm summary` detail flags
+#' @param long,timing,parameters,files the `scm summary` detail flags
 #' @param matrix "p" or "dofv" for the candidates x rounds grid; NULL for none
 #' @param sort order within a round: "p", "dofv" or "name"
 #' @param reverse reverse the order within a round
@@ -537,7 +538,7 @@ scm_status_impl <- function(path) .Call(wrap__scm_status_wrap, path)
 #'   selected), with the rendered text as its `rendered` attribute and the
 #'   markdown rendering as `markdown`
 #' @keywords internal
-scm_summary_impl <- function(path, round = NULL, phase = NULL, candidate = NULL, long = FALSE, all = FALSE, time = FALSE, parameters = FALSE, matrix = NULL, files = FALSE, sort = "p", reverse = FALSE, digits = 3) .Call(wrap__scm_summary_wrap, path, round, phase, candidate, long, all, time, parameters, matrix, files, sort, reverse, digits)
+scm_summary_impl <- function(path, round = NULL, phase = NULL, candidate = NULL, long = FALSE, timing = FALSE, parameters = FALSE, matrix = NULL, files = FALSE, sort = "p", reverse = FALSE, digits = 3) .Call(wrap__scm_summary_wrap, path, round, phase, candidate, long, timing, parameters, matrix, files, sort, reverse, digits)
 
 #' Build the SCM decision log
 #'

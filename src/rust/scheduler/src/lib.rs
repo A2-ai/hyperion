@@ -182,9 +182,7 @@ pub fn submit_model_to_slurm(
 
     let res = scheduler
         .submit(
-            config_path
-                .parent()
-                .expect("config file to have a parent dir"),
+            config_path,
             model_files,
             run_options,
             nonmem_config,
@@ -278,9 +276,7 @@ pub fn submit_model_to_sge(
 
     let res = scheduler
         .submit(
-            config_path
-                .parent()
-                .expect("config file to have a parent dir"),
+            config_path,
             model_files,
             run_options,
             nonmem_config,

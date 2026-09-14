@@ -7,8 +7,8 @@
 scm_init_impl(model, overwrite = FALSE)
 }
 \arguments{
-\item{model}{path to the template control stream (.mod / .ctl); the
-config and the output directory land beside it}
+\item{model}{path to the initial model (.mod / .ctl); the output
+directory lands beside it, and the config inside that}
 
 \item{overwrite}{replace an existing \verb{<model>-scm.toml}}
 }

@@ -10,8 +10,7 @@ scm_summary(
   phase = NULL,
   candidate = NULL,
   long = FALSE,
-  all = FALSE,
-  time = FALSE,
+  timing = FALSE,
   parameters = FALSE,
   matrix = NULL,
   files = FALSE,
@@ -33,7 +32,7 @@ its attempts. \code{NULL} (the default) shows every round to date.}
 
 \item{candidate}{trace one candidate, by name, through every round}
 
-\item{long, all, time, parameters, files}{the detail flags described above}
+\item{long, timing, parameters, files}{the detail flags described above}
 
 \item{matrix}{\code{"p"} or \code{"dofv"} for the candidates × rounds grid; \code{TRUE}
 means \code{"p"}}
@@ -63,12 +62,13 @@ The same record pharos writes to \code{scm_summary.json} and to each round's
 \details{
 Flags stack detail onto the default view, in the spirit of \code{ls -la -t}:
 \itemize{
-\item \code{long}: absolute OFV, the LRT statistic against its critical value, the
-effect's estimate with RSE and 95\% CI, df, attempts, condition number
-and heuristics on every candidate line
-\item \code{all}: what the default hides — the reference fit's attempts, every
-attempt of every candidate (retries included) with its model path
-\item \code{time}: start, end and wall time per fit and per round, estimation
+\item \code{long}: absolute OFV, the effect's estimate with RSE and 95\% CI, df,
+attempts, condition number and heuristics on every candidate line, plus
+what the default hides — the reference fit's attempts, every attempt of
+every candidate (retries included, and any marked \code{(superseded)}:
+fitted before the candidate's initial estimate or bounds were retuned,
+so kept on disk but never scored) with its model path
+\item \code{timing}: start, end and wall time per fit and per round, estimation
 time, totals
 \item \code{parameters}: each round's winner's parameter table beside its
 reference, and the IIV change on every diagonal OMEGA
@@ -81,11 +81,11 @@ reference, and the IIV change on every diagonal OMEGA
 \examples{
 \dontrun{
 scm_summary(plan)                        # every round to date
-scm_summary(plan, long = TRUE, all = TRUE)
+scm_summary(plan, long = TRUE)
 scm_summary(plan, matrix = "p")
 scm_summary(plan, candidate = "AGE_CL")  # why did it never get in?
 scm_summary(plan, 2)                     # one round, every attempt
-scm_summary("model/nonmem/PK/scm/scm-demo", "backward_round1", time = TRUE)
+scm_summary("model/nonmem/PK/scm/scm-demo", "backward_round1", timing = TRUE)
 as.data.frame(scm_summary(plan))
 }
 }

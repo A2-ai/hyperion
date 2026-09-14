@@ -42,7 +42,7 @@ file the background run streams into)
 }
 \description{
 Launches \verb{pharos nonmem scm run} in the background so pharos drives the whole
-SCM process — building each round from the template, submitting the fits,
+SCM process — building each round from the initial model, submitting the fits,
 retrying failures from where they left off, scoring, and persisting
 resumable state. The R session stays free; check on the SCM process with
 \code{\link[=scm_status]{scm_status()}}.

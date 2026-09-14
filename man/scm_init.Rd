@@ -7,8 +7,8 @@
 scm_init(model, overwrite = FALSE)
 }
 \arguments{
-\item{model}{path to the template control stream (\code{.mod} / \code{.ctl}). The
-config file and the output directory are created beside it.}
+\item{model}{path to the initial model (\code{.mod} / \code{.ctl}). The output
+directory is created beside it, and the config file inside that.}
 
 \item{overwrite}{replace an existing \verb{<model>-scm.toml} (default \code{FALSE},
 so a config you have already filled in is never clobbered)}
@@ -18,22 +18,26 @@ invisibly, a list with \code{config} (the config file written) and
 \code{out_dir} (the output directory created)
 }
 \description{
-Writes the SCM config file beside \code{model} as \verb{<model>-scm.toml} and
-creates the \verb{scm/<model>} directory the SCM process writes into. The
+Creates the \verb{scm/<model>} directory the SCM process writes into and puts
+the SCM config file inside it as \verb{<model>-scm.toml}. The
 config comes with \code{direction} and every optional setting already filled
 in at its default and the \verb{[covariates]} section's \code{effects} left empty:
-name the covariate effects to be tested — by their \verb{$PK} term, e.g.
-\verb{effects = ["WT_CL", "CRCL_CL"]} — then \code{\link[=scm_plan]{scm_plan()}} the file. Nothing is
-planned and nothing is fitted — the candidates are yours to choose.
+name the covariate effects to be tested — by the name the initial model's
+\verb{$THETA} record gives each one, e.g. \verb{effects = ["WT_CL", "CRCL_CL"]} —
+then \code{\link[=scm_plan]{scm_plan()}} the file. Nothing is planned and nothing is fitted —
+the candidates are yours to choose.
 }
 \details{
-The model is the \emph{template} control stream: it carries the candidate
-effects already written into \verb{$PK}, each its own term over a single
-THETA. How that theta is written is up to you — \verb{(0 FIX)} for an effect
-the template leaves out, or an ordinary theta carrying an initial guess.
-\code{effects} alone decides what is tested: pharos fixes every candidate it is
-not testing at its \code{off} value (0 unless the config says otherwise) in
-the models it generates.
+The model is the \emph{initial model}: it carries a theta for each candidate
+effect, named either by a \verb{$THETA} label (\verb{$THETA WT_CL=(0, 0.4)}, or
+\verb{$THETA NAMES(WT_CL, CRCL_CL) ...}) or by the theta's comment
+(\verb{; WT_CL cov}, \verb{; WT_CL}, \verb{; 4 WT_CL WT on clearance}). Nothing else in
+the model is read — \verb{$PK} is not consulted, so an effect folded into a
+structural expression is named the same way as one standing on its own,
+and a candidate theta need not be written \verb{(0 FIX)}: an ordinary theta
+carrying a guess of its own is fine. \code{effects} alone decides what is
+tested: pharos fixes every candidate it is not testing at its \code{fixed}
+value (0 unless the config says otherwise) in the models it generates.
 }
 \examples{
 \dontrun{

@@ -24,8 +24,8 @@ use hyperion_core::{ResultExt, extendr_err};
 ///
 /// Internal engine behind [scm_init()]; use that instead.
 ///
-/// @param model path to the template control stream (.mod / .ctl); the
-///   config and the output directory land beside it
+/// @param model path to the initial model (.mod / .ctl); the output
+///   directory lands beside it, and the config inside that
 /// @param overwrite replace an existing `<model>-scm.toml`
 ///
 /// @return a list with `config` (the config file written) and `out_dir`
@@ -48,14 +48,15 @@ pub fn scm_init_wrap(model: &str, #[extendr(default = "FALSE")] overwrite: bool)
 /// Internal engine behind [scm_plan()]; use that instead.
 ///
 /// @param config path to the SCM config file (TOML) written by
-///   [scm_init()]: model, direction, forward_alpha, backward_alpha,
-///   max_retries, cov_step, and the `[covariates]` section (initial, off,
-///   lower, upper, effects). Relative paths resolve against the config file
+///   [scm_init()] into `scm/<model>/`: model, direction, forward_alpha,
+///   backward_alpha, max_retries, cov_step, final_cov_step, and the
+///   `[covariates]` section (initial, fixed, lower, upper, effects).
+///   Relative paths resolve against the config file
 /// @param num_rounds pause after this many rounds per run (NULL = no cap)
 /// @param max_retries override the config's retries per failed fit
 /// @param cov_step override whether generated models run the covariance step
 /// @param initial override the `[covariates]` section's default `initial`,
-///   where an effect is released the first time it is tested
+///   the estimate an effect starts from the first time it is tested
 /// @param overwrite replace existing SCM output from a different plan
 ///
 /// @return a `hyperion_scm_plan` object; its `plan_path` attribute is the
@@ -187,7 +188,7 @@ impl From<pharos_scm::DecisionLogRow> for DecisionLogRow {
 ///   every round
 /// @param phase only this phase ("forward" / "backward"); NULL for both
 /// @param candidate trace one candidate through every round it was tested in
-/// @param long,all,time,parameters,files the `scm summary` detail flags
+/// @param long,timing,parameters,files the `scm summary` detail flags
 /// @param matrix "p" or "dofv" for the candidates x rounds grid; NULL for none
 /// @param sort order within a round: "p", "dofv" or "name"
 /// @param reverse reverse the order within a round
@@ -205,8 +206,7 @@ pub fn scm_summary_wrap(
     #[extendr(default = "NULL")] phase: Option<String>,
     #[extendr(default = "NULL")] candidate: Option<String>,
     #[extendr(default = "FALSE")] long: bool,
-    #[extendr(default = "FALSE")] all: bool,
-    #[extendr(default = "FALSE")] time: bool,
+    #[extendr(default = "FALSE")] timing: bool,
     #[extendr(default = "FALSE")] parameters: bool,
     #[extendr(default = "NULL")] matrix: Option<String>,
     #[extendr(default = "FALSE")] files: bool,
@@ -231,8 +231,7 @@ pub fn scm_summary_wrap(
         phase,
         candidate,
         long,
-        all,
-        time,
+        timing,
         parameters,
         matrix,
         files,

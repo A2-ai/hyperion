@@ -1,9 +1,9 @@
 # SCM: plan / status / decision log ----------------------------
 
-# The template style the SCM process requires: each candidate effect is its
-# own named $PK assignment referencing exactly one theta, so the term name
-# can key the request. Writing those thetas `(0 FIX)` is the convention, not
-# a rule -- `covariates` alone decides what is tested.
+# The standard template: each candidate theta is named by its comment
+# (`; WT_CL cov`), which is what keys the request. $PK is never read, and
+# writing those thetas `(0 FIX)` is the convention, not a rule --
+# `covariates` alone decides what is tested.
 scm_template <- paste(
   "$PROBLEM scm template",
   "$INPUT ID TIME AMT DV WT CRCL AGE",
@@ -34,8 +34,8 @@ scm_template <- paste(
 )
 
 # The same model with the covariate effects folded into the TVCL / V
-# expressions instead of standing on their own. No term names a single
-# candidate theta, so nothing in it can be requested.
+# expressions instead of standing on their own. Nothing in $PK names a
+# candidate theta; the $THETA comments do, which is all that is needed.
 inline_scm_template <- paste(
   "$PROBLEM scm template (inline covariate effects)",
   "$INPUT ID TIME AMT DV WT CRCL AGE",
@@ -103,17 +103,18 @@ cli_text_of <- function(expr) {
   paste(cli::cli_fmt(expr), collapse = "\n")
 }
 
-test_that("scm_init writes the config beside the model and makes the SCM process dir", {
+test_that("scm_init writes the config into the SCM process dir it makes", {
   dir <- withr::local_tempdir()
   model <- write_scm_fixture(dir)
 
   expect_message(setup <- scm_init(model), "SCM setup created")
-  expect_equal(setup$config, file.path(dir, "1001-scm.toml"))
   expect_equal(setup$out_dir, file.path(dir, "scm", "1001"))
+  expect_equal(setup$config, file.path(setup$out_dir, "1001-scm.toml"))
   expect_true(dir.exists(setup$out_dir))
 
   body <- paste(readLines(setup$config), collapse = "\n")
-  expect_match(body, 'model = "1001.mod"', fixed = TRUE)
+  # the config sits two levels below the model it plans for
+  expect_match(body, 'model = "../../1001.mod"', fixed = TRUE)
   expect_match(body, "[covariates]", fixed = TRUE)
   expect_match(body, "effects = []", fixed = TRUE)
   expect_match(body, 'direction = ["forward", "backward"]', fixed = TRUE)
@@ -123,7 +124,8 @@ test_that("scm_init writes the config beside the model and makes the SCM process
   # every optional setting is present at its default
   for (default in c("forward_alpha = 0.05", "backward_alpha = 0.001",
                     "max_retries = 3", "cov_step = false",
-                    "initial = 0.1", "off = 0")) {
+                    "final_cov_step = true",
+                    "initial = 0.1", "fixed = 0")) {
     expect_match(body, default, fixed = TRUE)
   }
 })
@@ -171,7 +173,7 @@ test_that("scm_init validates its inputs and never clobbers a filled-in config",
   )
 })
 
-test_that("scm_plan names candidates from their $PK terms and carries defaults", {
+test_that("scm_plan names candidates from their $THETA names and carries defaults", {
   dir <- withr::local_tempdir()
   plan <- make_plan(dir)
 
@@ -188,9 +190,9 @@ test_that("scm_plan names candidates from their $PK terms and carries defaults",
   expect_equal(plan$options$forward_alpha, 0.05)
   expect_equal(plan$options$backward_alpha, 0.001)
   expect_equal(as.integer(plan$options$max_retries), 3L)
-  # every candidate at the section defaults: released at 0.1, held out at 0
+  # every candidate at the section defaults: initial estimate 0.1, held out at 0
   expect_equal(vapply(plan$candidates, function(c) c$initial, numeric(1)), rep(0.1, 3))
-  expect_equal(vapply(plan$candidates, function(c) c$off, numeric(1)), rep(0, 3))
+  expect_equal(vapply(plan$candidates, function(c) c$fixed, numeric(1)), rep(0, 3))
   expect_false(plan$options$cov_step)
   expect_false(plan$options$overwrite)
   expect_match(plan$out_dir, "scm/1001$")
@@ -204,13 +206,6 @@ test_that("scm_plan validates its inputs", {
   # the config path itself
   expect_error(scm_plan(42), "config")
   expect_error(scm_plan(file.path(dir, "nope.toml")), "not found")
-
-  # a name only resolves against a $PK assignment holding the effect;
-  # the inline template writes the effects into TVCL / V, so there is none
-  write_scm_fixture(dir, template = inline_scm_template)
-  cfg <- write_scm_config(dir, covariates = '["WT_CL"]')
-  expect_error(scm_plan(cfg), "no \\$PK term named WT_CL")
-  write_scm_fixture(dir)
 
   # direction comes from the config, and is required there
   cfg <- write_scm_config(dir, direction = '["sideways"]')
@@ -230,9 +225,9 @@ test_that("scm_plan validates its inputs", {
   cfg <- write_scm_config(dir, extra = "foward_alpha = 0.01")
   expect_error(scm_plan(cfg), "foward_alpha")
 
-  # a name no $PK term defines cannot be a candidate
+  # a name no $THETA record carries cannot be a candidate
   cfg <- write_scm_config(dir, covariates = '["AGE_CL"]')
-  expect_error(scm_plan(cfg), "no \\$PK term named AGE_CL")
+  expect_error(scm_plan(cfg), "no theta named AGE_CL")
 
   # call-site override validation is R-side, before pharos is reached
   cfg <- write_scm_config(dir)
@@ -240,8 +235,8 @@ test_that("scm_plan validates its inputs", {
   expect_error(scm_plan(cfg, max_retries = 1.5), "max_retries")
   expect_error(scm_plan(cfg, cov_step = "yes"), "cov_step")
   expect_error(scm_plan(cfg, initial = "a lot"), "initial")
-  # an initial equal to the off value releases nothing: pharos refuses
-  expect_error(scm_plan(cfg, initial = 0), "equals off")
+  # an initial estimate equal to the held-out value tests nothing: pharos refuses
+  expect_error(scm_plan(cfg, initial = 0), "equals fixed")
 })
 
 test_that("the covariates section takes names, rows, and defaults", {
@@ -256,16 +251,16 @@ test_that("the covariates section takes names, rows, and defaults", {
     covariates = paste(
       '["WT_CL",',
       '{ name = "CRCL_CL", initial = 0.3 },',
-      '{ name = "WT_V", initial = 1.5, off = 1 }]'
+      '{ name = "WT_V", initial = 1.5, fixed = 1 }]'
     ),
-    section = c("initial = 0.2", "off = 0")
+    section = c("initial = 0.2", "fixed = 0")
   ))
   expect_equal(vapply(plan$candidates, function(c) c$initial, numeric(1)), c(0.2, 0.3, 1.5))
-  expect_equal(vapply(plan$candidates, function(c) c$off, numeric(1)), c(0, 0, 1))
+  expect_equal(vapply(plan$candidates, function(c) c$fixed, numeric(1)), c(0, 0, 1))
 
   # the plan shows both values per candidate
   txt <- cli_text_of(print(plan))
-  expect_match(txt, "released at 1.5 when first tested, fixed at 1 when held out", fixed = TRUE)
+  expect_match(txt, "initial estimate 1.5 when first tested, FIXED at 1", fixed = TRUE)
   knit <- as.character(knitr::knit_print(plan))
   expect_match(knit, "| WT_V | THETA(6) | 1.5 | 1 |", fixed = TRUE)
 
@@ -312,7 +307,7 @@ test_that("the covariates section bounds effects, in the section and per row", {
   expect_match(txt, "bounded to (0, 2)", fixed = TRUE)
   expect_match(txt, "bounded to (0.01, 10)", fixed = TRUE)
   knit <- as.character(knitr::knit_print(plan))
-  expect_match(knit, "| off (held out) | bounds |", fixed = TRUE)
+  expect_match(knit, "| FIXED (held out) | bounds |", fixed = TRUE)
   expect_match(knit, "| CRCL_CL | THETA(5) | 0.1 | 0 | (0, INF) |", fixed = TRUE)
 
   # a config that says nothing about bounds leaves them out entirely, and
@@ -323,7 +318,7 @@ test_that("the covariates section bounds effects, in the section and per row", {
   expect_null(plain$candidates[[1]]$lower)
   expect_match(
     as.character(knitr::knit_print(plain)),
-    "| candidate | theta | initial (first release) | off (held out) |\n",
+    "| candidate | theta | initial estimate | FIXED (held out) |\n",
     fixed = TRUE
   )
 
@@ -332,7 +327,7 @@ test_that("the covariates section bounds effects, in the section and per row", {
   expect_error(scm_plan(bad), "must be below upper")
 })
 
-test_that("covariates are keyed by $PK term name, case-insensitively", {
+test_that("covariates are keyed by theta name, case-insensitively", {
   dir <- withr::local_tempdir()
   write_scm_fixture(dir)
 
@@ -372,41 +367,115 @@ test_that("THETA numbers are rejected, with the name spelling to use instead", {
   for (array in c("[4, 5, 6]", '[4, "WT_CL"]')) {
     expect_error(
       scm_plan(write_scm_config(dir, covariates = array)),
-      "not by THETA number"
+      "named, not numbered"
     )
   }
 })
 
-test_that("a comment never names a candidate, whatever form it takes", {
+test_that("every comment form names its theta", {
   dir <- withr::local_tempdir()
+  # no `cov` suffix, and a unit-style comment: both name their candidate
   loose <- sub("; WT_CL cov", "; WT_CL", scm_template, fixed = TRUE)
   loose <- sub("; CRCL_CL cov", "; CRCL_CL (-) :LOG", loose, fixed = TRUE)
-  loose <- sub("$THETA (0 FIX)   ; WT_V cov", "$THETA (0 FIX)", loose, fixed = TRUE)
   write_scm_fixture(dir, template = loose)
 
-  # the uncommented theta is named by its $PK term like every other one,
-  # and no comment form has anything to disagree about
   plan <- scm_plan(write_scm_config(dir))
   expect_equal(
     vapply(plan$candidates, function(x) x$name, character(1)),
     c("WT_CL", "CRCL_CL", "WT_V")
   )
 
-  # a comment that contradicts the $PK term does warn -- one of the two is
-  # a leftover -- but the $PK name is what the SCM process uses
+  # the comment is the name: rename it and the old name resolves to nothing
   renamed <- sub("; WT_V cov", "; WTONV cov", scm_template, fixed = TRUE)
   write_scm_fixture(dir, template = renamed)
-  expect_warning(
-    plan <- scm_plan(write_scm_config(dir)),
-    "WTONV.*\\$PK name wins"
-  )
+  expect_error(scm_plan(write_scm_config(dir)), "no theta named WT_V")
+
+  plan <- scm_plan(write_scm_config(
+    dir,
+    covariates = '["WT_CL", "CRCL_CL", "WTONV"]'
+  ))
+  expect_equal(plan$candidates[[3]]$name, "WTONV")
+
+  # a theta with no label and no comment cannot be named at all
+  bare <- sub("$THETA (0 FIX)   ; WT_V cov", "$THETA (0 FIX)",
+              scm_template, fixed = TRUE)
+  write_scm_fixture(dir, template = bare)
+  expect_error(scm_plan(write_scm_config(dir)), "no theta named WT_V")
+})
+
+test_that("a $THETA label names a candidate, and outranks the comment", {
+  dir <- withr::local_tempdir()
+  # NM-TRAN's own naming syntax, in both its spellings
+  labelled <- sub("$THETA (0 FIX)   ; WT_V cov", "$THETA WT_V=(0 FIX)",
+                  scm_template, fixed = TRUE)
+  write_scm_fixture(dir, template = labelled)
+  plan <- scm_plan(write_scm_config(dir))
   expect_equal(plan$candidates[[3]]$name, "WT_V")
+  expect_equal(as.integer(plan$candidates[[3]]$theta), 6L)
+
+  named <- sub("$THETA (0 FIX)   ; WT_V cov", "$THETA NAMES(WT_V) (0 FIX)",
+               scm_template, fixed = TRUE)
+  write_scm_fixture(dir, template = named)
+  expect_equal(scm_plan(write_scm_config(dir))$candidates[[3]]$name, "WT_V")
+
+  # one theta answering to both: either request resolves to the same
+  # candidate, named the way the label spells it
+  both <- sub("$THETA (0 FIX)   ; WT_V cov", "$THETA WTV=(0 FIX)   ; WT_V cov",
+              scm_template, fixed = TRUE)
+  write_scm_fixture(dir, template = both)
+  for (requested in c('"WTV"', '"WT_V"')) {
+    plan <- scm_plan(write_scm_config(
+      dir,
+      covariates = paste0('["WT_CL", "CRCL_CL", ', requested, "]")
+    ))
+    expect_equal(plan$candidates[[3]]$name, "WTV")
+    expect_equal(as.integer(plan$candidates[[3]]$theta), 6L)
+  }
+
+  # asking for both names of one theta is asking for it twice
+  expect_error(
+    scm_plan(write_scm_config(dir, covariates = '["WTV", "WT_V"]')),
+    "both resolve to THETA\\(6\\)"
+  )
+})
+
+test_that("a name that could mean two thetas is refused", {
+  dir <- withr::local_tempdir()
+  clash <- sub("$THETA (0 FIX)   ; WT_V cov", "$THETA WT_V=(0 FIX)",
+               scm_template, fixed = TRUE)
+  clash <- sub("; TVKA (1/h)", "; WT_V", clash, fixed = TRUE)
+  write_scm_fixture(dir, template = clash)
+
+  err <- expect_error(
+    scm_plan(write_scm_config(dir, covariates = '["WT_V"]')),
+    "WT_V is ambiguous"
+  )
+  # the message names both thetas and where each name came from
+  expect_match(conditionMessage(err), "THETA\\(3\\)")
+  expect_match(conditionMessage(err), "THETA\\(6\\)")
+  expect_match(conditionMessage(err), "\\$THETA label")
+})
+
+test_that("an inline model plans from its $THETA comments", {
+  dir <- withr::local_tempdir()
+  # the effects are folded into TVCL / V, so no $PK term names any candidate
+  # theta -- the comments do, which is all the SCM process needs
+  write_scm_fixture(dir, template = inline_scm_template)
+  plan <- scm_plan(write_scm_config(dir))
+  expect_equal(
+    vapply(plan$candidates, function(x) x$name, character(1)),
+    c("WT_CL", "CRCL_CL", "WT_V")
+  )
+  expect_equal(
+    vapply(plan$candidates, function(x) as.integer(x$theta), integer(1)),
+    c(4L, 5L, 6L)
+  )
 })
 
 test_that("a numbered comment reads as a label, not a disagreeing name", {
   dir <- withr::local_tempdir()
   # the `; <n> NAME description...` house style: the leading position number
-  # labels the theta, so the comment still agrees with the $PK term
+  # labels the theta, so the name is the word after it
   numbered <- sub("; WT_CL cov", "; 4 WT_CL WT on clearance", scm_template, fixed = TRUE)
   numbered <- sub("; CRCL_CL cov", "; 5 CRCL_CL CRCL on clearance", numbered, fixed = TRUE)
   numbered <- sub("; WT_V cov", "; 6 WT_V cov", numbered, fixed = TRUE)
@@ -417,9 +486,6 @@ test_that("a numbered comment reads as a label, not a disagreeing name", {
     vapply(plan$candidates, function(x) x$name, character(1)),
     c("WT_CL", "CRCL_CL", "WT_V")
   )
-  # nothing to disagree about (the cov_step warning is unrelated)
-  expect_false(any(grepl("name wins", unlist(attr(plan, "warnings")))))
-
   # numbering that no longer matches the theta's position is a stale comment
   stale <- sub("; WT_CL cov", "; 9 WT_CL WT on clearance", scm_template, fixed = TRUE)
   write_scm_fixture(dir, template = stale)
@@ -454,24 +520,6 @@ test_that("max_models is in the plan and depends on direction", {
   expect_match(plan_json, '"max_models": 13', fixed = TRUE)
   plan_text <- cli_text_of(print(both))
   expect_match(plan_text, "max models 13")
-})
-
-test_that("unrequested (0 FIX) thetas raise a warning, annotated or not", {
-  dir <- withr::local_tempdir()
-  write_scm_fixture(dir)
-  expect_warning(
-    scm_plan(write_scm_config(dir, covariates = '["WT_CL", "CRCL_CL"]')),
-    "WT_V.*not in .covariates."
-  )
-
-  # the (0 FIX) shape alone flags it -- no `cov` annotation needed
-  bare <- sub("$THETA (0 FIX)   ; WT_V cov", "$THETA (0 FIX)",
-              scm_template, fixed = TRUE)
-  write_scm_fixture(dir, template = bare)
-  expect_warning(
-    scm_plan(write_scm_config(dir, covariates = '["WT_CL", "CRCL_CL"]')),
-    "THETA\\(6\\).*not in .covariates."
-  )
 })
 
 test_that("call-site overrides beat the config", {
@@ -652,6 +700,153 @@ fabricate_completed_state <- function(out_dir) {
   writeLines(state, file.path(out_dir, "scm_state.json"))
 }
 
+# A fabricated SCM process stopped part way through its second forward
+# round, so a retune can be shown landing on a candidate the open round is
+# still testing.
+fabricate_mid_round_state <- function(out_dir) {
+  state <- '{
+  "schema_version": 1,
+  "plan_digest": "test-digest",
+  "status": "running",
+  "message": null,
+  "retained": ["WT_CL"],
+  "reference_model": "forward_round1/1001_wt_cl.mod",
+  "reference_ofv": 980.0,
+  "phase": "forward",
+  "rounds": [
+    {
+      "name": "reference",
+      "direction": "forward",
+      "reference_model": "-",
+      "reference_ofv": null,
+      "candidates": [
+        {
+          "candidate": "base",
+          "action": "fit base model",
+          "model": "base/1001_base.mod",
+          "attempts": [{"model": "base/1001_base.mod", "outcome": "succeeded"}],
+          "status": "succeeded",
+          "ofv": 1000.0,
+          "delta_ofv": null,
+          "df": 0,
+          "p_value": null,
+          "significant": null,
+          "heuristics": [],
+          "selected": false
+        }
+      ],
+      "winner": null,
+      "decision": "base model fitted (OFV 1000.000)",
+      "complete": true
+    },
+    {
+      "name": "forward_round1",
+      "direction": "forward",
+      "reference_model": "base/1001_base.mod",
+      "reference_ofv": 1000.0,
+      "candidates": [
+        {
+          "candidate": "WT_CL",
+          "action": "add WT_CL",
+          "model": "forward_round1/1001_wt_cl.mod",
+          "attempts": [
+            {"model": "forward_round1/1001_wt_cl.mod", "outcome": "succeeded"}
+          ],
+          "status": "succeeded",
+          "ofv": 980.0,
+          "delta_ofv": -20.0,
+          "df": 1,
+          "p_value": 7.7e-6,
+          "significant": true,
+          "heuristics": [],
+          "selected": true
+        },
+        {
+          "candidate": "CRCL_CL",
+          "action": "add CRCL_CL",
+          "model": "forward_round1/1001_crcl_cl.mod",
+          "attempts": [
+            {"model": "forward_round1/1001_crcl_cl.mod", "outcome": "succeeded"}
+          ],
+          "status": "succeeded",
+          "ofv": 999.0,
+          "delta_ofv": -1.0,
+          "df": 1,
+          "p_value": 0.317,
+          "significant": false,
+          "heuristics": [],
+          "selected": false
+        },
+        {
+          "candidate": "WT_V",
+          "action": "add WT_V",
+          "model": "forward_round1/1001_wt_v.mod",
+          "attempts": [
+            {"model": "forward_round1/1001_wt_v.mod", "outcome": "succeeded"}
+          ],
+          "status": "succeeded",
+          "ofv": 998.0,
+          "delta_ofv": -2.0,
+          "df": 1,
+          "p_value": 0.157,
+          "significant": false,
+          "heuristics": [],
+          "selected": false
+        }
+      ],
+      "winner": "WT_CL",
+      "decision": "added WT_CL (p = 7.700e-6, dOFV = -20.000)",
+      "complete": true
+    },
+    {
+      "name": "forward_round2",
+      "direction": "forward",
+      "reference_model": "forward_round1/1001_wt_cl.mod",
+      "reference_ofv": 980.0,
+      "candidates": [
+        {
+          "candidate": "CRCL_CL",
+          "action": "add CRCL_CL",
+          "model": "forward_round2/1001_crcl_cl.mod",
+          "attempts": [
+            {"model": "forward_round2/1001_crcl_cl.mod", "outcome": "succeeded"}
+          ],
+          "status": "succeeded",
+          "ofv": 979.0,
+          "delta_ofv": -1.0,
+          "df": 1,
+          "p_value": 0.317,
+          "significant": false,
+          "heuristics": [],
+          "selected": false
+        },
+        {
+          "candidate": "WT_V",
+          "action": "add WT_V",
+          "model": "",
+          "attempts": [],
+          "status": "pending",
+          "ofv": null,
+          "delta_ofv": null,
+          "df": 1,
+          "p_value": null,
+          "significant": null,
+          "heuristics": [],
+          "selected": false
+        }
+      ],
+      "winner": null,
+      "decision": "",
+      "complete": false
+    }
+  ],
+  "final_model": null,
+  "had_unusable": false,
+  "updated": "2026-08-19T12:00:00+00:00"
+}'
+  writeLines(state, file.path(out_dir, "scm_state.json"))
+}
+
 test_that("a plan over a fresh out_dir prints only the plan", {
   dir <- withr::local_tempdir()
   plan <- suppressWarnings(make_plan(dir))
@@ -730,6 +925,62 @@ test_that("re-planning without a never-selected candidate keeps the SCM process"
   expect_match(txt, "WT_CL was selected in forward_round1")
 })
 
+test_that("re-planning with a retuned initial keeps the SCM process", {
+  dir <- withr::local_tempdir()
+  plan <- suppressWarnings(make_plan(dir))
+  fabricate_completed_state(plan$out_dir)
+
+  # A new initial estimate on WT_CL -- the usual fix for a candidate that
+  # failed on the old one -- is a retune, not a different SCM process.
+  replan <- suppressWarnings(scm_plan(write_scm_config(
+    dir,
+    section = "initial = 0.4"
+  )))
+  ctx <- attr(replan, "context")
+  expect_false(isTRUE(unlist(ctx$state_is_stale)))
+  parts <- scm_plan_context_parts(replan)
+  expect_setequal(
+    vapply(parts$retunes, function(r) r$name, character(1)),
+    c("WT_CL", "CRCL_CL", "WT_V")
+  )
+  expect_match(
+    parts$retunes[[1]]$label, "initial 0.1 -> 0.4", fixed = TRUE
+  )
+
+  txt <- cli_text_of(print(replan))
+  expect_no_match(txt, "cannot resume")
+  expect_no_match(txt, "(SCM-defining)", fixed = TRUE)
+  # nothing is mid-round, so the new values only bear on models still to come
+  expect_match(txt, "takes effect from the next model written", fixed = TRUE)
+  # WT_CL is in the model already; the round it was fitted in stands
+  expect_match(txt, "WT_CL is already in the model", fixed = TRUE)
+
+  knit <- as.character(knitr::knit_print(replan))
+  expect_match(knit, "Retuning WT_CL: initial 0.1 -> 0.4", fixed = TRUE)
+})
+
+test_that("a retune on a candidate in the open round is reported as a refit", {
+  dir <- withr::local_tempdir()
+  plan <- suppressWarnings(make_plan(dir))
+  fabricate_mid_round_state(plan$out_dir)
+
+  # WT_V is still being tested in forward_round2, so bounding it there means
+  # that round refits it under the new bounds.
+  replan <- suppressWarnings(scm_plan(write_scm_config(
+    dir,
+    covariates = '["WT_CL", "CRCL_CL", { name = "WT_V", lower = 0, upper = 2 }]'
+  )))
+  ctx <- attr(replan, "context")
+  expect_false(isTRUE(unlist(ctx$state_is_stale)))
+
+  txt <- cli_text_of(print(replan))
+  expect_match(
+    txt, "Retuning WT_V: bounds none -> (0, 2)", fixed = TRUE
+  )
+  expect_match(txt, "refitted in forward_round2 under the new values", fixed = TRUE)
+  expect_no_match(txt, "cannot resume")
+})
+
 test_that("re-planning the same SCM process reports no changes", {
   dir <- withr::local_tempdir()
   suppressWarnings(make_plan(dir))
@@ -762,7 +1013,6 @@ test_that("scm_status and summary read a completed SCM process", {
   expect_match(st_text, "candidates : WT_CL, CRCL_CL, WT_V", fixed = TRUE)
   expect_match(st_text, "scm_summary.json", fixed = TRUE)
   expect_match(st_text, "added WT_CL")
-  expect_match(st_text, "unusable")
   # no reference line; the SCM process is completed, so retained shows and the
   # final model carries the last reference fit's OFV
   expect_no_match(st_text, "reference  :", fixed = TRUE)
@@ -848,8 +1098,8 @@ test_that("scm_summary renders every round by default and drills into one", {
   expect_match(txt, "heuristics: parameter near boundary")
 
   # the detail flags stack
-  long <- paste(capture.output(print(scm_summary(plan, long = TRUE, all = TRUE))), collapse = "\n")
-  expect_match(long, "candidate             OFV       dOFV      LRT", fixed = TRUE)
+  long <- paste(capture.output(print(scm_summary(plan, long = TRUE))), collapse = "\n")
+  expect_match(long, "candidate             OFV       dOFV         p", fixed = TRUE)
   expect_match(long, "base/1001_base.mod", fixed = TRUE)
   mat <- paste(capture.output(print(scm_summary(plan, matrix = TRUE))), collapse = "\n")
   expect_match(mat, "p-value", fixed = TRUE)
@@ -869,7 +1119,7 @@ test_that("scm_summary renders every round by default and drills into one", {
   expect_true(wt_cl$selected)
   expect_equal(wt_cl$theta, 4L)
   expect_equal(wt_cl$initial, 0.1)
-  expect_equal(wt_cl$off, 0)
+  expect_equal(wt_cl$fixed, 0)
   expect_true(abs(wt_cl$critical_delta_ofv - 3.841) < 1e-3)
   expect_equal(df$status[df$candidate == "WT_V"], "unusable")
 

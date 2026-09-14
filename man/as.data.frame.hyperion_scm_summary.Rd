@@ -12,7 +12,9 @@
 \item{...}{ignored}
 }
 \value{
-a data.frame with the round, candidate, status, scoring (OFV,
+a data.frame with the round, candidate, status, attempts (and
+\code{superseded}, attempts made under an initial estimate or bounds since
+retuned away), scoring (OFV,
 ΔOFV, statistic, df, p, alpha, critical ΔOFV, significance, selection,
 rank), the effect's theta / initial / off and its estimate, stderr and
 RSE, the fit's condition number, and the heuristics that fired

@@ -7,13 +7,14 @@ use std::cmp::Ordering;
 // pharos nonmem crate
 use nmparser::ParameterOrdering;
 use nonmem::Model;
-use nonmem::output_files::{ext::get_parameter_estimates, shk::ShkReader};
+use nonmem::output_files::{DeclaredRandomEffects, ext::get_parameter_estimates, shk::ShkReader};
 
 use crate::{
     output_files::ext::create_ext_reader,
     output_files::{OMEGA, ParameterRow, ParameterRowBuilder, SIGMA, THETA, build_parameters_df},
     utils::{
         get_comment_type, parse_model_file, path_from_robj, resolve_ext_path, resolve_model_layout,
+        resolve_run_dir,
     },
 };
 use hyperion_core::{ResultExt, extendr_err};
@@ -115,7 +116,8 @@ pub fn get_parameters(
     let ext_reader = create_ext_reader(None, None, only_method, only_last)?;
 
     let search_path = path_from_robj(&path, false)?;
-    let (layout, run_dir) = resolve_model_layout(&search_path)?;
+    let layout = resolve_model_layout(&search_path)?;
+    let run_dir = resolve_run_dir(&layout)?;
     let model = parse_model_file(layout.model_path())?;
 
     let shk_path = layout.output_file(&run_dir, "shk");
@@ -144,6 +146,7 @@ pub fn get_parameters(
         Some(shk_data),
         hide_off_diagonal_params,
         Some(&parameter_names),
+        DeclaredRandomEffects::from(&model),
     )
     .map_to_extendr_err("")?;
 

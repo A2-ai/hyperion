@@ -10,7 +10,7 @@ use nonmem::output_files::ext::{EstimationTable, ExtReader};
 
 use crate::utils::{
     find_output_file, parse_model_file, path_from_robj, resolve_ext_path, resolve_model_layout,
-    to_syntactic_name,
+    resolve_run_dir, to_syntactic_name,
 };
 use hyperion_core::{OptionExt, ResultExt, extendr_err};
 
@@ -265,7 +265,8 @@ fn resolve_ext_input(input: &Robj) -> Result<PathBuf> {
     }
 
     let search_path = path_from_robj(input, false)?;
-    let (layout, run_dir) = resolve_model_layout(&search_path)?;
+    let layout = resolve_model_layout(&search_path)?;
+    let run_dir = resolve_run_dir(&layout)?;
     let model = parse_model_file(layout.model_path())?;
 
     let resolved = resolve_ext_path(&model, &run_dir, layout.stem());

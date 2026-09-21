@@ -12,7 +12,9 @@ use nonmem::output_files::{ext::get_parameter_estimates, shk::ShkReader};
 use crate::{
     output_files::ext::create_ext_reader,
     output_files::{OMEGA, ParameterRow, ParameterRowBuilder, SIGMA, THETA, build_parameters_df},
-    utils::{find_output_file, get_comment_type, load_model_from_input, resolve_ext_path},
+    utils::{
+        get_comment_type, parse_model_file, path_from_robj, resolve_ext_path, resolve_model_layout,
+    },
 };
 use hyperion_core::{ResultExt, extendr_err};
 
@@ -112,14 +114,18 @@ pub fn get_parameters(
 ) -> Result<Robj> {
     let ext_reader = create_ext_reader(None, None, only_method, only_last)?;
 
-    let loc = load_model_from_input(&path)?;
+    let search_path = path_from_robj(&path, false)?;
+    let (layout, run_dir) = resolve_model_layout(&search_path)?;
+    let model = parse_model_file(layout.model_path())?;
 
-    let shk_data = match find_output_file(&loc.run_dir, "shk") {
-        Ok(p) => ShkReader.parse_file(p).unwrap_or_default(),
-        Err(_) => Vec::new(),
+    let shk_path = layout.output_file(&run_dir, "shk");
+    let shk_data = if shk_path.exists() {
+        ShkReader.parse_file(shk_path).unwrap_or_default()
+    } else {
+        Vec::new()
     };
 
-    let ext_path = resolve_ext_path(&loc.model, &loc.run_dir, &loc.stem);
+    let ext_path = resolve_ext_path(&model, &run_dir, layout.stem());
     if !ext_path.exists() {
         return Err(extendr_err!(
             "Output file not found: {}",
@@ -128,8 +134,7 @@ pub fn get_parameters(
     }
 
     let comment_type = get_comment_type();
-    let parameter_names = loc
-        .model
+    let parameter_names = model
         .get_parameter_names(comment_type)
         .map_to_extendr_err("Failed to get model parameter names")?;
 

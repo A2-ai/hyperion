@@ -7,7 +7,7 @@ use std::cmp::Ordering;
 // pharos nonmem crate
 use nmparser::ParameterOrdering;
 use nonmem::Model;
-use nonmem::output_files::{DeclaredRandomEffects, ext::get_parameter_estimates, shk::ShkReader};
+use nonmem::output_files::{ext::get_parameter_estimates, shk::ShkReader};
 
 use crate::{
     output_files::ext::create_ext_reader,
@@ -146,7 +146,7 @@ pub fn get_parameters(
         Some(shk_data),
         hide_off_diagonal_params,
         Some(&parameter_names),
-        DeclaredRandomEffects::from(&model),
+        model.declared_random_effects(),
     )
     .map_to_extendr_err("")?;
 

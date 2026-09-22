@@ -94,7 +94,7 @@ dependencies = [
 [[package]]
 name = "config"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=re-less-models#27633ef384a26b01d5357ae4d5a6453324c9b7f8"
+source = "git+https://github.com/a2-ai/pharos?tag=v0.6.0#afb443c907d99773e950104770f74241b82d78d8"
 dependencies = [
  "anyhow",
  "fs-err",
@@ -527,7 +527,7 @@ checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
 [[package]]
 name = "nonmem"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=re-less-models#27633ef384a26b01d5357ae4d5a6453324c9b7f8"
+source = "git+https://github.com/a2-ai/pharos?tag=v0.6.0#afb443c907d99773e950104770f74241b82d78d8"
 dependencies = [
  "anyhow",
  "blake3",
@@ -552,7 +552,7 @@ dependencies = [
 [[package]]
 name = "nonmem-parser"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=re-less-models#27633ef384a26b01d5357ae4d5a6453324c9b7f8"
+source = "git+https://github.com/a2-ai/pharos?tag=v0.6.0#afb443c907d99773e950104770f74241b82d78d8"
 dependencies = [
  "anyhow",
  "distrs",
@@ -727,7 +727,7 @@ dependencies = [
 [[package]]
 name = "scheduler"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=re-less-models#27633ef384a26b01d5357ae4d5a6453324c9b7f8"
+source = "git+https://github.com/a2-ai/pharos?tag=v0.6.0#afb443c907d99773e950104770f74241b82d78d8"
 dependencies = [
  "anyhow",
  "config",
@@ -942,7 +942,7 @@ checksum = "d245f478577f809a851594d02313b640fb437e0bb33866753cff937863096954"
 [[package]]
 name = "utils"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?branch=re-less-models#27633ef384a26b01d5357ae4d5a6453324c9b7f8"
+source = "git+https://github.com/a2-ai/pharos?tag=v0.6.0#afb443c907d99773e950104770f74241b82d78d8"
 dependencies = [
  "anyhow",
  "fs-err",

@@ -393,7 +393,7 @@ pub fn get_final_estimates(
 
     // Build dataframe
     let mut pairs = vec![("model", model_names_ordered.into_robj())];
-    for (param_name, param_column) in param_names.iter().zip(param_columns.into_iter()) {
+    for (param_name, param_column) in param_names.iter().zip(param_columns) {
         pairs.push((param_name.as_str(), param_column.into_robj()));
     }
 

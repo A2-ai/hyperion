@@ -4,30 +4,17 @@
 \alias{scm_plan_impl}
 \title{Build and validate an SCM plan (runs nothing) and write its plan.json}
 \usage{
-scm_plan_impl(
-  config,
-  num_rounds = NULL,
-  max_retries = NULL,
-  cov_step = NULL,
-  initial = NULL,
-  overwrite = FALSE
-)
+scm_plan_impl(config, num_rounds = NULL, overwrite = FALSE)
 }
 \arguments{
 \item{config}{path to the SCM config file (TOML) written by
-\code{\link[=scm_init]{scm_init()}} into \verb{scm/<model>/}: model, direction, forward_alpha,
+\code{\link[=scm_init]{scm_init()}} into the SCM out_dir: model, direction, forward_alpha,
 backward_alpha, max_retries, cov_step, final_cov_step, and the
-\verb{[covariates]} section (initial, fixed, lower, upper, effects).
-Relative paths resolve against the config file}
+\verb{[covariates]} section (fixed, the per-type \code{continuous} /
+\code{categorical} tables, effects). Relative paths resolve against the
+config file}
 
 \item{num_rounds}{pause after this many rounds per run (NULL = no cap)}
-
-\item{max_retries}{override the config's retries per failed fit}
-
-\item{cov_step}{override whether generated models run the covariance step}
-
-\item{initial}{override the \verb{[covariates]} section's default \code{initial},
-the estimate an effect starts from the first time it is tested}
 
 \item{overwrite}{replace existing SCM output from a different plan}
 }

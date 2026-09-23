@@ -7,42 +7,24 @@
 scm_summary(
   x,
   round = NULL,
-  phase = NULL,
   candidate = NULL,
   long = FALSE,
   timing = FALSE,
-  parameters = FALSE,
-  matrix = NULL,
-  files = FALSE,
-  sort = c("p", "dofv", "name"),
-  reverse = FALSE,
-  digits = 3
+  files = FALSE
 )
 }
 \arguments{
-\item{x}{a \code{hyperion_scm_plan}, an SCM output directory, or a plan.json
-path}
+\item{x}{a \code{hyperion_scm_plan}, a \code{hyperion_scm_status}, an SCM output
+directory, or a plan.json path}
 
 \item{round}{only this round: the Nth SCM round (\code{2} or \code{"round 2"} — the
 reference fit is not a round), a round name (\code{"forward_round1"},
 \code{"backward_round1"}), or \code{"reference"}. A single round always lists
 its attempts. \code{NULL} (the default) shows every round to date.}
 
-\item{phase}{only this phase: \code{"forward"} or \code{"backward"}}
-
 \item{candidate}{trace one candidate, by name, through every round}
 
-\item{long, timing, parameters, files}{the detail flags described above}
-
-\item{matrix}{\code{"p"} or \code{"dofv"} for the candidates × rounds grid; \code{TRUE}
-means \code{"p"}}
-
-\item{sort}{order within a round: \code{"p"} (winner-first for the phase, the
-default), \code{"dofv"}, or \code{"name"} (plan order)}
-
-\item{reverse}{reverse the order within a round}
-
-\item{digits}{decimals for OFV, ΔOFV and estimates (default 3)}
+\item{long, timing, files}{the detail flags described above}
 }
 \value{
 a \code{hyperion_scm_summary} object: the summary record restricted to
@@ -70,10 +52,6 @@ fitted before the candidate's initial estimate or bounds were retuned,
 so kept on disk but never scored) with its model path
 \item \code{timing}: start, end and wall time per fit and per round, estimation
 time, totals
-\item \code{parameters}: each round's winner's parameter table beside its
-reference, and the IIV change on every diagonal OMEGA
-\item \code{matrix}: a candidates × rounds grid of p-values (\code{"p"}) or ΔOFV
-(\code{"dofv"}), winners bracketed
 \item \code{candidate}: one candidate traced through every round it was tested in
 \item \code{files}: run directory, \code{.lst}, \code{.ext} and summary JSON per candidate
 }
@@ -82,7 +60,6 @@ reference, and the IIV change on every diagonal OMEGA
 \dontrun{
 scm_summary(plan)                        # every round to date
 scm_summary(plan, long = TRUE)
-scm_summary(plan, matrix = "p")
 scm_summary(plan, candidate = "AGE_CL")  # why did it never get in?
 scm_summary(plan, 2)                     # one round, every attempt
 scm_summary("model/nonmem/PK/scm/scm-demo", "backward_round1", timing = TRUE)

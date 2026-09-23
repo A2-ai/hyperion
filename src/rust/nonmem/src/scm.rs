@@ -3,8 +3,7 @@
 //! `scm_init_wrap` writes the starter config beside a model, `scm_plan_wrap`
 //! builds the validated plan and writes `plan.json` through the same Rust
 //! serializer the pharos CLI reads, and `scm_status_wrap` /
-//! `scm_summary_wrap` / `scm_decision_log_wrap` read an SCM process wherever
-//! it stands. Running happens through the pharos CLI in the background (see
+//! `scm_summary_wrap` read an SCM process wherever it stands. Running happens through the pharos CLI in the background (see
 //! `scm_run()` on the R side), never in-process.
 
 use std::path::Path;
@@ -14,8 +13,9 @@ use extendr_api::prelude::*;
 use extendr_api::serializer::to_robj;
 
 use nonmem::scm::{
-    self as pharos_scm, ScmPlan, SummaryFormat, SummaryOptions, decision_log_rows,
-    log as scm_log, reconcile_state_with_disk, state::ScmState,
+    self as pharos_scm, Compatibility, PlanChange, PlanContext, Retuning, SummaryOptions,
+    state::ScmProcess,
+    summary::round_summary_md,
 };
 
 use hyperion_core::{ResultExt, extendr_err};
@@ -26,7 +26,7 @@ use hyperion_core::{ResultExt, extendr_err};
 ///
 /// @param model path to the initial model (.mod / .ctl); the output
 ///   directory lands beside it, and the config inside that
-/// @param overwrite replace an existing `<model>-scm.toml`
+/// @param overwrite replace an existing `<model stem>scm.toml`
 ///
 /// @return a list with `config` (the config file written) and `out_dir`
 ///   (the output directory created)
@@ -48,15 +48,12 @@ pub fn scm_init_wrap(model: &str, #[extendr(default = "FALSE")] overwrite: bool)
 /// Internal engine behind [scm_plan()]; use that instead.
 ///
 /// @param config path to the SCM config file (TOML) written by
-///   [scm_init()] into `scm/<model>/`: model, direction, forward_alpha,
+///   [scm_init()] into the SCM out_dir: model, direction, forward_alpha,
 ///   backward_alpha, max_retries, cov_step, final_cov_step, and the
-///   `[covariates]` section (initial, fixed, lower, upper, effects).
-///   Relative paths resolve against the config file
+///   `[covariates]` section (fixed, the per-type `continuous` /
+///   `categorical` tables, effects). Relative paths resolve against the
+///   config file
 /// @param num_rounds pause after this many rounds per run (NULL = no cap)
-/// @param max_retries override the config's retries per failed fit
-/// @param cov_step override whether generated models run the covariance step
-/// @param initial override the `[covariates]` section's default `initial`,
-///   the estimate an effect starts from the first time it is tested
 /// @param overwrite replace existing SCM output from a different plan
 ///
 /// @return a `hyperion_scm_plan` object; its `plan_path` attribute is the
@@ -68,16 +65,8 @@ pub fn scm_init_wrap(model: &str, #[extendr(default = "FALSE")] overwrite: bool)
 pub fn scm_plan_wrap(
     config: &str,
     #[extendr(default = "NULL")] num_rounds: Option<i32>,
-    #[extendr(default = "NULL")] max_retries: Option<i32>,
-    #[extendr(default = "NULL")] cov_step: Option<bool>,
-    #[extendr(default = "NULL")] initial: Option<f64>,
     #[extendr(default = "FALSE")] overwrite: bool,
 ) -> Result<Robj> {
-    if let Some(m) = max_retries
-        && m < 0
-    {
-        return Err(extendr_err!("max_retries must be non-negative, got {m}"));
-    }
     // Guard before the i32 -> usize cast: a negative would wrap to a huge
     // cap, silently meaning "never pause".
     if let Some(n) = num_rounds
@@ -88,9 +77,6 @@ pub fn scm_plan_wrap(
 
     let overrides = pharos_scm::ScmPlanOverrides {
         num_rounds: num_rounds.map(|n| n as usize),
-        max_retries: max_retries.map(|m| m as usize),
-        cov_step,
-        initial,
         overwrite,
     };
 
@@ -108,16 +94,165 @@ pub fn scm_plan_wrap(
 
     let mut robj = to_robj(&built.plan).map_to_extendr_err("Failed to convert plan to Robj")?;
     robj.set_attrib("warnings", built.warnings.iter().collect_robj())?;
+    // The worst-case model count is derived from the plan, not stored in it,
+    // so pharos's own arithmetic rides along as an attribute.
+    let max_models = pharos_scm::max_models_for(
+        built.plan.candidates.len(),
+        built.plan.options.phases().len(),
+    );
+    robj.set_attrib("max_models", (max_models as i32).into_robj())?;
+    // The digest of the SCM-defining options: what an scm_state.json in the
+    // out_dir has to carry for the SCM process to resume under this plan.
+    robj.set_attrib("plan_digest", built.plan.digest().into_robj())?;
+    // Retries restart from the previous attempt's estimates, jittered by
+    // this much; pharos owns the figure, so the display asks it rather than
+    // quoting one of its own.
+    robj.set_attrib("retry_jitter", nonmem::scm::round::RETRY_JITTER.into_robj())?;
     robj.set_attrib("plan_path", written.to_string_lossy().into_robj())?;
     // Read while the plan was built, i.e. before the save above replaced the
     // plan.json it compares against: how far the SCM process in the out_dir got,
     // and what this plan changed. Printing leans on it; a fresh out_dir has
     // nothing to say and renders exactly as it always did.
-    let context =
-        to_robj(&built.context).map_to_extendr_err("Failed to convert plan context to Robj")?;
-    robj.set_attrib("context", context)?;
+    robj.set_attrib("context", context_robj(&built.context)?)?;
     let robj = robj.set_class(["hyperion_scm_plan"])?.to_owned();
     Ok(robj)
+}
+
+/// What `scm status` shows: the summary header and one line per round.
+const BRIEF: SummaryOptions = SummaryOptions {
+    round: None,
+    candidate: None,
+    brief: true,
+    long: false,
+    timing: false,
+    files: false,
+};
+
+/// The SCM-defining plan fields — the ones the plan digest covers, so moving
+/// any of them is a different SCM process and the state in the out_dir
+/// cannot resume under it.
+const DIGEST_FIELDS: [&str; 7] = [
+    "model",
+    "direction",
+    "forward_alpha",
+    "backward_alpha",
+    "max_retries",
+    "cov_step",
+    "final_cov_step",
+];
+
+/// `NULL` for a missing value, so an absent field reads as `NULL` in R
+/// rather than as an empty vector.
+fn or_null<T: Into<Robj>>(value: Option<T>) -> Robj {
+    value.map_or_else(|| r!(NULL), Into::into)
+}
+
+/// Where the SCM process in the out_dir stands, as the R display code reads
+/// it.
+fn progress_robj(p: &ScmProcess) -> Robj {
+    let s = &p.state;
+    let current = match s.open_round() {
+        Some(cur) => list!(
+            name = cur.name.clone(),
+            concluded = cur.concluded() as i32,
+            total = cur.candidates.len() as i32,
+            // the candidates the open round holds, so a retune can say which
+            // of them that round refits
+            candidates = cur
+                .candidates
+                .iter()
+                .map(|c| c.candidate.clone())
+                .collect::<Vec<_>>()
+        )
+        .into_robj(),
+        None => r!(NULL),
+    };
+    list!(
+        status = s.status.to_string(),
+        phase = or_null(s.phase.map(|d| d.to_string())),
+        rounds_complete = s.completed_rounds() as i32,
+        current_round = current,
+        retained = s.retained.clone(),
+        removed = s
+            .removed_roster()
+            .map(|e| e.removal_label())
+            .collect::<Vec<_>>(),
+        final_model = or_null(s.final_model.clone()),
+        models_running = p.models_running.len() as i32,
+        updated = s.updated.clone()
+    )
+    .into_robj()
+}
+
+/// The `context` attribute a freshly built plan carries: where the SCM
+/// process in its out_dir already stands, and what this plan changed about
+/// the plan.json it replaced.
+///
+/// pharos renders its `PlanContext` straight to text for the CLI and never
+/// serializes it, so hyperion takes it apart here and hands R the pieces its
+/// own print and knit_print methods are built on.
+fn context_robj(ctx: &PlanContext) -> Result<Robj> {
+    // No state behind the plan reads as the empty verdict: nothing removed,
+    // nothing retuned, no reason it cannot resume.
+    let nothing = Compatibility::default();
+    let verdict = ctx.compatibility.as_ref().unwrap_or(&nothing);
+    let (removals, retunes, reasons): (&[String], &[Retuning], &[String]) =
+        (&verdict.removals, &verdict.retunes, &verdict.reasons);
+
+    // A change is SCM-defining when the SCM process in the out_dir cannot
+    // carry it: a plan-digest field, or a candidate change that is neither a
+    // removal nor a retune (the two the process absorbs). With no state
+    // behind the plan there is nothing to lose, so nothing is flagged.
+    let has_state = ctx.compatibility.is_some();
+    let scm_defining = |c: &PlanChange| -> bool {
+        if !has_state {
+            return false;
+        }
+        if DIGEST_FIELDS.contains(&c.field.as_str()) {
+            return true;
+        }
+        if c.field != "candidates" {
+            return false;
+        }
+        // pharos writes a candidates change as "<name> <what changed>"
+        let name = c.detail.split_whitespace().next().unwrap_or_default();
+        !removals.iter().any(|r| r == name) && !retunes.iter().any(|r| r.name() == name)
+    };
+
+    let changes: Vec<Robj> = ctx
+        .changes
+        .iter()
+        .map(|c| {
+            list!(
+                field = c.field.clone(),
+                detail = c.detail.clone(),
+                scm_defining = scm_defining(c)
+            )
+            .into_robj()
+        })
+        .collect();
+
+    let retunes: Vec<Robj> = retunes
+        .iter()
+        .map(|r| {
+            list!(
+                candidate = list!(name = r.name().to_string()),
+                changes = r.changes.clone()
+            )
+            .into_robj()
+        })
+        .collect();
+
+    Ok(list!(
+        had_previous_plan = ctx.had_previous_plan,
+        changes = List::from_values(changes),
+        progress = ctx.progress.as_ref().map_or_else(|| r!(NULL), progress_robj),
+        removals = removals.to_vec(),
+        retunes = List::from_values(retunes),
+        state_is_stale = verdict.is_incompatible(),
+        stale_reasons = reasons.to_vec()
+    )
+    .into_robj())
 }
 
 /// Read the status of an SCM process
@@ -130,52 +265,21 @@ pub fn scm_plan_wrap(
 /// @keywords internal
 #[extendr(r_name = "scm_status_impl")]
 pub fn scm_status_wrap(path: &str) -> Result<Robj> {
-    let status = pharos_scm::read_status(Path::new(path))
+    // Status is the summary read briefly — the same record, the same reader,
+    // so status and summary can never describe different SCM processes.
+    let status = pharos_scm::read_summary(Path::new(path))
         .map_to_extendr_err("Failed to read SCM status")?;
+    let rendered = status
+        .render_text(&BRIEF)
+        .map_to_extendr_err("Failed to render SCM status")?;
 
     let mut robj = to_robj(&status).map_to_extendr_err("Failed to convert status to Robj")?;
-    robj.set_attrib("rendered", status.render_text().into_robj())?;
+    robj.set_attrib("rendered", rendered.into_robj())?;
+    // The record's own `out_dir` is written relative to the pharos project
+    // root, so the directory it was read from is the one to go back to.
+    robj.set_attrib("out_dir", path.into_robj())?;
     let robj = robj.set_class(["hyperion_scm_status"])?.to_owned();
     Ok(robj)
-}
-
-#[derive(Debug, IntoDataFrameRow)]
-struct DecisionLogRow {
-    round: String,
-    direction: String,
-    candidate: String,
-    model: String,
-    attempts: i32,
-    status: String,
-    reference_ofv: Rfloat,
-    delta_ofv: Rfloat,
-    df: i32,
-    p_value: Rfloat,
-    significant: Rbool,
-    selected: bool,
-    heuristics: String,
-    decision: String,
-}
-
-impl From<pharos_scm::DecisionLogRow> for DecisionLogRow {
-    fn from(r: pharos_scm::DecisionLogRow) -> Self {
-        Self {
-            round: r.round,
-            direction: r.direction,
-            candidate: r.candidate,
-            model: r.model,
-            attempts: r.attempts as i32,
-            status: r.status,
-            reference_ofv: r.reference_ofv.map_or(Rfloat::na(), Rfloat::from),
-            delta_ofv: r.delta_ofv.map_or(Rfloat::na(), Rfloat::from),
-            df: r.df as i32,
-            p_value: r.p_value.map_or(Rfloat::na(), Rfloat::from),
-            significant: r.significant.map_or(Rbool::na(), Rbool::from),
-            selected: r.selected,
-            heuristics: r.heuristics,
-            decision: r.decision,
-        }
-    }
 }
 
 /// The SCM summary: every round to date, or a selection, rendered
@@ -186,75 +290,62 @@ impl From<pharos_scm::DecisionLogRow> for DecisionLogRow {
 /// @param round only this round: the Nth SCM round ("2" / "round 2"), a
 ///   round name (forward_round1, backward_round1), or "reference"; NULL for
 ///   every round
-/// @param phase only this phase ("forward" / "backward"); NULL for both
 /// @param candidate trace one candidate through every round it was tested in
-/// @param long,timing,parameters,files the `scm summary` detail flags
-/// @param matrix "p" or "dofv" for the candidates x rounds grid; NULL for none
-/// @param sort order within a round: "p", "dofv" or "name"
-/// @param reverse reverse the order within a round
-/// @param digits decimals for OFV, dOFV and estimates
+/// @param long,timing,files the `scm summary` detail flags
 ///
 /// @return a `hyperion_scm_summary` object: the summary record (the rounds
 ///   selected), with the rendered text as its `rendered` attribute and the
 ///   markdown rendering as `markdown`
 /// @keywords internal
 #[extendr(r_name = "scm_summary_impl")]
-#[allow(clippy::too_many_arguments)]
 pub fn scm_summary_wrap(
     path: &str,
     #[extendr(default = "NULL")] round: Option<String>,
-    #[extendr(default = "NULL")] phase: Option<String>,
     #[extendr(default = "NULL")] candidate: Option<String>,
     #[extendr(default = "FALSE")] long: bool,
     #[extendr(default = "FALSE")] timing: bool,
-    #[extendr(default = "FALSE")] parameters: bool,
-    #[extendr(default = "NULL")] matrix: Option<String>,
     #[extendr(default = "FALSE")] files: bool,
-    #[extendr(default = "\"p\"")] sort: &str,
-    #[extendr(default = "FALSE")] reverse: bool,
-    #[extendr(default = "3")] digits: i32,
 ) -> Result<Robj> {
-    let phase = match phase {
-        Some(p) => Some(p.parse().map_err(|e: String| extendr_err!("{e}"))?),
-        None => None,
-    };
-    let matrix = match matrix {
-        Some(m) => Some(m.parse().map_err(|e: String| extendr_err!("{e}"))?),
-        None => None,
-    };
-    let sort = sort.parse().map_err(|e: String| extendr_err!("{e}"))?;
-    if digits < 0 {
-        return Err(extendr_err!("digits must be non-negative, got {digits}"));
-    }
     let opts = SummaryOptions {
         round,
-        phase,
         candidate,
+        brief: false,
         long,
         timing,
-        parameters,
-        matrix,
         files,
-        sort,
-        reverse,
-        digits: digits as usize,
-        format: SummaryFormat::Text,
     };
 
     let summary =
         pharos_scm::read_summary(Path::new(path)).map_to_extendr_err("Failed to read SCM summary")?;
     let rendered = summary
-        .render(&opts)
+        .render_text(&opts)
         .map_to_extendr_err("Failed to render SCM summary")?;
-    let markdown = summary
-        .render(&SummaryOptions {
-            format: SummaryFormat::Markdown,
-            ..opts.clone()
-        })
-        .map_to_extendr_err("Failed to render SCM summary")?;
-    let selected = summary
-        .filtered(&opts)
-        .map_to_extendr_err("Failed to select SCM rounds")?;
+
+    // The rounds the options select, with the candidate rows they show: the
+    // record behind the rendering, for `as.data.frame()` to walk.
+    let names: Vec<String> = summary
+        .select_rounds(&opts)
+        .map_to_extendr_err("Failed to select SCM rounds")?
+        .iter()
+        .map(|r| r.round.clone())
+        .collect();
+    let mut selected = summary.clone();
+    selected.rounds.retain(|r| names.contains(&r.round));
+    if let Some(name) = &opts.candidate {
+        for r in &mut selected.rounds {
+            r.candidates.retain(|c| c.candidate.eq_ignore_ascii_case(name));
+        }
+    }
+
+    // pharos renders each round's markdown as a `## <round>` section; the
+    // selection decides which ones, and the fits the read already loaded for
+    // all of them carry over.
+    let fits = &summary.fits;
+    let mut markdown = String::from("# SCM summary\n\n");
+    for r in &selected.rounds {
+        markdown.push_str(&round_summary_md(r, fits));
+        markdown.push('\n');
+    }
 
     let mut robj = to_robj(&selected).map_to_extendr_err("Failed to convert summary to Robj")?;
     robj.set_attrib("rendered", rendered.into_robj())?;
@@ -263,64 +354,10 @@ pub fn scm_summary_wrap(
     Ok(robj)
 }
 
-/// Build the SCM decision log
-///
-/// Internal engine behind [summary.hyperion_scm_status()]; use that instead.
-///
-/// @param path the SCM out_dir
-/// @param write whether to (re)write scm_decision_log.csv / .md into out_dir
-///
-/// @return the decision log as a data.frame
-/// @keywords internal
-#[extendr(r_name = "scm_decision_log_impl")]
-pub fn scm_decision_log_wrap(path: &str, #[extendr(default = "TRUE")] write: bool) -> Result<Robj> {
-    let out_dir = Path::new(path);
-    let plan = ScmPlan::load(out_dir.join(pharos_scm::PLAN_FILENAME))
-        .map_to_extendr_err("Failed to load plan.json")?;
-    let mut state = ScmState::load(out_dir)
-        .map_to_extendr_err("Failed to read scm_state.json")?
-        .ok_or_else(|| extendr_err!("No scm_state.json yet — the SCM process has not started"))?;
-    // The driver writes a wave's outcomes back only once the whole batch
-    // returns, so mid-round the state still calls finished runs `running`.
-    // Read them off disk the way the status and round views do, so all three
-    // describe the same SCM process.
-    reconcile_state_with_disk(&mut state, out_dir, &plan.options);
-
-    let mut written: Vec<String> = vec![];
-    if write {
-        let (csv, md) = scm_log::write_decision_log(out_dir, &plan, &state)
-            .map_to_extendr_err("Failed to write decision log")?;
-        written.push(csv.to_string_lossy().to_string());
-        written.push(md.to_string_lossy().to_string());
-    }
-
-    let rows: Vec<DecisionLogRow> = decision_log_rows(&state)
-        .into_iter()
-        .map(DecisionLogRow::from)
-        .collect();
-
-    let mut df = if rows.is_empty() {
-        // an empty but correctly-typed data.frame
-        R!("data.frame(round = character(), direction = character(), candidate = character(), model = character(), attempts = integer(), status = character(), reference_ofv = numeric(), delta_ofv = numeric(), df = integer(), p_value = numeric(), significant = logical(), selected = logical(), heuristics = character(), decision = character())")?
-    } else {
-        rows.into_dataframe()
-            .map_to_extendr_err("Failed to build decision log df")?
-            .into_robj()
-    };
-
-    df.set_attrib("files_written", written.iter().collect_robj())?;
-    df.set_attrib("retained", state.retained.iter().collect_robj())?;
-    if let Some(f) = &state.final_model {
-        df.set_attrib("final_model", f.into_robj())?;
-    }
-    Ok(df)
-}
-
 extendr_module! {
     mod scm;
     fn scm_init_wrap;
     fn scm_plan_wrap;
     fn scm_status_wrap;
     fn scm_summary_wrap;
-    fn scm_decision_log_wrap;
 }

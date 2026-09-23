@@ -16,7 +16,8 @@ copy_model(
   description,
   based_on = NULL,
   tags = NULL,
-  no_metadata = FALSE
+  no_metadata = FALSE,
+  allow_partial = FALSE
 )
 }
 \arguments{
@@ -47,6 +48,10 @@ Examples: "THETA1" or c("THETA1")}
 \item{tags}{Character vector of tags to attach to the model in metadata}
 
 \item{no_metadata}{boolean, if true, does not create metadatafile, default FALSE}
+
+\item{allow_partial}{boolean, when updating from an .ext file, take the
+estimates from the run's last iteration if it never reached final
+estimates, instead of refusing an unfinished run. Default FALSE}
 }
 \value{
 path to new model file (invisible) todo

@@ -2,28 +2,25 @@
 % Please edit documentation in R/scm-methods.R
 \name{summary.hyperion_scm_status}
 \alias{summary.hyperion_scm_status}
-\title{Summarize an SCM process: the decision log as a data.frame}
+\title{Summarize an SCM process: its record as a data.frame}
 \usage{
-\method{summary}{hyperion_scm_status}(object, write = TRUE, ...)
+\method{summary}{hyperion_scm_status}(object, ...)
 }
 \arguments{
 \item{object}{a \code{hyperion_scm_status} from \code{\link[=scm_status]{scm_status()}}}
 
-\item{write}{whether to (re)write the decision log files (default \code{TRUE})}
-
 \item{...}{ignored}
 }
 \value{
-the decision log as a data.frame, with attributes
-\code{files_written}, \code{retained}, and (when the SCM process completed)
-\code{final_model}
+a data.frame, one row per candidate per round; see
+\code{\link[=as.data.frame.hyperion_scm_summary]{as.data.frame.hyperion_scm_summary()}} for the columns
 }
 \description{
-Returns the decision log — every model fitted, every attempt, ΔOFV
-(candidate − reference, negative when the candidate improves), degrees of
-freedom, p-values, heuristic checks that fired, and each round's decision.
-pharos rewrites \code{scm_decision_log.csv} and \code{scm_decision_log.md} in the
-SCM output directory after every round; this is how you get the same
-record into R (re-writing the files by default, so they always match the
-current state — useful mid-run too).
+Returns the whole record behind \code{\link[=scm_status]{scm_status()}} one row at a time — every
+candidate of every round, with the model fitted, the attempts it took,
+ΔOFV (candidate − reference, negative when the candidate improves),
+degrees of freedom, p-values against the round's alpha, the heuristic
+checks that fired, and whether the round selected it. The same numbers
+\code{\link[=scm_summary]{scm_summary()}} renders, and the same ones pharos writes to
+\code{scm_summary.json} after every round.
 }

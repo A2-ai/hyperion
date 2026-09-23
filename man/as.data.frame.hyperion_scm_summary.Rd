@@ -12,12 +12,13 @@
 \item{...}{ignored}
 }
 \value{
-a data.frame with the round, candidate, status, attempts (and
+a data.frame with the round and its direction, reference OFV and
+alpha, and per candidate its action, status, model, attempts (and
 \code{superseded}, attempts made under an initial estimate or bounds since
-retuned away), scoring (OFV,
-ΔOFV, statistic, df, p, alpha, critical ΔOFV, significance, selection,
-rank), the effect's theta / initial / off and its estimate, stderr and
-RSE, the fit's condition number, and the heuristics that fired
+retuned away), scoring (OFV, ΔOFV, statistic, df, p, critical ΔOFV,
+significance, selection, rank), the effect's theta (its initial and
+held-out values are on the summary's \code{roster}), and the heuristics that
+fired
 }
 \description{
 One row per candidate per round of an SCM summary

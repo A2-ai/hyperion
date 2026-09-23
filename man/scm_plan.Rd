@@ -4,35 +4,13 @@
 \alias{scm_plan}
 \title{Plan a stepwise covariate modeling (SCM) process}
 \usage{
-scm_plan(
-  config,
-  num_rounds = NULL,
-  max_retries = NULL,
-  cov_step = NULL,
-  initial = NULL,
-  overwrite = FALSE
-)
+scm_plan(config, num_rounds = NULL, overwrite = FALSE)
 }
 \arguments{
 \item{config}{path to the SCM config file (TOML), as above}
 
 \item{num_rounds}{pause the SCM process after this many rounds per
 \code{\link[=scm_run]{scm_run()}} invocation; the SCM process is resumable. \code{NULL} = no cap.}
-
-\item{max_retries}{override the config's retries per failed fit
-(config default 3). Retries are never jittered: each retry starts from
-wherever the previous attempt left off (its final estimates, or its
-last iteration if it never finished). \code{NULL} = use the config.}
-
-\item{cov_step}{override whether generated models run the covariance step
-(\verb{$COVARIANCE}, config default \code{FALSE}). \code{NULL} = use the config.}
-
-\item{initial}{override the \verb{[covariates]} section's default \code{initial}:
-the estimate an effect starts from the first time it is tested when
-neither its own row nor the initial model gives it one (config default
-0.1). Parameters already free in the round's reference fit continue from
-its estimates, and candidate thetas held out of a given model are fixed
-at their \code{fixed} value. \code{NULL} = use the config.}
 
 \item{overwrite}{replace existing SCM output from a \emph{different} plan in
 \code{out_dir} (re-running the same plan resumes and needs no overwrite)}
@@ -69,13 +47,13 @@ cov_step = false
 final_cov_step = true
 
 [covariates]
-initial = 0.1   # default: the initial estimate an effect is first tested at
-fixed = 0       # default: what a held-out effect's theta is fixed at
-# lower / upper # optional default $THETA bounds; omitted = the initial model's own
+fixed = 0                     # default: what a held-out effect's theta is fixed at
+continuous  = \{ initial = 0.1 \} # default initial estimate for a continuous effect
+categorical = \{ initial = 1 \}   # default initial estimate for a categorical effect
 effects = [
-  "WT_CL", "CRCL_CL", "AGE_CL",                     # theta names, at the defaults
-  \{ name = "SEXEFF_CL", initial = 1.2, fixed = 1 \}, # a fold-change effect: 1 = no effect
-  \{ name = "WT_V", lower = 0, upper = 5 \},          # bounded while it is in the model
+  "WT_CL", "CRCL_CL", "AGE_CL",                             # theta names, continuous, at the defaults
+  \{ name = "SEXEFF_CL", type = "categorical", fixed = 1 \},  # a fold-change effect: 1 = no effect
+  \{ name = "WT_V", initial = 0.3, lower = 0, upper = 5 \},   # its own estimate, bounded while it is in the model
 ]
 }\if{html}{\out{</div>}}
 
@@ -87,8 +65,13 @@ fit is what reports their estimates with standard errors.
 Relative paths in the config resolve against the config file's own
 directory. The config lives in the SCM process's own directory,
 \verb{scm/<model stem>} beside the model — the directory \code{\link[=scm_init]{scm_init()}} creates —
-which is why the generated \code{model} key reads \verb{../../<model>}. That
-location is not configurable. \code{effects} names the candidate effects the way the initial
+which is why the generated \code{model} key reads \verb{../../<model>}. Where that
+directory lands is the project's call: \verb{[nonmem.scm] out_dir} in
+\code{pharos.toml} is a template rendered against the model directory
+(\code{scm/{{name}}} unless the project says otherwise), and \code{\link[=scm_init]{scm_init()}}
+points the \code{model} key back up at the model from wherever it lands. The
+template may not carry a timestamp — the SCM process has to be findable
+again. \code{effects} names the candidate effects the way the initial
 model's \verb{$THETA} records name them, matched case-insensitively: a \verb{$THETA}
 label (\verb{$THETA WT_CL=(0, 0.4)}, \verb{$THETA NAMES(WT_CL, CRCL_CL) ...}), or
 the name the theta's comment carries — \verb{; WT_CL cov}, \verb{; WT_CL},
@@ -100,15 +83,22 @@ that several thetas on one \verb{$THETA} record sharing a single comment all
 take that comment's name, so write one theta per record or use \code{NAMES()}.
 The name the model uses is the candidate's name throughout the SCM
 process, whichever of its names the config asked for. THETA numbers are
-not accepted. A bare name takes the section's \code{initial} and \code{fixed}
-defaults; a row overrides them for one effect, which a fold-change form
-such as \code{SEXEFF_CL = THETA(n)**SEX} needs (\code{fixed = 1}). \code{fixed} was
-spelled \code{off} before; that spelling is still accepted.
+not accepted. A bare name is a continuous effect, first tested at the
+initial estimate its type's table gives it (\code{continuous = { initial = 0.1 }},
+\code{categorical = { initial = 1 }}, those two figures unless the config says
+otherwise), and held out at the section's \code{fixed}. A row overrides both for
+one effect and declares its \code{type}, which a fold-change form such as
+\code{SEXEFF_CL = THETA(n)**SEX} needs (\code{type = "categorical"}, \code{fixed = 1}).
+A per-type \code{initial} only reaches an effect whose \verb{$THETA} is authored at
+the held-out value (\verb{(0 FIX)}): a theta the initial model already inits at
+something else keeps that value. \code{initial} is a row-only key — the section
+carries it per type, never flat. \code{fixed} was spelled \code{off} before; that
+spelling is still accepted.
 
-\code{lower} and \code{upper}, in the section or on a row, are the \verb{$THETA} bounds
-each effect is estimated under in every model that has it in — the usual
+\code{lower} and \code{upper}, on an effect's row, are the \verb{$THETA} bounds that
+effect is estimated under in every model that has it in — the usual
 answer to a covariate whose estimation runs off somewhere absurd. Each
-bound comes from the row, else the section, else the bound the initial model's
+bound comes from the row, else the bound the initial model's
 own \verb{$THETA} spec carries, so a config that says nothing about bounds
 leaves every candidate exactly as the initial model authored it. A held-out
 effect is written \verb{(fixed FIX)} and needs no bounds; \code{initial} must sit
@@ -127,11 +117,11 @@ other SCM-defining setting needs \code{overwrite}.
 }
 \examples{
 \dontrun{
-plan <- scm_plan("model/nonmem/PK/scm/scm-demo/scm-demo-scm.toml")
+plan <- scm_plan("model/nonmem/PK/scm/scm-demo/scm-demoscm.toml")
 
-# pause after 2 rounds, and retry harder than the config says
-plan <- scm_plan("model/nonmem/PK/scm/scm-demo/scm-demo-scm.toml",
-                 num_rounds = 2, max_retries = 5)
+# pause after 2 rounds, so the SCM process can be looked at as it goes
+plan <- scm_plan("model/nonmem/PK/scm/scm-demo/scm-demoscm.toml",
+                 num_rounds = 2)
 plan
 scm_run(plan)
 }

@@ -10,7 +10,7 @@ scm_init(model, overwrite = FALSE)
 \item{model}{path to the initial model (\code{.mod} / \code{.ctl}). The output
 directory is created beside it, and the config file inside that.}
 
-\item{overwrite}{replace an existing \verb{<model>-scm.toml} (default \code{FALSE},
+\item{overwrite}{replace an existing \verb{<model stem>scm.toml} (default \code{FALSE},
 so a config you have already filled in is never clobbered)}
 }
 \value{
@@ -18,8 +18,10 @@ invisibly, a list with \code{config} (the config file written) and
 \code{out_dir} (the output directory created)
 }
 \description{
-Creates the \verb{scm/<model>} directory the SCM process writes into and puts
-the SCM config file inside it as \verb{<model>-scm.toml}. The
+Creates the directory the SCM process writes into — \verb{scm/<model stem>}
+beside the model, or wherever the project's \verb{[nonmem.scm] out_dir}
+template puts it — and puts the SCM config file inside it as
+\verb{<model stem>scm.toml}. The
 config comes with \code{direction} and every optional setting already filled
 in at its default and the \verb{[covariates]} section's \code{effects} left empty:
 name the covariate effects to be tested — by the name the initial model's

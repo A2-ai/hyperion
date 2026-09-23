@@ -12,7 +12,7 @@ path}
 }
 \value{
 a \code{hyperion_scm_status} object; its \code{\link[=summary]{summary()}} method returns the
-decision log as a data.frame
+record as a data.frame, one row per candidate per round
 }
 \description{
 Reads the plan and the persistent SCM process state — rounds completed, the
@@ -24,6 +24,6 @@ current reference model and OFV — wherever the SCM process currently stands
 \dontrun{
 st <- scm_status(plan)
 st
-summary(st)   # the decision log as a data.frame
+summary(st)   # one row per candidate per round
 }
 }

@@ -66,6 +66,9 @@ read_model_from_lst <- function(path) .Call(wrap__read_model_from_lst, path)
 #' @param based_on Character vector of model names/paths that this model is based on
 #' @param tags Character vector of tags to attach to the model in metadata
 #' @param no_metadata boolean, if true, does not create metadatafile, default FALSE
+#' @param allow_partial boolean, when updating from an .ext file, take the
+#' estimates from the run's last iteration if it never reached final
+#' estimates, instead of refusing an unfinished run. Default FALSE
 #'
 #' @return path to new model file (invisible) todo
 #' @export
@@ -73,7 +76,7 @@ read_model_from_lst <- function(path) .Call(wrap__read_model_from_lst, path)
 #' @examples \dontrun{
 #' copy_model(from = "model/nonmem/run001.mod", to = "model/nonmem/run002.mod")
 #' }
-copy_model <- function(from, to, overwrite = FALSE, ext_file = NULL, update = 'none', jitter = NULL, jitter_excluded = NULL, seed = NULL, description, based_on = NULL, tags = NULL, no_metadata = FALSE) .Call(wrap__copy_model_wrap, from, to, overwrite, ext_file, update, jitter, jitter_excluded, seed, description, based_on, tags, no_metadata)
+copy_model <- function(from, to, overwrite = FALSE, ext_file = NULL, update = 'none', jitter = NULL, jitter_excluded = NULL, seed = NULL, description, based_on = NULL, tags = NULL, no_metadata = FALSE, allow_partial = FALSE) .Call(wrap__copy_model_wrap, from, to, overwrite, ext_file, update, jitter, jitter_excluded, seed, description, based_on, tags, no_metadata, allow_partial)
 
 #' Gets model run summary (internal implementation)
 #'
@@ -478,7 +481,7 @@ transform_value <- function(value, transform) .Call(wrap__transform_value, value
 #'
 #' @param model path to the initial model (.mod / .ctl); the output
 #'   directory lands beside it, and the config inside that
-#' @param overwrite replace an existing `<model>-scm.toml`
+#' @param overwrite replace an existing `<model stem>scm.toml`
 #'
 #' @return a list with `config` (the config file written) and `out_dir`
 #'   (the output directory created)
@@ -490,15 +493,12 @@ scm_init_impl <- function(model, overwrite = FALSE) .Call(wrap__scm_init_wrap, m
 #' Internal engine behind [scm_plan()]; use that instead.
 #'
 #' @param config path to the SCM config file (TOML) written by
-#'   [scm_init()] into `scm/<model>/`: model, direction, forward_alpha,
+#'   [scm_init()] into the SCM out_dir: model, direction, forward_alpha,
 #'   backward_alpha, max_retries, cov_step, final_cov_step, and the
-#'   `[covariates]` section (initial, fixed, lower, upper, effects).
-#'   Relative paths resolve against the config file
+#'   `[covariates]` section (fixed, the per-type `continuous` /
+#'   `categorical` tables, effects). Relative paths resolve against the
+#'   config file
 #' @param num_rounds pause after this many rounds per run (NULL = no cap)
-#' @param max_retries override the config's retries per failed fit
-#' @param cov_step override whether generated models run the covariance step
-#' @param initial override the `[covariates]` section's default `initial`,
-#'   the estimate an effect starts from the first time it is tested
 #' @param overwrite replace existing SCM output from a different plan
 #'
 #' @return a `hyperion_scm_plan` object; its `plan_path` attribute is the
@@ -506,7 +506,7 @@ scm_init_impl <- function(model, overwrite = FALSE) .Call(wrap__scm_init_wrap, m
 #'   SCM process in the out_dir already stands plus what this plan changed about
 #'   the plan.json it replaced
 #' @keywords internal
-scm_plan_impl <- function(config, num_rounds = NULL, max_retries = NULL, cov_step = NULL, initial = NULL, overwrite = FALSE) .Call(wrap__scm_plan_wrap, config, num_rounds, max_retries, cov_step, initial, overwrite)
+scm_plan_impl <- function(config, num_rounds = NULL, overwrite = FALSE) .Call(wrap__scm_plan_wrap, config, num_rounds, overwrite)
 
 #' Read the status of an SCM process
 #'
@@ -526,30 +526,14 @@ scm_status_impl <- function(path) .Call(wrap__scm_status_wrap, path)
 #' @param round only this round: the Nth SCM round ("2" / "round 2"), a
 #'   round name (forward_round1, backward_round1), or "reference"; NULL for
 #'   every round
-#' @param phase only this phase ("forward" / "backward"); NULL for both
 #' @param candidate trace one candidate through every round it was tested in
-#' @param long,timing,parameters,files the `scm summary` detail flags
-#' @param matrix "p" or "dofv" for the candidates x rounds grid; NULL for none
-#' @param sort order within a round: "p", "dofv" or "name"
-#' @param reverse reverse the order within a round
-#' @param digits decimals for OFV, dOFV and estimates
+#' @param long,timing,files the `scm summary` detail flags
 #'
 #' @return a `hyperion_scm_summary` object: the summary record (the rounds
 #'   selected), with the rendered text as its `rendered` attribute and the
 #'   markdown rendering as `markdown`
 #' @keywords internal
-scm_summary_impl <- function(path, round = NULL, phase = NULL, candidate = NULL, long = FALSE, timing = FALSE, parameters = FALSE, matrix = NULL, files = FALSE, sort = "p", reverse = FALSE, digits = 3) .Call(wrap__scm_summary_wrap, path, round, phase, candidate, long, timing, parameters, matrix, files, sort, reverse, digits)
-
-#' Build the SCM decision log
-#'
-#' Internal engine behind [summary.hyperion_scm_status()]; use that instead.
-#'
-#' @param path the SCM out_dir
-#' @param write whether to (re)write scm_decision_log.csv / .md into out_dir
-#'
-#' @return the decision log as a data.frame
-#' @keywords internal
-scm_decision_log_impl <- function(path, write = TRUE) .Call(wrap__scm_decision_log_wrap, path, write)
+scm_summary_impl <- function(path, round = NULL, candidate = NULL, long = FALSE, timing = FALSE, files = FALSE) .Call(wrap__scm_summary_wrap, path, round, candidate, long, timing, files)
 
 #' Gets the pharos.toml configuration as an R object
 #'

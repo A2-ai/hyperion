@@ -95,6 +95,9 @@ fn parse_update_robj(update: Robj) -> Result<Vec<UpdateType>> {
 /// @param based_on Character vector of model names/paths that this model is based on
 /// @param tags Character vector of tags to attach to the model in metadata
 /// @param no_metadata boolean, if true, does not create metadatafile, default FALSE
+/// @param allow_partial boolean, when updating from an .ext file, take the
+/// estimates from the run's last iteration if it never reached final
+/// estimates, instead of refusing an unfinished run. Default FALSE
 ///
 /// @return path to new model file (invisible) todo
 /// @export
@@ -119,6 +122,7 @@ pub fn copy_model_wrap(
     #[extendr(default = "NULL")] based_on: Option<Vec<String>>,
     #[extendr(default = "NULL")] tags: Option<Vec<String>>,
     #[extendr(default = "FALSE")] no_metadata: bool,
+    #[extendr(default = "FALSE")] allow_partial: bool,
 ) -> Result<()> {
     // Parse input parameters
     let update_types = parse_update_robj(update)?;
@@ -138,6 +142,7 @@ pub fn copy_model_wrap(
         based_on: based_on.unwrap_or_default(),
         tags: tags.unwrap_or_default(),
         no_metadata,
+        allow_partial,
     };
 
     let from_path = path_from_robj(&from, true)?;

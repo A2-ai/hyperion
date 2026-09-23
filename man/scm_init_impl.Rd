@@ -10,7 +10,7 @@ scm_init_impl(model, overwrite = FALSE)
 \item{model}{path to the initial model (.mod / .ctl); the output
 directory lands beside it, and the config inside that}
 
-\item{overwrite}{replace an existing \verb{<model>-scm.toml}}
+\item{overwrite}{replace an existing \verb{<model stem>scm.toml}}
 }
 \value{
 a list with \code{config} (the config file written) and \code{out_dir}

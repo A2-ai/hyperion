@@ -23,6 +23,6 @@ replaced — a sketch, where \code{\link[=scm_status]{scm_status()}} and \code{\
 detailed views. There is deliberately no
 \code{summary()} for a plan: a plan is a static declaration with nothing to
 compute beyond what printing shows. (\code{summary()} on a \emph{status} is
-different — it returns the decision log; see
+different — it returns the record as a data.frame; see
 \code{\link[=summary.hyperion_scm_status]{summary.hyperion_scm_status()}}.)
 }

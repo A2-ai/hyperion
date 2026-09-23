@@ -62,11 +62,20 @@ jobs:
           rustc --version
           cargo --version
 
+      - name: Set macOS deployment target
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          # Use the Apple Silicon baseline for Rust, native dependencies, and R linking.
+          echo "MACOSX_DEPLOYMENT_TARGET=11.0" >> "$GITHUB_ENV"
+
       # Add rust-cache for faster builds
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
         with:
-          shared-key: ${{ matrix.config.os }}-${{ matrix.config.rust-version }}
+          workspaces: src/rust -> target
+          shared-key: ${{ matrix.config.os }}-r${{ matrix.config.r }}-${{ matrix.config.rust-version }}
+          env-vars: MACOSX_DEPLOYMENT_TARGET
           cache-on-failure: true
 
       - uses: r-lib/actions/setup-pandoc@v2

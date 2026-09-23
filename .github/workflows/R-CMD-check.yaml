@@ -66,8 +66,10 @@ jobs:
         if: runner.os == 'macOS'
         shell: bash
         run: |
-          # Use the Apple Silicon baseline for Rust, native dependencies, and R linking.
-          echo "MACOSX_DEPLOYMENT_TARGET=11.0" >> "$GITHUB_ENV"
+          # Build CI artifacts for the runner's macOS version across R and Rust.
+          deployment_target="$(sw_vers -productVersion | cut -d. -f1,2)"
+          echo "MACOSX_DEPLOYMENT_TARGET=$deployment_target" >> "$GITHUB_ENV"
+          echo "Using macOS deployment target $deployment_target"
 
       # Add rust-cache for faster builds
       - name: Cache Rust dependencies

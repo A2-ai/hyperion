@@ -5,9 +5,9 @@ use extendr_api::Result;
 use extendr_api::prelude::*;
 use fs_err as fs;
 
-use hyperion_core::{OptionExt, extendr_err};
+use hyperion_core::OptionExt;
 
-use crate::utils::{find_output_file, path_from_robj};
+use crate::utils::{path_from_robj, resolve_model_run};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RunStatus {
@@ -65,39 +65,24 @@ fn lst_indicates_completion(lst_path: &Path) -> bool {
 /// Accepts .mod/.ctl/.lst paths, run directories, or a hyperion_nonmem_model object.
 #[extendr]
 pub fn get_run_status(input: Robj) -> Result<Robj> {
-    let mut path = path_from_robj(&input, false)?;
+    let path = path_from_robj(&input, false)?;
+    Ok(determine_model_run_status(&path)?.to_string().into_robj())
+}
 
-    if path.is_dir() {
-        // Prefer lst in run directory; fall back to mod/ctl when present.
-        if let Ok(p) = find_output_file(&path, "lst") {
-            path = p;
-        } else if let Ok(p) = find_output_file(&path, "mod") {
-            path = p;
-        } else if let Ok(p) = find_output_file(&path, "ctl") {
-            path = p;
-        } else {
-            return Err(extendr_err!(
-                "No run outputs found in directory: {}",
-                path.display()
-            ));
-        }
+/// Shared by read_model() and status refreshes so both use the same run layout.
+pub fn determine_model_run_status(path: &Path) -> Result<RunStatus> {
+    // A standalone listing can report status without a source control stream.
+    if path.extension().and_then(|ext| ext.to_str()) == Some("lst") {
+        let stem = path
+            .file_stem()
+            .ok_or_extendr_err("Could not determine model file stem")?;
+        let parent = path
+            .parent()
+            .ok_or_extendr_err("Could not determine model file parent directory")?;
+        return determine_run_status(parent, &stem.to_string_lossy());
     }
-
-    let stem = path
-        .file_stem()
-        .ok_or_extendr_err("Could not determine model file stem")?
-        .to_string_lossy()
-        .to_string();
-    let parent = path
-        .parent()
-        .ok_or_extendr_err("Could not determine model file parent directory")?;
-    let run_dir = match path.extension().and_then(|e| e.to_str()) {
-        Some("lst") => parent.to_path_buf(),
-        _ => parent.join(&stem),
-    };
-
-    let status = determine_run_status(&run_dir, &stem)?;
-    Ok(status.to_string().into_robj())
+    let (layout, run_dir) = resolve_model_run(path)?;
+    determine_run_status(&run_dir, layout.stem())
 }
 
 extendr_module! {

@@ -21,7 +21,7 @@ Config/rextendr/version: 0.5.0
 Config/PharosVersion: 0.6.0
 Config/build/never-clean: true
 Config/build/extra-sources: src/rust/Cargo.lock
-SystemRequirements: Cargo (Rust's package manager), rustc >= 1.65.0, xz
+SystemRequirements: Cargo (Rust's package manager), rustc >= 1.88.0, xz
 Depends:
     R (>= 4.2)
 Suggests:

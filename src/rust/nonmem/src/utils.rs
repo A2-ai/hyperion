@@ -50,8 +50,8 @@ pub fn find_output_file(input_path: impl AsRef<Path>, extension: &str) -> Result
         };
     }
 
-    let layout = resolve_model_layout(path)?;
-    let output_path = layout.output_file(&resolve_run_dir(&layout)?, extension);
+    let (layout, run_dir) = resolve_model_run(path)?;
+    let output_path = layout.output_file(&run_dir, extension);
 
     if output_path.exists() {
         Ok(output_path)
@@ -77,6 +77,30 @@ const RUN_START_FILENAME: &str = "pharos_start.json";
 pub fn resolve_model_layout(search_path: &Path) -> Result<ModelLayout> {
     let source = source_model_path(search_path)?;
     ModelLayout::from_model_file(&source).map_to_extendr_err("Failed to resolve model file")
+}
+
+/// Resolve the source layout and the selected run together. Explicit run
+/// directories and output files select that run, even if the source has several
+/// recorded runs. Source models and metadata files use discovery/configuration.
+pub fn resolve_model_run(search_path: &Path) -> Result<(ModelLayout, PathBuf)> {
+    let layout = resolve_model_layout(search_path)?;
+    let explicit_dir = if search_path.is_dir() {
+        Some(search_path)
+    } else if matches!(
+        search_path.extension().and_then(|ext| ext.to_str()),
+        Some("lst" | "ext" | "grd" | "shk" | "cor")
+    ) || (validate_model_extension(search_path).is_ok()
+        && fs::canonicalize(search_path).ok().as_deref() != Some(layout.model_path()))
+    {
+        search_path.parent()
+    } else {
+        None
+    };
+    let run_dir = match explicit_dir {
+        Some(dir) => fs::canonicalize(dir).map_to_extendr_err("Failed to resolve run directory")?,
+        None => resolve_run_dir(&layout)?,
+    };
+    Ok((layout, run_dir))
 }
 
 /// The source `.mod`/`.ctl` file behind any of the accepted input shapes.

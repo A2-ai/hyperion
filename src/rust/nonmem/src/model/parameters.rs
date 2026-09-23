@@ -13,8 +13,7 @@ use crate::{
     output_files::ext::create_ext_reader,
     output_files::{OMEGA, ParameterRow, ParameterRowBuilder, SIGMA, THETA, build_parameters_df},
     utils::{
-        get_comment_type, parse_model_file, path_from_robj, resolve_ext_path, resolve_model_layout,
-        resolve_run_dir,
+        get_comment_type, parse_model_file, path_from_robj, resolve_ext_path, resolve_model_run,
     },
 };
 use hyperion_core::{ResultExt, extendr_err};
@@ -116,8 +115,7 @@ pub fn get_parameters(
     let ext_reader = create_ext_reader(None, None, only_method, only_last)?;
 
     let search_path = path_from_robj(&path, false)?;
-    let layout = resolve_model_layout(&search_path)?;
-    let run_dir = resolve_run_dir(&layout)?;
+    let (layout, run_dir) = resolve_model_run(&search_path)?;
     let model = parse_model_file(layout.model_path())?;
 
     let shk_path = layout.output_file(&run_dir, "shk");

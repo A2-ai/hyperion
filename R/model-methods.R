@@ -118,55 +118,36 @@ summary.hyperion_nonmem_model <- function(
 #' @noRd
 build_running_summary <- function(object, n_iterations) {
   run_name <- get_model_name(object)
-  model_path <- from_config_relative(attr(object, "model_source"))
 
-  # Derive expected output file paths to check existence before calling Rust.
-  # Rust panics abort the R session; tryCatch cannot recover, so guard with
-  # file.exists() before calling Rust on missing files.
-  base_name <- tools::file_path_sans_ext(basename(model_path))
-  output_dir <- file.path(dirname(model_path), base_name)
+  # The Rust readers resolve ModelLayout and return an R error for missing files
+  # before parsing. Outputs may not have been created yet during an early run.
+  iterations <- tryCatch(
+    {
+      ext_data <- read_ext_file(
+        object,
+        parameters_only = TRUE,
+        only_last = TRUE
+      )
+      if (!is.null(ext_data) && nrow(ext_data) > 0) {
+        utils::tail(ext_data, n_iterations)
+      } else {
+        NULL
+      }
+    },
+    error = function(e) NULL
+  )
 
-  # Get recent iterations from ext file (may not exist yet)
-  iterations <- NULL
-  ext_path <- file.path(output_dir, paste0(base_name, ".ext"))
-  if (file.exists(ext_path)) {
-    iterations <- tryCatch(
-      {
-        ext_data <- read_ext_file(
-          object,
-          parameters_only = TRUE,
-          only_last = TRUE
-        )
-        if (!is.null(ext_data) && nrow(ext_data) > 0) {
-          n_rows <- nrow(ext_data)
-          start_row <- max(1, n_rows - n_iterations + 1)
-          ext_data[start_row:n_rows, , drop = FALSE]
-        } else {
-          NULL
-        }
-      },
-      error = function(e) NULL
-    )
-  }
-
-  # Get gradients from grd file (may not exist yet)
-  gradients <- NULL
-  grd_path <- file.path(output_dir, paste0(base_name, ".grd"))
-  if (file.exists(grd_path)) {
-    gradients <- tryCatch(
-      {
-        grd_data <- get_gradients(object, only_last = TRUE)
-        if (!is.null(grd_data) && nrow(grd_data) > 0) {
-          n_rows <- nrow(grd_data)
-          start_row <- max(1, n_rows - n_iterations + 1)
-          grd_data[start_row:n_rows, , drop = FALSE]
-        } else {
-          NULL
-        }
-      },
-      error = function(e) NULL
-    )
-  }
+  gradients <- tryCatch(
+    {
+      grd_data <- get_gradients(object, only_last = TRUE)
+      if (!is.null(grd_data) && nrow(grd_data) > 0) {
+        utils::tail(grd_data, n_iterations)
+      } else {
+        NULL
+      }
+    },
+    error = function(e) NULL
+  )
 
   summary_obj <- list(
     run_name = run_name,

@@ -22,7 +22,9 @@
 
 - Model outputs are now found in run directories named by the `output_dir`
   template in `pharos.toml`, not only in the conventional `{stem}/` directory
-  beside the model.
+  beside the model. Run status, summaries, parameter comments, and
+  `copy_model()` parameter updates use the same resolver. Explicit run
+  directories select that run even when a model has multiple recorded runs.
 - `get_parameters()` no longer reports `OMEGA(1,1)` or `SIGMA(1,1)` rows for
   models with no `$OMEGA` or `$SIGMA` record. NONMEM writes those columns to
   the `.ext` regardless, and they arrived as a zero estimate with `NA`

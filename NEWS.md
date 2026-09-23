@@ -1,4 +1,4 @@
-# hyperion 0.5.0.9000
+# hyperion 0.6.0
 
 ## New features
 
@@ -30,6 +30,13 @@
   the `.ext` regardless, and they arrived as a zero estimate with `NA`
   everywhere else. Models using `$MSFI` are unaffected, since their estimates
   come from the MSF file rather than the control stream.
+- `submit_model_to_slurm()` and `submit_model_to_sge()` now pass the config
+  file path to pharos correctly when submitting jobs.
+
+## Dependencies
+
+- Updated the pharos dependency and expected CLI version to 0.6.0.
+- Building from source now requires Rust 1.88.0 or later.
 
 # hyperion 0.5.0
 

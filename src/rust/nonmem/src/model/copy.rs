@@ -1,13 +1,12 @@
 use extendr_api::Result;
 use extendr_api::prelude::*;
 
-use fs_err as fs;
 use nonmem::copy::UpdateType;
-use nonmem::{CopyOptions, Model, copy_model};
+use nonmem::{CopyOptions, copy_model};
 use std::path::{Path, PathBuf};
 
-use crate::utils::{path_from_robj, resolve_ext_path};
-use hyperion_core::{OptionExt, ResultExt, extendr_err};
+use crate::utils::{parse_run_model, path_from_robj, resolve_ext_path, resolve_model_run};
+use hyperion_core::{ResultExt, extendr_err};
 
 // This should move to Option<Robj>
 fn parse_jitter_excluded_robj(jitter_excluded: Option<&Robj>) -> Result<Option<String>> {
@@ -165,19 +164,9 @@ pub fn copy_model_wrap(
         let ext_path = match &ext_file {
             Some(path) => PathBuf::from(path),
             None => {
-                let model_stem = from_path
-                    .file_stem()
-                    .ok_or_extendr_err("Could not determine model file stem")?
-                    .to_string_lossy()
-                    .to_string();
-                let run_dir = from_path
-                    .parent()
-                    .ok_or_extendr_err("Could not determine parent directory")?
-                    .join(&model_stem);
-                let content = fs::read_to_string(&from_path).map_to_extendr_err("")?;
-                let model = Model::parse(&from_path, &content)
-                    .map_err(|_| extendr_err!("Failed to parse model: {}", from_path.display()))?;
-                resolve_ext_path(&model, &run_dir, &model_stem)
+                let (layout, run_dir) = resolve_model_run(&from_path)?;
+                let model = parse_run_model(&layout, &run_dir)?;
+                resolve_ext_path(&model, &run_dir, layout.stem())
             }
         };
 

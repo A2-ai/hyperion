@@ -6,9 +6,9 @@ use nmparser::Model;
 use nonmem::output_files::lst;
 use std::path::Path;
 
-use crate::model::run_status::determine_run_status;
+use crate::model::run_status::determine_model_run_status;
 use crate::utils::{find_output_file, get_comment_type, to_config_relative, validate_model_path};
-use hyperion_core::{OptionExt, ResultExt, extendr_err};
+use hyperion_core::{ResultExt, extendr_err};
 
 pub mod check;
 pub mod comment_info;
@@ -66,19 +66,7 @@ fn add_run_status_attr(model_robj: &mut Robj, path: &Path) -> Result<()> {
     if let Some(ext) = path.extension().and_then(|e| e.to_str())
         && (ext == "mod" || ext == "ctl" || ext == "lst")
     {
-        let stem = path
-            .file_stem()
-            .ok_or_extendr_err("Could not determine model file stem")?
-            .to_string_lossy()
-            .to_string();
-        let parent = path
-            .parent()
-            .ok_or_extendr_err("Could not determine parent directory")?;
-        let run_dir = match ext {
-            "lst" => parent.to_path_buf(),
-            _ => parent.join(&stem),
-        };
-        let run_status = determine_run_status(&run_dir, &stem)?;
+        let run_status = determine_model_run_status(path)?;
         model_robj
             .set_attrib("run_status", run_status.to_string().into_robj())
             .map_to_extendr_err("Failed to set run_status attribute")?;

@@ -8,7 +8,10 @@ use std::path::{Path, PathBuf};
 use nonmem::estimation;
 use nonmem::output_files::ext::{EstimationTable, ExtReader};
 
-use crate::utils::{find_output_file, load_model_from_input, resolve_ext_path, to_syntactic_name};
+use crate::utils::{
+    find_output_file, parse_run_model, path_from_robj, resolve_ext_path, resolve_model_run,
+    to_syntactic_name,
+};
 use hyperion_core::{OptionExt, ResultExt, extendr_err};
 
 /// Extract .ext files from path (single file or directory)
@@ -251,8 +254,8 @@ pub fn read_ext_file(
 
 /// Accepts a `hyperion_nonmem_model` object, a `.mod`/`.ctl` path, a run
 /// directory, or an existing `.ext` path. For `.ext` paths the file is used
-/// directly; everything else routes through `load_model_from_input` so
-/// `$EST FILE=` overrides are honored.
+/// directly; everything else resolves through the model so `$EST FILE=`
+/// overrides are honored.
 fn resolve_ext_input(input: &Robj) -> Result<PathBuf> {
     if let Some(s) = input.as_str() {
         let path = Path::new(s);
@@ -260,8 +263,12 @@ fn resolve_ext_input(input: &Robj) -> Result<PathBuf> {
             return find_output_file(path, "ext");
         }
     }
-    let loc = load_model_from_input(input)?;
-    let resolved = resolve_ext_path(&loc.model, &loc.run_dir, &loc.stem);
+
+    let search_path = path_from_robj(input, false)?;
+    let (layout, run_dir) = resolve_model_run(&search_path)?;
+    let model = parse_run_model(&layout, &run_dir)?;
+
+    let resolved = resolve_ext_path(&model, &run_dir, layout.stem());
     if !resolved.exists() {
         return Err(extendr_err!("Ext file not found: {}", resolved.display()));
     }
@@ -385,7 +392,7 @@ pub fn get_final_estimates(
 
     // Build dataframe
     let mut pairs = vec![("model", model_names_ordered.into_robj())];
-    for (param_name, param_column) in param_names.iter().zip(param_columns.into_iter()) {
+    for (param_name, param_column) in param_names.iter().zip(param_columns) {
         pairs.push((param_name.as_str(), param_column.into_robj()));
     }
 

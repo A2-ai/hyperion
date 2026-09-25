@@ -119,7 +119,7 @@ test_that("build_running_summary limits iteration and gradient rows", {
   expect_equal(result$gradients$grad, c(14L, 15L))
 })
 
-test_that("build_running_summary does not call Rust when ext/grd files missing", {
+test_that("build_running_summary tolerates unavailable ext/grd files", {
   tmp_dir <- withr::local_tempdir()
   mod_path <- file.path(tmp_dir, "run004.mod")
   object <- structure(list(), model_source = mod_path)

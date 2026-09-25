@@ -38,12 +38,19 @@ Hyperion is a companion R packge to the cli tool [pharos](https://github.com/a2-
 
 ## Installation
 
+to install the latest release
+
+```
+install.packages("hyperion", repos = c("hyperion" = "https://prism.dev.a2-ai.cloud/rpkgs/hyperion-eco/v2", getOption("repos")))
+```
+
 You can install the development version of hyperion from [GitHub](https://github.com/) with:
 
 ``` r
 # install.packages("pak")
 pak::pak("A2-ai/hyperion")
 ```
+
 ## Getting started
 
 To initialize hyperion/pharos use the `hyperion::init()` cfunction to create a `pharos.toml` configuration file 

@@ -13,25 +13,10 @@ read_model_from_lst_dir <- function(dir_path) {
   read_model_from_lst(lst_candidates[1])
 }
 
-#' Derive output directory from model path and read from .lst file
+#' Resolve a model's listing through ModelLayout
 #' @noRd
 read_model_from_lst_path <- function(mod_path) {
-  mod_path <- from_config_relative(mod_path)
-  # Derive output directory: run001.mod -> run001/
-  base_name <- tools::file_path_sans_ext(basename(mod_path))
-  parent_dir <- dirname(mod_path)
-  output_dir <- file.path(parent_dir, base_name)
-
-  if (!dir.exists(output_dir)) {
-    rlang::abort(paste0(
-      "Output directory not found for model: ",
-      mod_path,
-      "\nExpected: ",
-      output_dir
-    ))
-  }
-
-  read_model_from_lst_dir(output_dir)
+  read_model_from_lst(from_config_relative(mod_path))
 }
 
 #' Extract all parameter comments from a model as ModelComments object
@@ -84,7 +69,7 @@ get_model_parameter_info <- function(mod, lookup_path = NULL) {
             "Cannot locate .lst for completed run: model_source attribute is missing."
           )
         }
-        # Derive output directory from model path (e.g., run001.mod -> run001/)
+        # Use the shared resolver for conventional and configured run directories.
         mod <- read_model_from_lst_path(mod_path)
       } else if (!run_status %in% c("not_run", "running")) {
         rlang::abort(paste0(

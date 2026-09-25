@@ -132,3 +132,30 @@ test_that("configured output templates work without a recorded run", {
   unlink(file.path(project$run, "run001.lst"))
   expect_equal(get_run_status(model), "not_run")
 })
+
+test_that("output readers use the model a run used, not the edited source", {
+  project <- local_custom_run()
+  expected <- get_parameters(project$model)
+  source <- readLines(project$model)
+  source <- sub(";TVCL (L/hr)", ";EDITEDCL (L/hr)", source, fixed = TRUE)
+  est <- grep("^\\$EST", source)[1]
+  source[est] <- paste(source[est], "FILE=renamed.ext")
+  writeLines(source, project$model)
+
+  expect_equal(get_parameters(project$model), expected)
+  expect_equal(get_parameters(project$run), expected)
+  expect_equal(get_parameters(file.path(project$run, "run001.ext")), expected)
+  expect_gt(nrow(read_ext_file(project$model)), 0)
+  expect_gt(nrow(get_gradients(project$model)), 0)
+})
+
+test_that("a model path that does not exist errors instead of trying the other extension", {
+  project <- local_custom_run()
+  ctl <- file.path(project$root, "run001.ctl")
+  file.rename(project$model, ctl)
+  start <- file.path(project$run, "pharos_start.json")
+  writeLines(sub("run001.mod", "run001.ctl", readLines(start), fixed = TRUE), start)
+
+  expect_error(get_parameters(project$model), "File not found")
+  expect_gt(nrow(get_parameters(ctl)), 0)
+})

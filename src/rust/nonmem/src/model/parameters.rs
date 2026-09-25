@@ -5,7 +5,7 @@ use extendr_api::prelude::*;
 use std::cmp::Ordering;
 
 // pharos nonmem crate
-use nmparser::ParameterOrdering;
+use nmparser::{BlockStructure, OmegaSigmaBlock};
 use nonmem::Model;
 use nonmem::output_files::{ext::get_parameter_estimates, shk::ShkReader};
 
@@ -13,7 +13,7 @@ use crate::{
     output_files::ext::create_ext_reader,
     output_files::{OMEGA, ParameterRow, ParameterRowBuilder, SIGMA, THETA, build_parameters_df},
     utils::{
-        get_comment_type, parse_model_file, path_from_robj, resolve_ext_path, resolve_model_run,
+        get_comment_type, parse_run_model, path_from_robj, resolve_ext_path, resolve_model_run,
     },
 };
 use hyperion_core::{ResultExt, extendr_err};
@@ -116,7 +116,7 @@ pub fn get_parameters(
 
     let search_path = path_from_robj(&path, false)?;
     let (layout, run_dir) = resolve_model_run(&search_path)?;
-    let model = parse_model_file(layout.model_path())?;
+    let model = parse_run_model(&layout, &run_dir)?;
 
     let shk_path = layout.output_file(&run_dir, "shk");
     let shk_data = if shk_path.exists() {
@@ -302,32 +302,59 @@ pub fn get_fixed_parameters(
     }
 
     if wanted(OMEGA) {
-        let entries = model
-            .get_omega_parameters(ParameterOrdering::RowMajor)
-            .map_to_extendr_err("Failed to get omega parameters")?;
-        names.extend(
-            entries
-                .into_iter()
-                .filter(|entry| entry.block_fixed)
-                .map(|entry| entry.param_name),
-        );
+        names.extend(fixed_block_names(&model.omega_blocks, OMEGA));
     }
 
     if wanted(SIGMA) {
-        let entries = model
-            .get_sigma_parameters(ParameterOrdering::RowMajor)
-            .map_to_extendr_err("Failed to get sigma parameters")?;
-        names.extend(
-            entries
-                .into_iter()
-                .filter(|entry| entry.block_fixed)
-                .map(|entry| entry.param_name),
-        );
+        names.extend(fixed_block_names(&model.sigma_blocks, SIGMA));
     }
 
     names.sort_by(|a, b| compare_param_names(a, b));
 
     Ok(names.into_robj())
+}
+
+/// NONMEM names of the fixed parameters in `blocks`, numbered in record order.
+///
+/// A `BLOCK SAME` takes its `FIX` from the block it repeats, the nearest earlier
+/// `BLOCK` of the same size. pharos v0.6.0 sets `OmegaSigmaEntry::block_fixed`
+/// from the SAME record's own flag instead, so this walks the blocks here.
+/// TODO: move to pharos (`block_fixed` in `get_block_parameter_names`) in the
+/// next pharos release, then filter `get_omega_parameters`/`get_sigma_parameters`
+/// entries on `block_fixed` again.
+fn fixed_block_names(blocks: &[OmegaSigmaBlock], prefix: &str) -> Vec<String> {
+    let mut names = Vec::new();
+    let mut start = 1;
+    for (i, block) in blocks.iter().enumerate() {
+        let (size, repeats, fixed) = match block.structure {
+            BlockStructure::Diagonal => (block.parameters.len(), 1, block.fixed),
+            BlockStructure::Block { size } => (size, 1, block.fixed),
+            BlockStructure::BlockSame { size, repeats } => {
+                let source = blocks[..i].iter().rev().find(
+                    |b| matches!(b.structure, BlockStructure::Block { size: s } if s == size),
+                );
+                (
+                    size,
+                    repeats,
+                    block.fixed || source.is_some_and(|b| b.fixed),
+                )
+            }
+        };
+        let diagonal = matches!(block.structure, BlockStructure::Diagonal);
+        for _ in 0..repeats {
+            if fixed {
+                for r in start..start + size {
+                    if diagonal {
+                        names.push(format!("{prefix}({r},{r})"));
+                    } else {
+                        names.extend((start..=r).map(|c| format!("{prefix}({r},{c})")));
+                    }
+                }
+            }
+            start += size;
+        }
+    }
+    names
 }
 
 extendr_module! {

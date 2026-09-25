@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 
 // pharos config and nonmem crate
 use config::{CONFIG_FILENAME, CommentType, Config, NonmemConfig, to_root_relative};
-use nonmem::output_files::resolve_estimation_files;
+use nonmem::output_files::{lst, resolve_estimation_files};
 use nonmem::{Model, ModelLayout, RunStartFile, validate_model_extension};
 
 // hyperion core
@@ -123,9 +123,14 @@ fn source_model_path(search_path: &Path) -> Result<PathBuf> {
         }
     }
 
-    // A model file given directly.
-    if validate_model_extension(search_path).is_ok() && search_path.exists() {
-        return Ok(search_path.to_path_buf());
+    // A model file given directly. A missing one is an error, not a cue to probe
+    // for a model of the same name with the other extension.
+    if validate_model_extension(search_path).is_ok() {
+        return if search_path.exists() {
+            Ok(search_path.to_path_buf())
+        } else {
+            Err(extendr_err!("File not found: {}", search_path.display()))
+        };
     }
 
     // A `_metadata.json` beside its model, or a run directory pharos did not
@@ -183,11 +188,19 @@ fn get_output_dir_template() -> Option<String> {
         .and_then(|config| config.nonmem.and_then(|n| n.output_dir))
 }
 
-/// Parse the model at `path`.
-pub fn parse_model_file(path: &Path) -> Result<Model> {
-    let content = fs::read_to_string(path).map_to_extendr_err("Failed to read model file")?;
-    Model::parse(path, &content)
-        .map_err(|_| extendr_err!("Failed to parse model: {}", path.display()))
+/// Parse the model a run used, from the control stream NONMEM echoes at the top
+/// of the run's `.lst`. Output readers use this instead of the source model,
+/// which may have been edited since the run. NONMEM writes the `.lst` before
+/// any other output, so a run with outputs to read has one.
+pub fn parse_run_model(layout: &ModelLayout, run_dir: &Path) -> Result<Model> {
+    let lst_path = layout.output_file(run_dir, "lst");
+    if !lst_path.exists() {
+        return Err(extendr_err!(
+            "Output file not found: {}",
+            lst_path.display()
+        ));
+    }
+    lst::extract_model(&lst_path).map_to_extendr_err("Failed to extract model from lst file")
 }
 
 /// Resolve the final `.ext` file path for a model, honoring `$EST FILE=`.
@@ -326,12 +339,6 @@ pub fn path_from_robj(input: &Robj, validate_model: bool) -> Result<PathBuf> {
     } else {
         Ok(path)
     }
-}
-
-/// Gives Some(Model) if model path is found
-pub fn try_parse_model(path: &str) -> Option<Model> {
-    let layout = resolve_model_layout(Path::new(path)).ok()?;
-    parse_model_file(layout.model_path()).ok()
 }
 
 /// Gets the comment type from pharos.toml configuration
@@ -549,49 +556,6 @@ mod tests {
 
         let result = find_output_file(&run_dir, "ext");
         assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_try_parse_model_success() {
-        // Use real test data instead of creating temporary files
-        let test_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test_data");
-        glob!(test_dir, "**/*.mod", |path| {
-            let result = try_parse_model(path.to_str().unwrap());
-            assert!(
-                result.is_some(),
-                "Expected Some(Model) when valid mod file exists in test data"
-            );
-        })
-    }
-
-    #[test]
-    fn test_try_parse_model_success_for_output_file() {
-        let test_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test_data");
-        glob!(test_dir, "**/*.grd", |path| {
-            // Skip directories where file stem doesn't match directory name
-            if path.to_string_lossy().contains("run001-running") {
-                return;
-            }
-            let result = try_parse_model(path.to_str().unwrap());
-            assert!(
-                result.is_some(),
-                "Expected Some(Model) when valid mod file exists in test data"
-            );
-        })
-    }
-
-    #[test]
-    fn test_try_parse_model_no_mod_file() {
-        let temp_dir = TempDir::new().unwrap();
-        let run_dir = temp_dir.path().join("run001");
-        fs::create_dir(&run_dir).unwrap();
-
-        // Don't create a mod file - should return None
-        let result = try_parse_model(run_dir.to_str().unwrap());
-        assert!(
-            result.is_none(),
-            "Expected None when mod file doesn't exist"
-        );
     }
 
     #[test]

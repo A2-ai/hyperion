@@ -5,7 +5,8 @@ use extendr_api::prelude::*;
 use nonmem::{estimation::EstimationMethod, output_files::grd::GrdReader};
 
 use crate::utils::{
-    find_output_file, get_comment_type, path_from_robj, to_syntactic_name, try_parse_model,
+    find_output_file, get_comment_type, parse_run_model, path_from_robj, resolve_model_run,
+    to_syntactic_name,
 };
 use hyperion_core::{ResultExt, extendr_err};
 
@@ -70,13 +71,14 @@ pub fn get_gradients(
     let search_path = path_from_robj(&path, false)?;
     let grd_path = find_output_file(&search_path, "grd")?;
 
-    let model = try_parse_model(search_path.to_string_lossy().as_ref());
+    let (layout, run_dir) = resolve_model_run(&search_path)?;
+    let model = parse_run_model(&layout, &run_dir)?;
 
     // Load config and extract comment type
     let comment_type = get_comment_type();
 
     let tables = grd_reader
-        .parse_file(grd_path, model.as_ref(), comment_type)
+        .parse_file(grd_path, Some(&model), comment_type)
         .map_to_extendr_err("")?;
 
     if tables.is_empty() {

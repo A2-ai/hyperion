@@ -5,7 +5,7 @@ use nonmem::copy::UpdateType;
 use nonmem::{CopyOptions, copy_model};
 use std::path::{Path, PathBuf};
 
-use crate::utils::{parse_model_file, path_from_robj, resolve_ext_path, resolve_model_run};
+use crate::utils::{parse_run_model, path_from_robj, resolve_ext_path, resolve_model_run};
 use hyperion_core::{ResultExt, extendr_err};
 
 // This should move to Option<Robj>
@@ -165,7 +165,7 @@ pub fn copy_model_wrap(
             Some(path) => PathBuf::from(path),
             None => {
                 let (layout, run_dir) = resolve_model_run(&from_path)?;
-                let model = parse_model_file(layout.model_path())?;
+                let model = parse_run_model(&layout, &run_dir)?;
                 resolve_ext_path(&model, &run_dir, layout.stem())
             }
         };

@@ -1,42 +1,32 @@
 # hyperion 0.6.0
 
+## Breaking changes
+
+- `get_gradients()` requires the model's `.lst`, so a standalone `.grd` errors.
+- `get_gradients()`, `get_run_info()`, `get_eta_shrinkage()`, and
+  `get_eps_shrinkage()` error on a run directory with no model in or beside it.
+
 ## New features
 
-- `get_fixed_parameters()` — new exported function. Returns the NONMEM names
-  of parameters declared `FIX`, read from the control stream so they are
-  available before a run finishes. `kind` restricts the result to `"THETA"`,
-  `"OMEGA"` or `"SIGMA"`; a fixed `BLOCK` contributes its off-diagonal names
-  as well as its diagonals.
-- `get_eta_labels()` gains `mask`, a character vector of omegas to leave out.
-  Entries are matched against the NONMEM name, the user name, or the display
-  name, and the labels that survive keep their original ETA number.
-- `migrate_run_start_files()` — new exported function. Rewrites every
-  `pharos_start.json` under the project root to record `model_path` relative
-  to the project root instead of the absolute path older pharos versions
-  wrote. `base_path` covers runs recorded under a different root, such as
-  another user's home directory.
-- `summary()` reports a new heuristic check, "No Objective Function Failure",
-  for runs NONMEM terminated because of the objective function.
+- `get_fixed_parameters()` returns the names of parameters declared `FIX`.
+- `get_eta_labels()` gains `mask` to leave out omegas.
+- `migrate_run_start_files()` rewrites `pharos_start.json` files to use
+  project-relative model paths.
+- `summary()` reports a "No Objective Function Failure" heuristic check.
 
 ## Bug fixes
 
-- Model outputs are now found in run directories named by the `output_dir`
-  template in `pharos.toml`, not only in the conventional `{stem}/` directory
-  beside the model. Run status, summaries, parameter comments, and
-  `copy_model()` parameter updates use the same resolver. Explicit run
-  directories select that run even when a model has multiple recorded runs.
-- `get_parameters()` no longer reports `OMEGA(1,1)` or `SIGMA(1,1)` rows for
-  models with no `$OMEGA` or `$SIGMA` record. NONMEM writes those columns to
-  the `.ext` regardless, and they arrived as a zero estimate with `NA`
-  everywhere else. Models using `$MSFI` are unaffected, since their estimates
-  come from the MSF file rather than the control stream.
-- `submit_model_to_slurm()` and `submit_model_to_sge()` now pass the config
-  file path to pharos correctly when submitting jobs.
+- Model outputs are found in run directories named by the `output_dir`
+  template in `pharos.toml`.
+- `get_parameters()` no longer reports `OMEGA(1,1)` or `SIGMA(1,1)` for models
+  with no `$OMEGA` or `$SIGMA`.
+- `submit_model_to_slurm()` and `submit_model_to_sge()` pass the config file
+  to pharos correctly.
 
 ## Dependencies
 
-- Updated the pharos dependency and expected CLI version to 0.6.0.
-- Building from source now requires Rust 1.88.0 or later.
+- Expects pharos CLI 0.6.0.
+- Building from source requires Rust 1.88.0 or later.
 
 # hyperion 0.5.0
 

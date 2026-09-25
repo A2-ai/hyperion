@@ -234,7 +234,7 @@ map_parameterization <- function(raw) .Call(wrap__map_parameterization, raw)
 #' @param based_on Character vector of model names/paths that this model is based on
 #' @param copied_from Optional model name/path this model was mechanically copied from
 #'
-#' @return Returns invisibly after creating the metadata file
+#' @return The model's updated metadata, as returned by `get_model_metadata()`
 #' @export
 #'
 #' @examples
@@ -263,7 +263,7 @@ set_metadata_file <- function(model_path, description = NULL, tags = NULL, based
 #' @param tags Optional character vector of tags to add to tags field
 #' @param based_on character vector of models to add to based_on field
 #'
-#' @return Invisibly after updaing
+#' @return The model's updated metadata, as returned by `get_model_metadata()`
 #' @export
 #'
 #' @examples \dontrun{
@@ -309,7 +309,7 @@ get_model_metadata <- function(model) .Call(wrap__load_model_metadata, model)
 #' @param copied_from If TRUE, clear the copied_from field. Default FALSE.
 #' @param tags If TRUE, clear the tags field. Default FALSE.
 #'
-#' @return Returns invisibly after updating the metadata file
+#' @return The model's updated metadata, as returned by `get_model_metadata()`
 #' @export
 #'
 #' @examples \dontrun{

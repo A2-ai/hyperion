@@ -1,6 +1,7 @@
 use extendr_api::Result;
 use extendr_api::prelude::*;
 use extendr_api::serializer::to_robj;
+use std::path::Path;
 
 use nonmem::ModelMetadata;
 //pharos nonmem crate
@@ -23,7 +24,7 @@ const METADATA_FILENAME_SUFFIX: &str = "_metadata.json";
 /// @param based_on Character vector of model names/paths that this model is based on
 /// @param copied_from Optional model name/path this model was mechanically copied from
 ///
-/// @return Returns invisibly after creating the metadata file
+/// @return The model's updated metadata, as returned by `get_model_metadata()`
 /// @export
 ///
 /// @examples
@@ -50,7 +51,7 @@ pub fn set_metadata_file(
     #[extendr(default = "NULL")] tags: Option<Vec<String>>,
     #[extendr(default = "NULL")] based_on: Option<Vec<String>>,
     #[extendr(default = "NULL")] copied_from: Option<String>,
-) -> Result<()> {
+) -> Result<Robj> {
     if let Some(d) = &description
         && d.trim().is_empty()
     {
@@ -64,10 +65,11 @@ pub fn set_metadata_file(
     let tags = tags.unwrap_or_default();
     let based_on = based_on.unwrap_or_default();
 
-    update_metadata_file(model_path, description, tags, based_on, copied_from, true)
-        .map_to_extendr_err("Failed to create metadata file")?;
+    let metadata_path =
+        update_metadata_file(model_path, description, tags, based_on, copied_from, true)
+            .map_to_extendr_err("Failed to create metadata file")?;
 
-    Ok(())
+    load_metadata(&metadata_path)
 }
 
 /// Updates a metadatafile
@@ -77,7 +79,7 @@ pub fn set_metadata_file(
 /// @param tags Optional character vector of tags to add to tags field
 /// @param based_on character vector of models to add to based_on field
 ///
-/// @return Invisibly after updaing
+/// @return The model's updated metadata, as returned by `get_model_metadata()`
 /// @export
 ///
 /// @examples \dontrun{
@@ -92,16 +94,16 @@ pub fn append_to_metadata_file(
     #[extendr(default = "NULL")] description: Option<String>,
     #[extendr(default = "NULL")] tags: Option<Vec<String>>,
     #[extendr(default = "NULL")] based_on: Option<Vec<String>>,
-) -> Result<()> {
+) -> Result<Robj> {
     let path = path_from_robj(&model_path, true)?;
 
     let tags = tags.unwrap_or_default();
     let based_on = based_on.unwrap_or_default();
 
-    update_metadata_file(path, description, tags, based_on, None, false)
+    let metadata_path = update_metadata_file(path, description, tags, based_on, None, false)
         .map_to_extendr_err("Failed to update metadata file")?;
 
-    Ok(())
+    load_metadata(&metadata_path)
 }
 
 /// Get model metadata from metadata JSON file
@@ -134,8 +136,18 @@ pub fn load_model_metadata(model: Robj) -> Result<Robj> {
     let metadata = ModelMetadata::load_from_model_path(model_path)
         .map_to_extendr_err("Failed to load ModelMetadata")?;
 
-    let mut meta_robj =
-        to_robj(&metadata).map_to_extendr_err("failed to create Robj from Model")?;
+    metadata_to_robj(&metadata)
+}
+
+/// Load the metadata file at `metadata_path` as a `hyperion_model_metadata`.
+fn load_metadata(metadata_path: &Path) -> Result<Robj> {
+    let metadata =
+        ModelMetadata::load(metadata_path).map_to_extendr_err("Failed to load ModelMetadata")?;
+    metadata_to_robj(&metadata)
+}
+
+fn metadata_to_robj(metadata: &ModelMetadata) -> Result<Robj> {
+    let mut meta_robj = to_robj(metadata).map_to_extendr_err("failed to create Robj from Model")?;
     let result = meta_robj
         .set_class(["hyperion_model_metadata"])
         .map_to_extendr_err("Failed to set class")?;
@@ -154,7 +166,7 @@ pub fn load_model_metadata(model: Robj) -> Result<Robj> {
 /// @param copied_from If TRUE, clear the copied_from field. Default FALSE.
 /// @param tags If TRUE, clear the tags field. Default FALSE.
 ///
-/// @return Returns invisibly after updating the metadata file
+/// @return The model's updated metadata, as returned by `get_model_metadata()`
 /// @export
 ///
 /// @examples \dontrun{
@@ -168,7 +180,7 @@ pub fn clear_metadata_file_wrap(
     #[extendr(default = "FALSE")] based_on: bool,
     #[extendr(default = "FALSE")] copied_from: bool,
     #[extendr(default = "FALSE")] tags: bool,
-) -> Result<()> {
+) -> Result<Robj> {
     let model_path = path_from_robj(&model_path, true)?;
 
     let model_name = model_path
@@ -199,7 +211,7 @@ pub fn clear_metadata_file_wrap(
     )
     .map_to_extendr_err("Failed to clear metadata file")?;
 
-    Ok(())
+    load_metadata(&metadata_path)
 }
 
 extendr_module! {

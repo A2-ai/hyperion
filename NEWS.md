@@ -13,6 +13,8 @@
 - `migrate_run_start_files()` rewrites `pharos_start.json` files to use
   project-relative model paths.
 - `summary()` reports a "No Objective Function Failure" heuristic check.
+- `set_metadata_file()`, `update_metadata_file()`, and `clear_metadata_file()`
+  return the updated metadata.
 
 ## Bug fixes
 

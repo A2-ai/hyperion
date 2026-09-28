@@ -21,7 +21,7 @@ library(dplyr)
 ```
 
 ```{r}
-get_gradients(file.path("grd", "bql.grd"))  |> 
+get_gradients(file.path("grd", "bql.grd"))  |>
   slice_tail(n = 1) |> 
   summarize(any_zero = any(across(everything(), ~ .x == 0))) |> 
   pull(any_zero) |> 

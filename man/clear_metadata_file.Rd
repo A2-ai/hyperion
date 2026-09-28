@@ -21,7 +21,7 @@ clear_metadata_file(
 \item{tags}{If TRUE, clear the tags field. Default FALSE.}
 }
 \value{
-Returns invisibly after updating the metadata file
+The model's updated metadata, as returned by \code{get_model_metadata()}
 }
 \description{
 Selectively clears the \code{based_on}, \code{copied_from}, and/or \code{tags} fields in

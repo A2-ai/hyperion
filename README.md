@@ -18,6 +18,10 @@ modelling software.
 
 ## Installation
 
+to install the latest release
+
+    install.packages("hyperion", repos = c("hyperion" = "https://prism.dev.a2-ai.cloud/rpkgs/hyperion-eco/v2", getOption("repos")))
+
 You can install the development version of hyperion from
 [GitHub](https://github.com/) with:
 
@@ -36,8 +40,8 @@ library(hyperion)
 #> 
 #> 
 #> ── pharos configuration ────────────────────────────────────────────────────────
-#> ✔ pharos CLI: 0.5.1 (/Users/mattsmith/.cargo/bin/pharos)
-#> ✔ pharos.toml found: /private/var/folders/bx/l0m1kftd7m93lvrc4m3_309c0000gn/T/RtmpAPB8kK/hyperion-readme-d746d46e41b/pharos.toml
+#> ✖ pharos CLI version mismatch: installed 0.5.1, expected 0.6.0 (/Users/mattsmith/.cargo/bin/pharos)
+#> ✔ pharos.toml found: /private/var/folders/bx/l0m1kftd7m93lvrc4m3_309c0000gn/T/Rtmpb0QPCL/hyperion-readme-412d33c561c0/pharos.toml
 #>     └ hyperion.config_dir : (unset)
 #> ── hyperion options ────────────────────────────────────────────────────────────
 #> ✔ hyperion.significant_number_display : 4
@@ -464,6 +468,8 @@ summary(run002)
 <strong>Heuristic Checks</strong>
 
 \[<span style="color:green">OK</span>\] Minimization Successful
+
+\[<span style="color:green">OK</span>\] No Objective Function Failure
 
 \[<span style="color:green">OK</span>\] Covariance Step Successful
 

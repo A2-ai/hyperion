@@ -159,3 +159,32 @@ test_that("a model path that does not exist errors instead of trying the other e
   expect_error(get_parameters(project$model), "File not found")
   expect_gt(nrow(get_parameters(ctl)), 0)
 })
+
+test_that("a run directory without a run-start file errors", {
+  project <- local_custom_run()
+  run <- file.path(project$root, "run001")
+  file.rename(project$run, run)
+  unlink(file.path(run, "pharos_start.json"))
+
+  expect_error(get_parameters(run), "not a pharos run directory")
+  expect_error(get_parameters(file.path(run, "run001.ext")), "not a pharos run directory")
+})
+
+test_that("an old-format run-start file points to migration", {
+  project <- local_custom_run()
+  start <- file.path(project$run, "pharos_start.json")
+  writeLines(sub(
+    '"model_path": "run001.mod"',
+    paste0('"model_canonical_path": "', project$model, '"'),
+    readLines(start), fixed = TRUE
+  ), start)
+
+  expect_error(get_parameters(project$run), "migrate_run_start_files")
+})
+
+test_that("a run whose recorded model is gone errors instead of using its copy", {
+  project <- local_custom_run()
+  unlink(project$model)
+
+  expect_error(get_parameters(project$run), "model recorded for this run")
+})

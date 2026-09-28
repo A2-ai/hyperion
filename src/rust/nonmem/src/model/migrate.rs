@@ -48,7 +48,11 @@ pub fn migrate_run_start_files(#[extendr(default = "NULL")] base_path: Option<&s
         let details = report
             .failed
             .iter()
-            .map(|(path, reason)| format!(" - {}: {reason}", path.display()))
+            // pharos words its reasons for the CLI flag; name the R argument instead.
+            .map(|(path, reason)| {
+                let reason = reason.replace("--base-path", "`base_path`");
+                format!(" - {}: {reason}", path.display())
+            })
             .collect::<Vec<_>>()
             .join("\n");
         return Err(extendr_err!(

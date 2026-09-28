@@ -2,9 +2,10 @@
 
 ## Breaking changes
 
-- `get_gradients()` requires the model's `.lst`, so a standalone `.grd` errors.
-- `get_gradients()`, `get_run_info()`, `get_eta_shrinkage()`, and
-  `get_eps_shrinkage()` error on a run directory with no model in or beside it.
+- Run directories need a `pharos_start.json`, so a directory pharos did not
+  create errors. Run `migrate_run_start_files()` on start files from older
+  pharos.
+- `get_gradients()` errors on a `.grd` outside a pharos run directory.
 
 ## New features
 
@@ -24,6 +25,8 @@
   with no `$OMEGA` or `$SIGMA`.
 - `submit_model_to_slurm()` and `submit_model_to_sge()` pass the config file
   to pharos correctly.
+- `get_run_info()` reports the significant digits of the final estimates, such
+  as 4.5, instead of 0.
 
 ## Dependencies
 

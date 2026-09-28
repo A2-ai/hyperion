@@ -15,7 +15,7 @@ use hyperion_core::{OptionExt, ResultExt, extendr_err, find_config_dir};
 
 /// Finds the correct output file path with the specified extension.
 ///
-/// Resolves the input to its model layout (see [`resolve_model_layout`]) and
+/// Resolves the input to its model layout (see [`resolve_model_run`]) and
 /// names the output file from the model's stem inside its run directory, so
 /// templated run directories resolve the same as conventional ones.
 ///
@@ -67,94 +67,64 @@ pub fn find_output_file(input_path: impl AsRef<Path>, extension: &str) -> Result
 /// Name of the run-start file pharos writes into every run output directory.
 const RUN_START_FILENAME: &str = "pharos_start.json";
 
-/// Resolve a model input to its pharos [`ModelLayout`].
+/// Resolve a model input to its pharos [`ModelLayout`] and the run directory to
+/// read outputs from.
 ///
-/// `search_path` comes from [`path_from_robj`] and may be a `.mod`/`.ctl` file,
-/// a run directory, a `_metadata.json` file, or an output file inside a run
-/// directory. Every shape is normalized to the *source* model first, because
-/// [`ModelLayout::from_model_file`] is defined on source models: a layout built
-/// from a model copied into a run directory cannot find its own outputs.
-pub fn resolve_model_layout(search_path: &Path) -> Result<ModelLayout> {
-    let source = source_model_path(search_path)?;
-    ModelLayout::from_model_file(&source).map_to_extendr_err("Failed to resolve model file")
-}
-
-/// Resolve the source layout and the selected run together. Explicit run
-/// directories and output files select that run, even if the source has several
-/// recorded runs. Source models and metadata files use discovery/configuration.
+/// `search_path` comes from [`path_from_robj`]. A run directory, or any file
+/// inside one, resolves through its run-start file, which records the input
+/// model relative to the project root. A source `.mod`/`.ctl` file, or the
+/// `_metadata.json` beside it, resolves its run through discovery/configuration.
 pub fn resolve_model_run(search_path: &Path) -> Result<(ModelLayout, PathBuf)> {
-    let layout = resolve_model_layout(search_path)?;
-    let explicit_dir = if search_path.is_dir() {
-        Some(search_path)
-    } else if matches!(
-        search_path.extension().and_then(|ext| ext.to_str()),
-        Some("lst" | "ext" | "grd" | "shk" | "cor")
-    ) || (validate_model_extension(search_path).is_ok()
-        && fs::canonicalize(search_path).ok().as_deref() != Some(layout.model_path()))
-    {
-        search_path.parent()
+    let dir = if search_path.is_dir() {
+        search_path
     } else {
-        None
+        search_path
+            .parent()
+            .ok_or_extendr_err("Could not determine parent directory")?
     };
-    let run_dir = match explicit_dir {
-        Some(dir) => fs::canonicalize(dir).map_to_extendr_err("Failed to resolve run directory")?,
-        None => resolve_run_dir(&layout)?,
-    };
-    Ok((layout, run_dir))
-}
 
-/// The source `.mod`/`.ctl` file behind any of the accepted input shapes.
-fn source_model_path(search_path: &Path) -> Result<PathBuf> {
-    // A run directory, or any file inside one. The run-start file records the
-    // model path relative to the project root, which is the only link from a
-    // run back to the model that produced it.
-    let run_dir_candidate = if search_path.is_dir() {
-        Some(search_path.to_path_buf())
-    } else {
-        search_path.parent().map(Path::to_path_buf)
-    };
-    if let Some(dir) = run_dir_candidate
-        && let Ok(start) = RunStartFile::load(dir.join(RUN_START_FILENAME))
-        && let Some(root) = find_config_dir().map_to_extendr_err("Failed to find config dir")?
-    {
-        let source = root.join(&start.model_path);
-        if source.exists() {
-            return Ok(source);
+    let start_path = dir.join(RUN_START_FILENAME);
+    if start_path.exists() {
+        let start = RunStartFile::load(&start_path).map_err(|e| {
+            extendr_err!(
+                "Could not read {} ({e}). If it was written by an older pharos, run `migrate_run_start_files()`.",
+                start_path.display()
+            )
+        })?;
+        let root = find_config_dir()
+            .map_to_extendr_err("Failed to find config dir")?
+            .ok_or_extendr_err("No pharos.toml found to resolve the run's model path against")?;
+        let layout = ModelLayout::from_model_file(root.join(&start.model_path))
+            .map_to_extendr_err("Failed to resolve the model recorded for this run")?;
+        let run_dir =
+            fs::canonicalize(dir).map_to_extendr_err("Failed to resolve run directory")?;
+        return Ok((layout, run_dir));
+    }
+
+    let metadata_model = search_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .and_then(|name| name.strip_suffix("_metadata.json"));
+
+    let layout = if validate_model_extension(search_path).is_ok() {
+        if !search_path.exists() {
+            return Err(extendr_err!("File not found: {}", search_path.display()));
         }
-    }
+        ModelLayout::from_model_file(search_path)
+            .map_to_extendr_err("Failed to resolve model file")?
+    } else if let Some(name) = metadata_model {
+        ModelLayout::try_locate(name, dir)
+            .map_to_extendr_err("Failed to locate model file")?
+            .ok_or_else(|| extendr_err!("No model file found for {}", search_path.display()))?
+    } else {
+        return Err(extendr_err!(
+            "{} is not a pharos run directory: no {RUN_START_FILENAME} found",
+            dir.display()
+        ));
+    };
 
-    // A model file given directly. A missing one is an error, not a cue to probe
-    // for a model of the same name with the other extension.
-    if validate_model_extension(search_path).is_ok() {
-        return if search_path.exists() {
-            Ok(search_path.to_path_buf())
-        } else {
-            Err(extendr_err!("File not found: {}", search_path.display()))
-        };
-    }
-
-    // A `_metadata.json` beside its model, or a run directory pharos did not
-    // create: probe for a model of the same name beside the input, then inside it.
-    let name = search_path
-        .file_stem()
-        .ok_or_extendr_err("Could not determine file stem")?
-        .to_string_lossy()
-        .to_string();
-    let reference = name.strip_suffix("_metadata").unwrap_or(&name);
-    let parent = search_path
-        .parent()
-        .ok_or_extendr_err("Could not determine parent directory")?;
-
-    let mut probe = ModelLayout::try_locate(reference, parent)
-        .map_to_extendr_err("Failed to locate model file")?;
-    if probe.is_none() && search_path.is_dir() {
-        probe = ModelLayout::try_locate(reference, search_path)
-            .map_to_extendr_err("Failed to locate model file")?;
-    }
-
-    probe
-        .map(|layout| layout.model_path().to_path_buf())
-        .ok_or_extendr_err("Could not find a .mod or .ctl file for the given input")
+    let run_dir = resolve_run_dir(&layout)?;
+    Ok((layout, run_dir))
 }
 
 /// The model's run output directory: the one pharos recorded for it, otherwise
@@ -517,27 +487,8 @@ extendr_module! {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use insta::glob;
     use std::fs;
     use tempfile::TempDir;
-
-    #[test]
-    fn test_resolve_model_layout_prefers_the_source_model() {
-        // No run-start file, so resolution falls back to probing: the source
-        // model beside the run directory wins over the copy inside it.
-        let temp_dir = TempDir::new().unwrap();
-        let source = temp_dir.path().join("run001.mod");
-        fs::write(&source, "$PROBLEM source").unwrap();
-        let run_dir = temp_dir.path().join("run001");
-        fs::create_dir(&run_dir).unwrap();
-        fs::write(run_dir.join("run001.mod"), "$PROBLEM copy").unwrap();
-
-        for input in [&run_dir, &source] {
-            let layout = resolve_model_layout(input).unwrap();
-            assert_eq!(layout.stem(), "run001");
-            assert_eq!(layout.model_path(), fs::canonicalize(&source).unwrap());
-        }
-    }
 
     #[test]
     fn test_find_output_file_already_correct() {

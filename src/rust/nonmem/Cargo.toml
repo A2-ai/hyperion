@@ -19,5 +19,4 @@ fs-err = { workspace = true }
 serde = { workspace = true }
 
 # Testing and utilities
-insta = { workspace = true }
 tempfile = { workspace = true }

@@ -2,10 +2,12 @@
 
 ## Breaking changes
 
-- Run directories need a `pharos_start.json`, so a directory pharos did not
-  create errors. Run `migrate_run_start_files()` on start files from older
-  pharos.
+- Requires pharos CLI 0.6.0, and Rust 1.88.0 or later to build from source.
+- Run directories need a `pharos_start.json`. Run `migrate_run_start_files()`
+  on start files from older pharos.
 - `get_gradients()` errors on a `.grd` outside a pharos run directory.
+- `get_parameters()` and `get_gradients()` need the run's `.lst`, as do
+  `read_ext_file()` and `copy_model(update =)` unless given an `.ext` file.
 
 ## New features
 
@@ -25,13 +27,7 @@
   with no `$OMEGA` or `$SIGMA`.
 - `submit_model_to_slurm()` and `submit_model_to_sge()` pass the config file
   to pharos correctly.
-- `get_run_info()` reports the significant digits of the final estimates, such
-  as 4.5, instead of 0.
-
-## Dependencies
-
-- Expects pharos CLI 0.6.0.
-- Building from source requires Rust 1.88.0 or later.
+- `get_run_info()` reports significant digits, such as 4.5, instead of 0.
 
 # hyperion 0.5.0
 

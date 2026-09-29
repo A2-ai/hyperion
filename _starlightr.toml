@@ -125,3 +125,4 @@ reference = [
 		"get_partition_info",
   ] },
 ]
+news = { label = "Changelog", source = "NEWS.md" }

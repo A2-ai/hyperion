@@ -1231,21 +1231,45 @@ test_that("scm_run validates max_concurrent", {
   expect_error(scm_run(plan, max_concurrent = NA), "max_concurrent")
   expect_error(scm_run(plan, max_concurrent = c(1, 2)), "max_concurrent")
 
-  # 0 is "no cap" on slurm, but locally it would mean no fits at all
-  expect_error(scm_run(plan, slurm = FALSE, max_concurrent = 0), "max_concurrent")
 })
 
-# `scm_run()` launches a real pharos, so the subcommand it types has to be
-# one the installed pharos answers to -- `scm` is top-level and no longer
-# reachable under `nonmem`.
-test_that("scm_run launches the pharos subcommand that exists", {
+test_that("scm_run validates the driver and slurm arguments", {
+  dir <- withr::local_tempdir()
+  plan <- make_plan(dir)
+
+  expect_error(scm_run(plan, driver = "local"), "driver")
+  expect_error(scm_run(plan, partition = 1), "partition")
+  expect_error(scm_run(plan, account = c("a", "b")), "account")
+  expect_error(scm_run(plan, shared_node = "yes"), "shared_node")
+  expect_error(scm_run(plan, overwrite = NA), "overwrite")
+
+  # the driver partition only means something for a driver job of its own
+  expect_error(
+    scm_run(plan, driver = "login", driver_partition = "p"),
+    "driver_partition"
+  )
+  expect_error(
+    scm_run(plan, shared_node = TRUE, driver_partition = "p"),
+    "driver_partition"
+  )
+
+  # `slurm = FALSE` (a local run) no longer exists in pharos
+  expect_error(scm_run(plan, slurm = FALSE), "unused argument")
+})
+
+# `scm_run()` launches a real pharos, so the subcommands it types have to be
+# ones the installed pharos answers to.
+test_that("scm_run launches pharos subcommands that exist", {
   found <- detect_pharos()
   skip_if(is.na(found$path), "pharos not on PATH")
-  expect_equal(
-    system2(found$path, c("scm", "run", "--help"),
-            stdout = FALSE, stderr = FALSE),
-    0L
-  )
+  for (driver in c("slurm", "login")) {
+    expect_equal(
+      system2(found$path, c(scm_run_subcommand(driver), "--help"),
+              stdout = FALSE, stderr = FALSE),
+      0L,
+      label = driver
+    )
+  }
 })
 
 test_that("scm_plan validates num_rounds", {

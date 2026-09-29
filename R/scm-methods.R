@@ -78,7 +78,7 @@ scm_init <- function(model, overwrite = FALSE) {
 #' [scm_init()] wrote — validates the covariate candidates against the
 #' user-authored initial model it names, returns the plan as a
 #' `hyperion_scm_plan` object, and writes it to `<out_dir>/plan.json` —
-#' [scm_run()] and `pharos scm run` execute. Nothing is fitted. The initial model
+#' [scm_run()] and `pharos nonmem scm submit` execute. Nothing is fitted. The initial model
 #' names a theta for each candidate effect in its `$THETA` records; the
 #' `[covariates]` section names the ones to test, and every model generated
 #' holds the rest out by fixing their thetas at their `fixed` value.
@@ -217,7 +217,7 @@ scm_plan <- function(config,
   }
 
   # The plan is on disk the moment it exists --
-  # <out_dir>/plan.json, ready for scm_run() or `pharos scm run`.
+  # <out_dir>/plan.json, ready for scm_run() or `pharos nonmem scm submit`.
   cli::cli_inform("plan written to {.file {attr(plan, 'plan_path')}}")
 
   plan
@@ -250,19 +250,27 @@ scm_out_dir <- function(x) {
 
 #' Run (or resume) an SCM process
 #'
-#' Launches `pharos scm run` in the background so pharos drives the whole
-#' SCM process — building each round from the initial model, submitting the fits,
-#' retrying failures from where they left off, scoring, and persisting
-#' resumable state. The R session stays free; check on the SCM process with
-#' [scm_status()].
+#' Hands the plan to the pharos CLI, which drives the whole SCM process —
+#' building each round from the initial model, submitting the fits, retrying
+#' failures from where they left off, scoring, and persisting resumable
+#' state. Fits always run on Slurm; `driver` picks where the process that
+#' submits and scores them runs:
+#'
+#' * `"slurm"` (default) queues the driver as its own Slurm job
+#'   (`pharos nonmem scm slurm submit`) and returns once it is queued.
+#' * `"login"` runs the driver here, on the login node
+#'   (`pharos nonmem scm submit`), in the background until the SCM process
+#'   finishes or pauses. The R session stays free.
+#'
+#' Either way, check on the SCM process with [scm_status()].
 #'
 #' Everything that defines the SCM process lives in the plan (see [scm_plan()]),
 #' including `num_rounds`, which paces how many rounds run before the SCM process
-#' pauses. `scm_run()` takes only run control: where the fits run and how
-#' many at a time.
-#' Everything else (NONMEM version, account) comes from
+#' pauses. `scm_run()` takes only run control: where the driver and the fits
+#' run and how many fits run at once.
+#' Everything else (NONMEM version) comes from
 #' pharos.toml — where `[nonmem.scm]` also holds this project's own defaults
-#' for `local`, `max_concurrent`, `num_parallel`, `partition` and `account`,
+#' for `max_concurrent`, `partition`, `driver_partition` and `account`,
 #' each overridden by the matching argument here — and the pharos CLI
 #' defaults; the pharos executable itself is
 #' found on the PATH, or set
@@ -270,30 +278,44 @@ scm_out_dir <- function(x) {
 #'
 #' @param plan a `hyperion_scm_plan` from [scm_plan()], or a path to a
 #'   plan.json
-#' @param slurm fit rounds on the cluster (default `TRUE`); `FALSE` runs the
-#'   fits locally on this machine
-#' @param partition Slurm partition; `NULL` uses the project's
+#' @param driver where the SCM driver runs: `"slurm"` (its own Slurm job) or
+#'   `"login"` (this machine, in the background)
+#' @param partition Slurm partition for the fits (with `shared_node`, the
+#'   partition of the one node they all run on); `NULL` uses the project's
 #'   `[nonmem.scm] partition`, else the cluster default
-#' @param max_concurrent how many of a round's fits run at once — the cap on
-#'   Slurm jobs in flight (`0` = submit them all, no cap), or the number of
-#'   fits run in parallel when `slurm = FALSE`. Further models start as
-#'   earlier ones finish. `NULL` uses the project's `[nonmem.scm]
-#'   max_concurrent`, else the pharos default (4 concurrent Slurm jobs; one
-#'   local fit per core).
+#' @param driver_partition Slurm partition for the driver job when
+#'   `driver = "slurm"`; `NULL` uses the project's
+#'   `[nonmem.scm] driver_partition`, else the cluster default. Not used with
+#'   `shared_node`, where the driver runs on the fits' node
+#' @param account Slurm account; `NULL` uses the project's
+#'   `[nonmem.scm] account`
+#' @param max_concurrent how many of a round's fits run at once (`0` = no
+#'   cap). Further models start as earlier ones finish. `NULL` uses the
+#'   project's `[nonmem.scm] max_concurrent`, else the pharos default (4; with
+#'   `shared_node`, as many as the node's CPUs hold).
+#' @param shared_node run every fit on one whole node instead of one Slurm
+#'   job per fit
+#' @param overwrite replace existing SCM output in the out_dir from a
+#'   *different* plan (resuming the same plan needs no overwrite)
 #'
 #' @return invisibly, a list with `out_dir`, `plan_path`, and `log` (the
-#'   file the background run streams into)
+#'   file the pharos output went to)
 #' @export
 #'
 #' @examples \dontrun{
 #' scm_run(plan)
 #' scm_run(plan, max_concurrent = 12)
-#' scm_run("model/nonmem/scm/1001/plan.json", slurm = FALSE, max_concurrent = 4)
+#' scm_run(plan, shared_node = TRUE, partition = "big")
+#' scm_run("model/nonmem/scm/1001/plan.json", driver = "login")
 #' }
 scm_run <- function(plan,
-                    slurm = TRUE,
+                    driver = c("slurm", "login"),
                     partition = NULL,
-                    max_concurrent = NULL) {
+                    driver_partition = NULL,
+                    account = NULL,
+                    max_concurrent = NULL,
+                    shared_node = FALSE,
+                    overwrite = FALSE) {
   if (inherits(plan, "hyperion_scm_plan")) {
     plan_path <- attr(plan, "plan_path")
     if (is.null(plan_path) || !file.exists(plan_path)) {
@@ -310,18 +332,35 @@ scm_run <- function(plan,
     rlang::abort("`plan` must be a hyperion_scm_plan or a path to plan.json")
   }
 
+  driver <- rlang::arg_match(driver)
+
+  for (arg in c("partition", "driver_partition", "account")) {
+    value <- get(arg)
+    if (!is.null(value) &&
+      (!is.character(value) || length(value) != 1L || is.na(value) || !nzchar(value))) {
+      rlang::abort(paste0("`", arg, "` must be a single string, or NULL"))
+    }
+  }
+  if (!(isTRUE(shared_node) || isFALSE(shared_node))) {
+    rlang::abort("`shared_node` must be TRUE or FALSE")
+  }
+  if (!(isTRUE(overwrite) || isFALSE(overwrite))) {
+    rlang::abort("`overwrite` must be TRUE or FALSE")
+  }
+  if (!is.null(driver_partition) && (driver != "slurm" || isTRUE(shared_node))) {
+    rlang::abort(
+      "`driver_partition` only applies to `driver = \"slurm\"` without `shared_node`"
+    )
+  }
+
   if (!is.null(max_concurrent)) {
-    floor_ <- if (isTRUE(slurm)) 0 else 1
     ok <- is.numeric(max_concurrent) && length(max_concurrent) == 1L &&
       !is.na(max_concurrent) && is.finite(max_concurrent) &&
-      max_concurrent %% 1 == 0 && max_concurrent >= floor_
+      max_concurrent %% 1 == 0 && max_concurrent >= 0
     if (!ok) {
-      # 0 means "no cap" only on slurm; locally it would mean no fits at all
-      rlang::abort(paste0(
-        "`max_concurrent` must be a whole number >= ", floor_,
-        if (isTRUE(slurm)) " (0 = no cap)" else " when `slurm = FALSE`",
-        ", or NULL for the pharos default"
-      ))
+      rlang::abort(
+        "`max_concurrent` must be a whole number >= 0 (0 = no cap), or NULL for the pharos default"
+      )
     }
   }
 
@@ -344,34 +383,74 @@ scm_run <- function(plan,
     found$path
   }
 
-  # slurm is the pharos default; only opting out needs a flag. `scm` is a
-  # top-level pharos command -- it is no longer reachable under `nonmem`.
-  args <- c("scm", "run", "--plan", plan_path)
-  if (!isTRUE(slurm)) {
-    args <- c(args, "--local")
+  args <- c(scm_run_subcommand(driver), plan_path)
+  if (!is.null(driver_partition)) {
+    args <- c(args, "--driver-partition", driver_partition)
   }
   if (!is.null(partition)) {
     args <- c(args, "--partition", partition)
   }
+  if (!is.null(account)) {
+    args <- c(args, "--account", account)
+  }
   if (!is.null(max_concurrent)) {
-    # the cluster caps jobs in flight; locally it is the parallel fit count
-    flag <- if (isTRUE(slurm)) "--max-concurrent" else "--num-parallel"
-    args <- c(args, flag, format(as.integer(max_concurrent)))
+    args <- c(args, "--max-concurrent", format(as.integer(max_concurrent)))
+  }
+  if (isTRUE(shared_node)) {
+    args <- c(args, "--shared-node")
+  }
+  if (isTRUE(overwrite)) {
+    args <- c(args, "--overwrite")
   }
   log_file <- file.path(out_dir, "scm_run.log")
   dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
-  system2(
-    pharos_path, args,
-    stdout = log_file, stderr = log_file, wait = FALSE
-  )
-  cli::cli_inform(c(
-    "v" = "SCM process launched in the background",
-    "i" = "log: {.file {log_file}}",
-    "i" = "check on it with {.code scm_status(\"{out_dir}\")}"
-  ))
+  if (driver == "slurm") {
+    # Queuing the driver returns at once, so wait for it and surface the
+    # job id -- or the reason pharos refused.
+    status <- system2(
+      pharos_path, args,
+      stdout = log_file, stderr = log_file, wait = TRUE
+    )
+    output <- readLines(log_file, warn = FALSE)
+    if (!identical(status, 0L)) {
+      # pharos output is passed through as-is, never interpolated
+      rlang::abort(c(
+        "pharos failed to submit the SCM driver",
+        stats::setNames(output, rep("x", length(output))),
+        "i" = paste0("log: ", log_file)
+      ))
+    }
+    output <- output[nzchar(output)]
+    rlang::inform(c(
+      "v" = "SCM driver submitted to Slurm",
+      stats::setNames(output, rep(" ", length(output)))
+    ))
+    cli::cli_inform(c(
+      "i" = "check on it with {.code scm_status(\"{out_dir}\")}"
+    ))
+  } else {
+    system2(
+      pharos_path, args,
+      stdout = log_file, stderr = log_file, wait = FALSE
+    )
+    cli::cli_inform(c(
+      "v" = "SCM driver launched in the background",
+      "i" = "log: {.file {log_file}}",
+      "i" = "check on it with {.code scm_status(\"{out_dir}\")}"
+    ))
+  }
 
   invisible(list(out_dir = out_dir, plan_path = plan_path, log = log_file))
+}
+
+#' The pharos subcommand that runs an SCM driver of the given kind
+#' @noRd
+scm_run_subcommand <- function(driver) {
+  switch(driver,
+    slurm = c("nonmem", "scm", "slurm", "submit"),
+    login = c("nonmem", "scm", "submit")
+  )
 }
 
 #' Check on an SCM process in its entirety
@@ -600,7 +679,7 @@ scm_context_removal_note <- function(ctx) {
 #' retuned candidate -- whether the open round refits it or the values only
 #' bear on models still to be written -- plus, when a retuned candidate is
 #' already in the model, the reminder that the rounds it was fitted in keep
-#' the values they ran under. The same notes `pharos scm plan` prints.
+#' the values they ran under. The same notes `pharos nonmem scm plan` prints.
 #' @noRd
 scm_context_retune_notes <- function(ctx) {
   if (!length(ctx$retunes) || is.null(ctx$progress)) {
@@ -870,7 +949,7 @@ knit_print.hyperion_scm_plan <- function(x, ...) {
 #' @exportS3Method base::print hyperion_scm_status
 print.hyperion_scm_status <- function(x, ...) {
   # pharos renders the status; printing its text verbatim keeps hyperion and
-  # `pharos scm status` from ever drifting apart.
+  # `pharos nonmem scm status` from ever drifting apart.
   cat(attr(x, "rendered"), "\n")
   invisible(x)
 }
@@ -989,7 +1068,7 @@ scm_summary <- function(x,
 #' @exportS3Method base::print hyperion_scm_summary
 print.hyperion_scm_summary <- function(x, ...) {
   # pharos renders the summary; printing its text verbatim keeps hyperion and
-  # `pharos scm summary` from ever drifting apart.
+  # `pharos nonmem scm summary` from ever drifting apart.
   cat(attr(x, "rendered"), "\n")
   invisible(x)
 }

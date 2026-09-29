@@ -4,43 +4,76 @@
 \alias{scm_run}
 \title{Run (or resume) an SCM process}
 \usage{
-scm_run(plan, slurm = TRUE, partition = NULL, max_concurrent = NULL)
+scm_run(
+  plan,
+  driver = c("slurm", "login"),
+  partition = NULL,
+  driver_partition = NULL,
+  account = NULL,
+  max_concurrent = NULL,
+  shared_node = FALSE,
+  overwrite = FALSE
+)
 }
 \arguments{
 \item{plan}{a \code{hyperion_scm_plan} from \code{\link[=scm_plan]{scm_plan()}}, or a path to a
 plan.json}
 
-\item{slurm}{fit rounds on the cluster (default \code{TRUE}); \code{FALSE} runs the
-fits locally on this machine}
+\item{driver}{where the SCM driver runs: \code{"slurm"} (its own Slurm job) or
+\code{"login"} (this machine, in the background)}
 
-\item{partition}{Slurm partition; \code{NULL} uses the project's
+\item{partition}{Slurm partition for the fits (with \code{shared_node}, the
+partition of the one node they all run on); \code{NULL} uses the project's
 \verb{[nonmem.scm] partition}, else the cluster default}
 
-\item{max_concurrent}{how many of a round's fits run at once — the cap on
-Slurm jobs in flight (\code{0} = submit them all, no cap), or the number of
-fits run in parallel when \code{slurm = FALSE}. Further models start as
-earlier ones finish. \code{NULL} uses the project's \verb{[nonmem.scm] max_concurrent}, else the pharos default (4 concurrent Slurm jobs; one
-local fit per core).}
+\item{driver_partition}{Slurm partition for the driver job when
+\code{driver = "slurm"}; \code{NULL} uses the project's
+\verb{[nonmem.scm] driver_partition}, else the cluster default. Not used with
+\code{shared_node}, where the driver runs on the fits' node}
+
+\item{account}{Slurm account; \code{NULL} uses the project's
+\verb{[nonmem.scm] account}}
+
+\item{max_concurrent}{how many of a round's fits run at once (\code{0} = no
+cap). Further models start as earlier ones finish. \code{NULL} uses the
+project's \verb{[nonmem.scm] max_concurrent}, else the pharos default (4; with
+\code{shared_node}, as many as the node's CPUs hold).}
+
+\item{shared_node}{run every fit on one whole node instead of one Slurm
+job per fit}
+
+\item{overwrite}{replace existing SCM output in the out_dir from a
+\emph{different} plan (resuming the same plan needs no overwrite)}
 }
 \value{
 invisibly, a list with \code{out_dir}, \code{plan_path}, and \code{log} (the
-file the background run streams into)
+file the pharos output went to)
 }
 \description{
-Launches \verb{pharos scm run} in the background so pharos drives the whole
-SCM process — building each round from the initial model, submitting the fits,
-retrying failures from where they left off, scoring, and persisting
-resumable state. The R session stays free; check on the SCM process with
-\code{\link[=scm_status]{scm_status()}}.
+Hands the plan to the pharos CLI, which drives the whole SCM process —
+building each round from the initial model, submitting the fits, retrying
+failures from where they left off, scoring, and persisting resumable
+state. Fits always run on Slurm; \code{driver} picks where the process that
+submits and scores them runs:
 }
 \details{
+\itemize{
+\item \code{"slurm"} (default) queues the driver as its own Slurm job
+(\verb{pharos nonmem scm slurm submit}) and returns once it is queued.
+\item \code{"login"} runs the driver here, on the login node
+(\verb{pharos nonmem scm submit}), in the background until the SCM process
+finishes or pauses. The R session stays free.
+}
+
+Either way, check on the SCM process with \code{\link[=scm_status]{scm_status()}}.
+
 Everything that defines the SCM process lives in the plan (see \code{\link[=scm_plan]{scm_plan()}}),
 including \code{num_rounds}, which paces how many rounds run before the SCM process
-pauses. \code{scm_run()} takes only run control: where the fits run and how
-many at a time.
-Everything else (NONMEM version, account) comes from
+pauses. \code{scm_run()} takes only run control: where the driver and the fits
+run and how many fits run at once.
+Everything else (NONMEM version) comes from
 pharos.toml — where \verb{[nonmem.scm]} also holds this project's own defaults
-for \code{local}, \code{max_concurrent}, \code{num_parallel}, \code{partition} and \code{account},
+for \code{max_concurrent}, \code{partition}, \code{driver_partition} and \code{account},
 each overridden by the matching argument here — and the pharos CLI
 defaults; the pharos executable itself is
 found on the PATH, or set
@@ -50,6 +83,7 @@ found on the PATH, or set
 \dontrun{
 scm_run(plan)
 scm_run(plan, max_concurrent = 12)
-scm_run("model/nonmem/scm/1001/plan.json", slurm = FALSE, max_concurrent = 4)
+scm_run(plan, shared_node = TRUE, partition = "big")
+scm_run("model/nonmem/scm/1001/plan.json", driver = "login")
 }
 }

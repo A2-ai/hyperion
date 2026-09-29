@@ -27,7 +27,7 @@ Reads the SCM process setup from an SCM config file (TOML) — the one
 \code{\link[=scm_init]{scm_init()}} wrote — validates the covariate candidates against the
 user-authored initial model it names, returns the plan as a
 \code{hyperion_scm_plan} object, and writes it to \verb{<out_dir>/plan.json} —
-\code{\link[=scm_run]{scm_run()}} and \verb{pharos scm run} execute. Nothing is fitted. The initial model
+\code{\link[=scm_run]{scm_run()}} and \verb{pharos nonmem scm submit} execute. Nothing is fitted. The initial model
 names a theta for each candidate effect in its \verb{$THETA} records; the
 \verb{[covariates]} section names the ones to test, and every model generated
 holds the rest out by fixing their thetas at their \code{fixed} value.

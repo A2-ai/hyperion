@@ -1,7 +1,7 @@
 use extendr_api::Result;
 use extendr_api::prelude::*;
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 // Pharos nonmem crate
 use nonmem::output_files::{
@@ -13,9 +13,9 @@ use nonmem::output_files::{
 
 use crate::{
     output_files::{OMEGA, ParameterRowBuilder, SIGMA, THETA, build_parameters_df},
-    utils::{find_output_file, get_comment_type, path_from_robj, validate_model_path},
+    utils::{find_output_file, get_comment_type, path_from_robj, resolve_model_run},
 };
-use hyperion_core::{OptionExt, ResultExt, extendr_err};
+use hyperion_core::{ResultExt, extendr_err};
 
 #[derive(Debug, IntoDataFrameRow)]
 pub struct MinimizationResultsRow {
@@ -33,7 +33,7 @@ pub struct RunDetailsRow {
     pub number_obs: i32,
     pub postprocess_time: f64,
     pub function_evaluations: i32,
-    pub significant_digits: i32,
+    pub significant_digits: f64,
     pub only_sim: bool,
     pub estimation_method: String,
     pub estimation_time: Rfloat,
@@ -174,7 +174,7 @@ pub fn build_run_details_df(details: RunDetails) -> Result<Robj> {
             number_obs: details.number_obs as i32,
             postprocess_time: details.postprocess_time,
             function_evaluations: details.function_evaluations as i32,
-            significant_digits: details.significant_digits as i32,
+            significant_digits: details.significant_digits,
             only_sim: details.only_sim,
             estimation_method: method,
             estimation_time: Rfloat::from(details.estimation_time.get(i).copied()),
@@ -213,8 +213,8 @@ pub fn build_run_heuristics_df(heuristics: &RunHeuristics) -> Result<Robj> {
             value: Rbool::from(heuristics.minimization_terminated),
         },
         RunHeuristicsRow {
-            heuristic_name: "program_aborted".to_string(),
-            value: Rbool::from(heuristics.program_aborted),
+            heuristic_name: "program_terminated_by_obj".to_string(),
+            value: Rbool::from(heuristics.program_terminated_by_obj),
         },
     ];
 
@@ -263,42 +263,13 @@ pub fn build_summary_parameters_df(parameters: TableParameters) -> Result<Robj> 
     build_parameters_df(parameter_rows, false, false)
 }
 
-fn run_dir_from_model_path(model_path: &Path) -> Result<PathBuf> {
-    let stem = model_path
-        .file_stem()
-        .ok_or_extendr_err("Could not determine model file stem")?
-        .to_string_lossy();
-    let parent = model_path
-        .parent()
-        .ok_or_extendr_err("Could not determine model file parent directory")?;
-
-    Ok(parent.join(stem.as_ref()))
-}
-
 fn parse_summary_directory(input: Robj) -> Result<PathBuf> {
-    if input.is_string() {
-        let path = input
-            .as_str()
-            .ok_or_extendr_err("`directory` must be a string")?;
-        let path = Path::new(path);
-        if path.is_dir() {
-            return Ok(path.to_path_buf());
-        }
-        if path.exists() {
-            let model_path = validate_model_path(path)?;
-            return run_dir_from_model_path(&model_path);
-        }
-        return Err(extendr_err!("Path does not exist: {}", path.display()));
+    let path = path_from_robj(&input, false)?;
+    if path.is_dir() {
+        return Ok(path);
     }
-
-    if input.inherits("hyperion_nonmem_model") {
-        let model_path = path_from_robj(&input, true)?;
-        return run_dir_from_model_path(&model_path);
-    }
-
-    Err(extendr_err!(
-        "`directory` must be a run directory path or a hyperion_nonmem_model object"
-    ))
+    let (_, run_dir) = resolve_model_run(&path)?;
+    Ok(run_dir)
 }
 
 /// Gets model run summary (internal implementation)

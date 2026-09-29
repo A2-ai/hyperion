@@ -24,7 +24,7 @@ set_metadata_file(
 \item{copied_from}{Optional model name/path this model was mechanically copied from}
 }
 \value{
-Returns invisibly after creating the metadata file
+The model's updated metadata, as returned by \code{get_model_metadata()}
 }
 \description{
 This function creates a metadata file that stores information about a NONMEM model,

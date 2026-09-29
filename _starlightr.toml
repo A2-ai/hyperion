@@ -13,7 +13,8 @@ include_pagefind = true
 [versions]
 enabled = true
 list = [
-	{ tag = "0.5.0", label = "v0.5.0", default = true },
+	{ tag = "0.6.0", label = "v0.6.0", default = true },
+	{ tag = "0.5.0", label = "v0.5.0" },
 	{ tag = "0.4.2", label = "v0.4.2" },
 	{ tag = "0.4.1", label = "v0.4.1" },
   { tag = "0.3.2", label = "v0.3.2" },
@@ -82,6 +83,7 @@ reference = [
     "get_parameter_unit",
     "get_theta_names",
     "get_eta_labels",
+    "get_fixed_parameters",
     "update_param_info",
     "audit_parameter_info",
   ] },
@@ -109,6 +111,7 @@ reference = [
     "get_pharos_config",
     "get_comment_type",
     "use_comments",
+    "migrate_run_start_files",
   ] },
   { label = "Metadata Files", collapsed = true, contents = [
     "set_metadata_file",
@@ -122,3 +125,4 @@ reference = [
 		"get_partition_info",
   ] },
 ]
+news = { label = "Changelog", source = "NEWS.md" }

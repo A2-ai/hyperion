@@ -18,7 +18,7 @@
       -- Heuristic Checks --
       
       [OK] Minimization Successful
-      [OK] Estimation Completed
+      [OK] No Objective Function Failure
       [OK] Covariance Step Successful
       [OK] No Eigenvalue Issues
       [OK] No Parameters Near Boundary
@@ -78,7 +78,7 @@
       -- Heuristic Checks --
       
       [OK] Minimization Successful
-      [OK] Estimation Completed
+      [OK] No Objective Function Failure
       [OK] Covariance Step Successful
       [OK] No Eigenvalue Issues
       [OK] No Parameters Near Boundary
@@ -139,7 +139,7 @@
       -- Heuristic Checks --
       
       [OK] Minimization Successful
-      [OK] Estimation Completed
+      [OK] No Objective Function Failure
       [OK] Covariance Step Successful
       [OK] No Eigenvalue Issues
       [OK] No Parameters Near Boundary
@@ -200,7 +200,7 @@
       -- Heuristic Checks --
       
       [OK] Minimization Successful
-      [OK] Estimation Completed
+      [OK] No Objective Function Failure
       [!] Covariance Step Not Run
       [!] Eigenvalue Check Not Available
       [x] Parameters Near Boundary

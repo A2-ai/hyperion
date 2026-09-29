@@ -21,7 +21,7 @@ update_metadata_file(
 \item{based_on}{character vector of models to add to based_on field}
 }
 \value{
-Invisibly after updaing
+The model's updated metadata, as returned by \code{get_model_metadata()}
 }
 \description{
 Updates a metadatafile

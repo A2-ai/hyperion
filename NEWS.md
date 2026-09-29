@@ -1,3 +1,34 @@
+# hyperion 0.6.0
+
+## Breaking changes
+
+- Requires pharos CLI 0.6.0, and Rust 1.88.0 or later to build from source.
+- Run directories need a `pharos_start.json`. Run `migrate_run_start_files()`
+  on start files from older pharos.
+- `get_gradients()` errors on a `.grd` outside a pharos run directory.
+- `get_parameters()` and `get_gradients()` need the run's `.lst`, as do
+  `read_ext_file()` and `copy_model(update =)` unless given an `.ext` file.
+
+## New features
+
+- `get_fixed_parameters()` returns the names of parameters declared `FIX`.
+- `get_eta_labels()` gains `mask` to leave out omegas.
+- `migrate_run_start_files()` rewrites `pharos_start.json` files to use
+  project-relative model paths.
+- `summary()` reports a "No Objective Function Failure" heuristic check.
+- `set_metadata_file()`, `update_metadata_file()`, and `clear_metadata_file()`
+  return the updated metadata.
+
+## Bug fixes
+
+- Model outputs are found in run directories named by the `output_dir`
+  template in `pharos.toml`.
+- `get_parameters()` no longer reports `OMEGA(1,1)` or `SIGMA(1,1)` for models
+  with no `$OMEGA` or `$SIGMA`.
+- `submit_model_to_slurm()` and `submit_model_to_sge()` pass the config file
+  to pharos correctly.
+- `get_run_info()` reports significant digits, such as 4.5, instead of 0.
+
 # hyperion 0.5.0
 
 ## Breaking changes

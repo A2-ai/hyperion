@@ -286,11 +286,17 @@ get_parameter_names <- function(x, lookup_path = NULL) {
 #' The label uses the associated_theta name if available, otherwise the omega name.
 #'
 #' @param model_comments A ModelComments object
+#' @param mask Character vector of omegas to leave out, keyed by NONMEM name,
+#'   user name, or display name. Surviving labels keep their original ETA
+#'   number.
 #' @return Character vector of ETA labels (e.g., c("ETA1//ETA-CL", "ETA2//ETA-V"))
 #' @export
-get_eta_labels <- function(model_comments) {
+get_eta_labels <- function(model_comments, mask = character()) {
   if (!S7::S7_inherits(model_comments, ModelComments)) {
     rlang::abort("model_comments must be a ModelComments object")
+  }
+  if (!is.character(mask)) {
+    rlang::abort("mask must be a character vector")
   }
 
   # Get diagonal omega elements only (where row == col)
@@ -312,7 +318,7 @@ get_eta_labels <- function(model_comments) {
   ))]
 
   # Build labels
-  vapply(
+  labels <- vapply(
     seq_along(diagonal_omegas),
     function(i) {
       omega_name <- diagonal_omegas[i]
@@ -331,4 +337,15 @@ get_eta_labels <- function(model_comments) {
     },
     character(1)
   )
+
+  masked <- vapply(
+    diagonal_omegas,
+    function(omega_name) {
+      comment <- model_comments@omega[[omega_name]]
+      any(c(omega_name, comment@name, comment@display) %in% mask)
+    },
+    logical(1)
+  )
+
+  labels[!masked]
 }

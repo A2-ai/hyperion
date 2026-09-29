@@ -40,8 +40,8 @@ library(hyperion)
 #> 
 #> 
 #> ── pharos configuration ────────────────────────────────────────────────────────
-#> ✖ pharos CLI version mismatch: installed 0.5.1, expected 0.6.0 (/Users/mattsmith/.cargo/bin/pharos)
-#> ✔ pharos.toml found: /private/var/folders/bx/l0m1kftd7m93lvrc4m3_309c0000gn/T/Rtmpb0QPCL/hyperion-readme-412d33c561c0/pharos.toml
+#> ✔ pharos CLI: 0.6.0 (/data/user-homes/matthews/.local/bin/pharos)
+#> ✔ pharos.toml found: /tmp/RtmptxW6mE/hyperion-readme-14b9cc3467c701/pharos.toml
 #>     └ hyperion.config_dir : (unset)
 #> ── hyperion options ────────────────────────────────────────────────────────────
 #> ✔ hyperion.significant_number_display : 4

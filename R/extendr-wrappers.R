@@ -67,13 +67,110 @@ read_model_from_lst <- function(path) .Call(wrap__read_model_from_lst, path)
 #' @param tags Character vector of tags to attach to the model in metadata
 #' @param no_metadata boolean, if true, does not create metadatafile, default FALSE
 #'
-#' @return path to new model file (invisible) todo
+#' @return The new model as a `hyperion_nonmem_model`, marked as a copy so
+#' that `write_model()` can write edits to it without the already-run check.
 #' @export
 #'
 #' @examples \dontrun{
 #' copy_model(from = "model/nonmem/run001.mod", to = "model/nonmem/run002.mod")
 #' }
 copy_model <- function(from, to, overwrite = FALSE, ext_file = NULL, update = 'none', jitter = NULL, jitter_excluded = NULL, seed = NULL, description, based_on = NULL, tags = NULL, no_metadata = FALSE) .Call(wrap__copy_model_wrap, from, to, overwrite, ext_file, update, jitter, jitter_excluded, seed, description, based_on, tags, no_metadata)
+
+#' Append a THETA row (internal)
+#'
+#' @return list(model = <hyperion_nonmem_model>, index = <new THETA number>)
+#' @keywords internal
+#' @noRd
+edit_add_theta_impl <- function(source, path, init, lower = NULL, upper = NULL, fix = FALSE, comment = NULL, index = NULL) .Call(wrap__edit_add_theta_impl, source, path, init, lower, upper, fix, comment, index)
+
+#' Edit a code record (internal)
+#'
+#' With `lhs` (or `mu_of`), `append` is added to the end of that statement's
+#' right-hand side (or the end of the `within` call). Without, each element
+#' of `append` is added as a new statement.
+#'
+#' @return list(model = <hyperion_nonmem_model>, used = <ref names used>)
+#' @keywords internal
+#' @noRd
+edit_code_impl <- function(source, path, record, append, lhs = NULL, mu_of = NULL, within = NULL, ref_names, ref_kinds, ref_indices, ref_cols) .Call(wrap__edit_code_impl, source, path, record, append, lhs, mu_of, within, ref_names, ref_kinds, ref_indices, ref_cols)
+
+#' Append a diagonal OMEGA or SIGMA row (internal)
+#'
+#' @return list(model = <hyperion_nonmem_model>, index = <new ETA/EPS number>)
+#' @keywords internal
+#' @noRd
+edit_add_random_impl <- function(source, path, kind, init, fix = FALSE, comment = NULL) .Call(wrap__edit_add_random_impl, source, path, kind, init, fix, comment)
+
+#' Update one THETA (internal)
+#'
+#' `*_action` is "keep", "set" or "remove".
+#' @keywords internal
+#' @noRd
+edit_update_theta_impl <- function(source, path, index, init, lower_action, lower, upper_action, upper, fix, comment_action, comment) .Call(wrap__edit_update_theta_impl, source, path, index, init, lower_action, lower, upper_action, upper, fix, comment_action, comment)
+
+#' Update one diagonal OMEGA or SIGMA (internal)
+#' @keywords internal
+#' @noRd
+edit_update_random_impl <- function(source, path, kind, index, init, fix, comment_action, comment) .Call(wrap__edit_update_random_impl, source, path, kind, index, init, fix, comment_action, comment)
+
+#' Make an OMEGA block (internal)
+#'
+#' `init` and `comment` are lower-triangle; NA keeps the existing element.
+#' @keywords internal
+#' @noRd
+edit_add_omega_block_impl <- function(source, path, first, size, init, comment, fix) .Call(wrap__edit_add_omega_block_impl, source, path, first, size, init, comment, fix)
+
+#' Change `$EST` options (internal)
+#'
+#' `actions` is "value", "flag" or "remove" per option.
+#' @keywords internal
+#' @noRd
+edit_update_est_impl <- function(source, path, index, names, actions, values) .Call(wrap__edit_update_est_impl, source, path, index, names, actions, values)
+
+#' Change `$SUBROUTINES` (internal)
+#' @keywords internal
+#' @noRd
+edit_update_subroutines_impl <- function(source, path, advan, trans_action, trans, tol_action, tol) .Call(wrap__edit_update_subroutines_impl, source, path, advan, trans_action, trans, tol_action, tol)
+
+#' Remove `$COV` (internal)
+#' @keywords internal
+#' @noRd
+edit_remove_cov_impl <- function(source, path) .Call(wrap__edit_remove_cov_impl, source, path)
+
+#' Set the `$DATA` path (internal)
+#' @keywords internal
+#' @noRd
+edit_update_data_impl <- function(source, path, data_path) .Call(wrap__edit_update_data_impl, source, path, data_path)
+
+#' Append lines to `$MODEL` (internal)
+#' @keywords internal
+#' @noRd
+edit_update_model_record_impl <- function(source, path, append) .Call(wrap__edit_update_model_record_impl, source, path, append)
+
+#' Add `$TABLE` columns (internal)
+#' @keywords internal
+#' @noRd
+edit_update_table_impl <- function(source, path, file, index, append) .Call(wrap__edit_update_table_impl, source, path, file, index, append)
+
+#' Rename a variable (internal)
+#' @keywords internal
+#' @noRd
+edit_rename_variable_impl <- function(source, path, from, to) .Call(wrap__edit_rename_variable_impl, source, path, from, to)
+
+#' Names assigned in a code record, upper case (internal)
+#' @keywords internal
+#' @noRd
+edit_assigned_names_impl <- function(source, record) .Call(wrap__edit_assigned_names_impl, source, record)
+
+#' `$MODEL` compartments without a `DADT` in `$DES` (internal)
+#' @keywords internal
+#' @noRd
+edit_missing_dadt_impl <- function(source) .Call(wrap__edit_missing_dadt_impl, source)
+
+#' Number of `$EST` records (internal)
+#' @keywords internal
+#' @noRd
+edit_est_count_impl <- function(source) .Call(wrap__edit_est_count_impl, source)
 
 #' Gets model run summary (internal implementation)
 #'

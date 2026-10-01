@@ -277,6 +277,10 @@ build_model_display_parts <- function(x, digits = NULL) {
   } else {
     "NONMEM Model"
   }
+  unsaved <- attr(x, "unsaved_edits") %||% 0L
+  if (unsaved > 0) {
+    title <- paste0(title, " (unsaved edits: ", unsaved, ")")
+  }
 
   problem <- NULL
   if (!is.null(x$problem)) {

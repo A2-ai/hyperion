@@ -337,6 +337,23 @@ pub fn get_comment_type() -> Option<CommentType> {
         .and_then(|config| config.nonmem.as_ref().and_then(|n| n.comments.r#type))
 }
 
+/// @return The configured comment type when the pharos config sets
+/// `[nonmem.comments] error_on_invalid = true`, otherwise None.
+pub fn get_strict_comment_type() -> Option<CommentType> {
+    find_config_dir()
+        .ok()
+        .flatten()
+        .map(|dir| dir.join(CONFIG_FILENAME))
+        .and_then(|path| Config::load(path).ok())
+        .and_then(|config| {
+            config
+                .nonmem
+                .as_ref()
+                .filter(|n| n.comments.error_on_invalid)
+                .and_then(|n| n.comments.r#type)
+        })
+}
+
 pub fn load_nonmem_config(run_nonmem_version: Option<&str>) -> Result<(PathBuf, NonmemConfig)> {
     let p = if let Some(root_dir) =
         find_config_dir().map_to_extendr_err("Failed to find config dir")?

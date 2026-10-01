@@ -49,7 +49,8 @@ Examples: "THETA1" or c("THETA1")}
 \item{no_metadata}{boolean, if true, does not create metadatafile, default FALSE}
 }
 \value{
-path to new model file (invisible) todo
+The new model as a \code{hyperion_nonmem_model}, marked as a copy so
+that \code{write_model()} can write edits to it without the already-run check.
 }
 \description{
 Copies model file to new model file

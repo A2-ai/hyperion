@@ -5,6 +5,7 @@ use nonmem::copy::UpdateType;
 use nonmem::{CopyOptions, copy_model};
 use std::path::{Path, PathBuf};
 
+use crate::model::read_model;
 use crate::utils::{parse_run_model, path_from_robj, resolve_ext_path, resolve_model_run};
 use hyperion_core::{ResultExt, extendr_err};
 
@@ -95,7 +96,8 @@ fn parse_update_robj(update: Robj) -> Result<Vec<UpdateType>> {
 /// @param tags Character vector of tags to attach to the model in metadata
 /// @param no_metadata boolean, if true, does not create metadatafile, default FALSE
 ///
-/// @return path to new model file (invisible) todo
+/// @return The new model as a `hyperion_nonmem_model`, marked as a copy so
+/// that `write_model()` can write edits to it without the already-run check.
 /// @export
 ///
 /// @examples \dontrun{
@@ -118,7 +120,19 @@ pub fn copy_model_wrap(
     #[extendr(default = "NULL")] based_on: Option<Vec<String>>,
     #[extendr(default = "NULL")] tags: Option<Vec<String>>,
     #[extendr(default = "FALSE")] no_metadata: bool,
-) -> Result<()> {
+) -> Result<Robj> {
+    // ext estimates are applied by the parent's row numbers, which unsaved
+    // edits may have shifted.
+    if let Some(n) = from
+        .get_attrib("unsaved_edits")
+        .and_then(|a| a.as_integer())
+        && n > 0
+    {
+        return Err(extendr_err!(
+            "`from` has {n} unsaved edit(s). Run write_model() on it first, or copy the model from disk."
+        ));
+    }
+
     // Parse input parameters
     let update_types = parse_update_robj(update)?;
     let jitter_excluded_parsed = parse_jitter_excluded_robj(jitter_excluded)?;
@@ -187,7 +201,16 @@ pub fn copy_model_wrap(
     copy_model(&from_path, to, &original_filename, &new_filename, &options)
         .map_to_extendr_err("Failed to copy model")?;
 
-    Ok(())
+    // The copy is the start of an edit chain: write_model() trusts that
+    // copy_model() already settled whether overwriting was allowed.
+    let to_str = to
+        .to_str()
+        .ok_or_else(|| extendr_err!("`to` is not valid UTF-8"))?;
+    let mut new_model = read_model(to_str)?;
+    new_model
+        .set_attrib("from_copy", true.into_robj())
+        .map_to_extendr_err("Failed to set from_copy attribute")?;
+    Ok(new_model)
 }
 
 extendr_module! {

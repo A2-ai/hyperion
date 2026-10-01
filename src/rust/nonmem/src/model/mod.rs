@@ -13,6 +13,7 @@ use hyperion_core::{ResultExt, extendr_err};
 pub mod check;
 pub mod comment_info;
 pub mod copy;
+pub mod edit;
 pub mod lineage;
 pub mod metadata;
 pub mod migrate;
@@ -32,6 +33,11 @@ pub fn model_to_robj(model: &mut Model, path: impl AsRef<Path>) -> Result<Robj> 
 
     add_filename_attr(&mut model_robj, path)?;
     add_model_source_attr(&mut model_robj, path)?;
+    // The control stream text, so edits and write_model() work from what the
+    // object holds rather than re-reading the file.
+    model_robj
+        .set_attrib("model_text", model.model_content().into_robj())
+        .map_to_extendr_err("Failed to set model_text attribute")?;
 
     set_model_class(&mut model_robj)
 }
@@ -126,6 +132,7 @@ pub fn read_model(path: &str) -> Result<Robj> {
 extendr_module! {
     mod model;
     use copy;
+    use edit;
     use summary;
     use check;
     use lineage;

@@ -7,11 +7,11 @@
 \alias{update_des}
 \title{Edit a code record}
 \usage{
-update_pk(model, lhs, append, within, comment)
+update_pk(model, lhs, append, replace, within, comment)
 
-update_error(model, lhs, append, within, comment)
+update_error(model, lhs, append, replace, within, comment)
 
-update_des(model, lhs, append, within, comment)
+update_des(model, lhs, append, replace, within, comment)
 }
 \arguments{
 \item{model}{A hyperion_nonmem_model object.}
@@ -19,6 +19,9 @@ update_des(model, lhs, append, within, comment)
 \item{lhs}{Bare name of the statement to add to, e.g. \code{TVCL} or \code{DADT(2)}.}
 
 \item{append}{NONMEM code to add.}
+
+\item{replace}{New right-hand side for \code{lhs}, replacing the old one. The
+statement's comment is kept.}
 
 \item{within}{Bare name of a function call inside \code{lhs}'s right-hand side,
 e.g. \code{SQRT}.}
@@ -30,14 +33,18 @@ Leave out to keep it.}
 The edited model (not yet written; see \code{\link[=write_model]{write_model()}}).
 }
 \description{
-Without \code{lhs}, each element of \code{append} is added as a new statement; pharos
-places it after the last line like it (a \code{MU_n} line after the last MU
-line, a line with an ETA after the last line with an ETA, anything else
-at the end). With \code{lhs}, \code{append} is added to the end of that statement's
-right-hand side, or to the end of the \code{within} call inside it, and
-\code{comment} replaces the statement's comment (\code{NULL} removes it).
+Without \code{lhs}, each element of \code{append} is added as a new statement, and
+may span several lines (e.g. an \verb{IF ... ENDIF} block). Pharos places it
+after the last line like it: after the last statement assigning the same
+variable, a \code{MU_n} line after the last MU line, a line with an ETA after
+the last line with an ETA, anything else at the end.
 }
 \details{
+With \code{lhs}, \code{append} is added to the end of that statement's right-hand
+side, or to the end of the \code{within} call inside it; \code{replace} swaps the
+whole right-hand side instead; and \code{comment} replaces the statement's
+comment (\code{NULL} removes it).
+
 Placeholders like \code{{wt.theta}} are replaced with the NONMEM reference for a
 row declared with \code{ref}. Suffixes: \code{.theta}; \code{.eta}, \code{.mu}, \code{.omega} for
 OMEGAs; \code{.eps}, \code{.sigma} for SIGMAs.
@@ -47,5 +54,7 @@ OMEGAs; \code{.eps}, \code{.sigma} for SIGMAs.
 mod |>
   add_theta(0.75, comment = "WT-on-CL", ref = "wt_cl") |>
   update_pk(TVCL, append = "* (WT / 70)**{wt_cl.theta}")
+
+mod |> update_error(IPRED, replace = "LOG(F + 0.0001)")
 }
 }

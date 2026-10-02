@@ -8,8 +8,8 @@ use std::collections::HashMap;
 use extendr_api::Result;
 use extendr_api::prelude::*;
 use nmparser::{
-    Change, CodeRecord, Model, NewRow, NewTheta, OptionEdit, ParamRef, RandomKind, RefKind,
-    RowUpdate, ThetaUpdate, resolve_placeholders,
+    Change, CodeRecord, FilterKind, Model, NewRow, NewTheta, OptionEdit, ParamRef, RandomKind,
+    RefKind, RowUpdate, ThetaUpdate, resolve_placeholders,
 };
 
 use crate::model::model_to_robj;
@@ -81,6 +81,28 @@ fn change<T>(action: &str, value: Option<T>) -> Result<Change<T>> {
     }
 }
 
+/// Record options from R: `actions` is "value", "flag" or "remove" per option.
+fn option_edits(
+    names: Vec<String>,
+    actions: Vec<String>,
+    values: Vec<String>,
+) -> Result<Vec<(String, OptionEdit)>> {
+    names
+        .into_iter()
+        .zip(actions)
+        .zip(values)
+        .map(|((name, action), value)| {
+            let edit = match action.as_str() {
+                "value" => OptionEdit::Value(value),
+                "flag" => OptionEdit::Flag,
+                "remove" => OptionEdit::Remove,
+                other => return Err(extendr_err!("Invalid option action `{other}`.")),
+            };
+            Ok((name, edit))
+        })
+        .collect()
+}
+
 fn to_robj(mut model: Model, path: &str) -> Result<Robj> {
     model_to_robj(&mut model, path)
 }
@@ -143,6 +165,7 @@ pub fn edit_code_impl(
     ref_cols: Vec<i32>,
     #[extendr(default = "'keep'")] comment_action: &str,
     #[extendr(default = "NULL")] comment: Option<String>,
+    #[extendr(default = "NULL")] replace: Option<String>,
 ) -> Result<Robj> {
     let comment = change(comment_action, comment)?;
     let record = code_record(record)?;
@@ -150,16 +173,20 @@ pub fn edit_code_impl(
     let mut model = parse_source(source)?;
 
     let mut used: Vec<String> = vec![];
-    let mut resolved = vec![];
-    for text in &append {
+    let mut resolve = |text: &str| -> Result<String> {
         let (r, u) = resolve_placeholders(text, &refs).map_err(edit_err)?;
-        resolved.push(r);
         for name in u {
             if !used.contains(&name) {
                 used.push(name);
             }
         }
-    }
+        Ok(r)
+    };
+    let resolved = append
+        .iter()
+        .map(|t| resolve(t))
+        .collect::<Result<Vec<_>>>()?;
+    let replace = replace.map(|t| resolve(&t)).transpose()?;
 
     let target = match (lhs, mu_of) {
         (Some(l), None) => Some(l),
@@ -170,6 +197,16 @@ pub fn edit_code_impl(
 
     match target {
         Some(lhs) => {
+            if let Some(text) = &replace {
+                if !resolved.is_empty() || within.is_some() {
+                    return Err(extendr_err!(
+                        "`replace` swaps the whole right-hand side; don't combine it with `append` or `within`."
+                    ));
+                }
+                model = model
+                    .replace_statement(record, &lhs, text)
+                    .map_err(edit_err)?;
+            }
             match resolved.as_slice() {
                 [] if within.is_some() => {
                     return Err(extendr_err!("`within` needs `append`."));
@@ -196,6 +233,9 @@ pub fn edit_code_impl(
             }
             if comment != Change::Keep {
                 return Err(extendr_err!("`comment` needs a target statement."));
+            }
+            if replace.is_some() {
+                return Err(extendr_err!("`replace` needs a target statement."));
             }
             for line in &resolved {
                 model = model.add_statement(record, line).map_err(edit_err)?;
@@ -345,20 +385,7 @@ pub fn edit_update_est_impl(
     values: Vec<String>,
 ) -> Result<Robj> {
     let model = parse_source(source)?;
-    let edits = names
-        .into_iter()
-        .zip(actions)
-        .zip(values)
-        .map(|((name, action), value)| {
-            let edit = match action.as_str() {
-                "value" => OptionEdit::Value(value),
-                "flag" => OptionEdit::Flag,
-                "remove" => OptionEdit::Remove,
-                other => return Err(extendr_err!("Invalid option action `{other}`.")),
-            };
-            Ok((name, edit))
-        })
-        .collect::<Result<Vec<_>>>()?;
+    let edits = option_edits(names, actions, values)?;
     let edited = model.update_est(index as usize, &edits).map_err(edit_err)?;
     to_robj(edited, path)
 }
@@ -459,6 +486,59 @@ pub fn edit_rename_variable_impl(source: &str, path: &str, from: &str, to: &str)
     to_robj(edited, path)
 }
 
+/// Add or remove `$DATA` IGNORE/ACCEPT conditions (internal)
+/// @keywords internal
+/// @noRd
+#[extendr]
+pub fn edit_data_filter_impl(
+    source: &str,
+    path: &str,
+    kind: &str,
+    action: &str,
+    conditions: Vec<String>,
+) -> Result<Robj> {
+    let kind = match kind {
+        "ignore" => FilterKind::Ignore,
+        "accept" => FilterKind::Accept,
+        other => return Err(extendr_err!("Unknown filter kind `{other}`.")),
+    };
+    let mut model = parse_source(source)?;
+    for cond in &conditions {
+        model = match action {
+            "add" => model.add_data_filter(kind, cond),
+            "remove" => model.remove_data_filter(kind, cond),
+            other => return Err(extendr_err!("Unknown filter action `{other}`.")),
+        }
+        .map_err(edit_err)?;
+    }
+    to_robj(model, path)
+}
+
+/// Add a `$EST` record (internal)
+/// @keywords internal
+/// @noRd
+#[extendr]
+pub fn edit_add_est_impl(
+    source: &str,
+    path: &str,
+    names: Vec<String>,
+    actions: Vec<String>,
+    values: Vec<String>,
+) -> Result<Robj> {
+    let model = parse_source(source)?;
+    let options = option_edits(names, actions, values)?;
+    to_robj(model.add_est(&options).map_err(edit_err)?, path)
+}
+
+/// Remove a `$EST` record (internal)
+/// @keywords internal
+/// @noRd
+#[extendr]
+pub fn edit_remove_est_impl(source: &str, path: &str, index: i32) -> Result<Robj> {
+    let model = parse_source(source)?;
+    to_robj(model.remove_est(index as usize).map_err(edit_err)?, path)
+}
+
 /// Names assigned in a code record, upper case (internal)
 /// @keywords internal
 /// @noRd
@@ -501,6 +581,9 @@ extendr_module! {
     fn edit_update_table_impl;
     fn edit_rename_variable_impl;
     fn edit_assigned_names_impl;
+    fn edit_data_filter_impl;
+    fn edit_add_est_impl;
+    fn edit_remove_est_impl;
     fn edit_missing_dadt_impl;
     fn edit_est_count_impl;
 }

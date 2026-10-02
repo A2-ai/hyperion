@@ -110,8 +110,17 @@ check_number <- function(x, arg) {
 
 check_whole <- function(x, arg) {
   check_number(x, arg)
-  if (x != round(x) || x < 0) {
+  if (x != round(x) || x < 0 || x > .Machine$integer.max) {
     rlang::abort(paste0("`", arg, "` must be a whole number."))
+  }
+  invisible(x)
+}
+
+# A 1-based position, e.g. THETA(index) or the index-th $EST.
+check_index <- function(x, arg) {
+  check_number(x, arg)
+  if (x != round(x) || x < 1 || x > .Machine$integer.max) {
+    rlang::abort(paste0("`", arg, "` must be a whole number, 1 or more."))
   }
   invisible(x)
 }
@@ -219,7 +228,7 @@ add_theta <- function(
     check_string(comment, "comment")
   }
   if (!is.null(index)) {
-    check_whole(index, "index")
+    check_index(index, "index")
   }
   res <- edit_add_theta_impl(
     attr(model, "model_text"),
@@ -252,15 +261,25 @@ edit_code <- function(
   lhs,
   mu_of,
   within,
-  comment = list(action = "keep", value = NULL)
+  comment = list(action = "keep", value = NULL),
+  replace = NULL
 ) {
   check_model_object(model)
+  if (!is.null(replace)) {
+    check_string(replace, "replace")
+    if (is.null(lhs) && is.null(mu_of)) {
+      rlang::abort("`replace` needs `lhs`, the statement to replace.")
+    }
+    if (!is.null(append) || !is.null(within)) {
+      rlang::abort("Give `replace` or `append`/`within`, not both.")
+    }
+  }
   if (is.null(append)) {
     if (is.null(lhs) && is.null(mu_of)) {
       rlang::abort("`append` is required without a target statement.")
     }
-    if (identical(comment$action, "keep")) {
-      rlang::abort("Give `append`, `comment`, or both.")
+    if (identical(comment$action, "keep") && is.null(replace)) {
+      rlang::abort("Give `append`, `replace` or `comment`.")
     }
     append <- character()
   } else if (!is.character(append) || length(append) == 0 || anyNA(append)) {
@@ -280,7 +299,8 @@ edit_code <- function(
     refs$index,
     refs$col,
     comment$action,
-    comment$value
+    comment$value,
+    replace
   )
   new <- carry_edit_attrs(res$model, model)
   attr(new, "refs_used") <- union(attr(model, "refs_used"), res$used)
@@ -289,12 +309,16 @@ edit_code <- function(
 
 #' Edit a code record
 #'
-#' Without `lhs`, each element of `append` is added as a new statement; pharos
-#' places it after the last line like it (a `MU_n` line after the last MU
-#' line, a line with an ETA after the last line with an ETA, anything else
-#' at the end). With `lhs`, `append` is added to the end of that statement's
-#' right-hand side, or to the end of the `within` call inside it, and
-#' `comment` replaces the statement's comment (`NULL` removes it).
+#' Without `lhs`, each element of `append` is added as a new statement, and
+#' may span several lines (e.g. an `IF ... ENDIF` block). Pharos places it
+#' after the last line like it: after the last statement assigning the same
+#' variable, a `MU_n` line after the last MU line, a line with an ETA after
+#' the last line with an ETA, anything else at the end.
+#'
+#' With `lhs`, `append` is added to the end of that statement's right-hand
+#' side, or to the end of the `within` call inside it; `replace` swaps the
+#' whole right-hand side instead; and `comment` replaces the statement's
+#' comment (`NULL` removes it).
 #'
 #' Placeholders like `{wt.theta}` are replaced with the NONMEM reference for a
 #' row declared with `ref`. Suffixes: `.theta`; `.eta`, `.mu`, `.omega` for
@@ -303,6 +327,8 @@ edit_code <- function(
 #' @param model A hyperion_nonmem_model object.
 #' @param lhs Bare name of the statement to add to, e.g. `TVCL` or `DADT(2)`.
 #' @param append NONMEM code to add.
+#' @param replace New right-hand side for `lhs`, replacing the old one. The
+#'   statement's comment is kept.
 #' @param within Bare name of a function call inside `lhs`'s right-hand side,
 #'   e.g. `SQRT`.
 #' @param comment New comment for the `lhs` statement, or `NULL` to remove it.
@@ -314,12 +340,14 @@ edit_code <- function(
 #' mod |>
 #'   add_theta(0.75, comment = "WT-on-CL", ref = "wt_cl") |>
 #'   update_pk(TVCL, append = "* (WT / 70)**{wt_cl.theta}")
+#'
+#' mod |> update_error(IPRED, replace = "LOG(F + 0.0001)")
 #' }
 NULL
 
 #' @rdname update_code_records
 #' @export
-update_pk <- function(model, lhs, append, within, comment) {
+update_pk <- function(model, lhs, append, replace, within, comment) {
   lhs <- if (missing(lhs)) NULL else name_text(rlang::enexpr(lhs), "lhs")
   within <- if (missing(within)) {
     NULL
@@ -327,18 +355,19 @@ update_pk <- function(model, lhs, append, within, comment) {
     name_text(rlang::enexpr(within), "within")
   }
   append <- if (missing(append)) NULL else append
+  replace <- if (missing(replace)) NULL else replace
   comment <- arg_change(
     !missing(comment),
     if (missing(comment)) NULL else comment,
     "comment",
     check_string
   )
-  edit_code(model, "PK", append, lhs, NULL, within, comment)
+  edit_code(model, "PK", append, lhs, NULL, within, comment, replace)
 }
 
 #' @rdname update_code_records
 #' @export
-update_error <- function(model, lhs, append, within, comment) {
+update_error <- function(model, lhs, append, replace, within, comment) {
   lhs <- if (missing(lhs)) NULL else name_text(rlang::enexpr(lhs), "lhs")
   within <- if (missing(within)) {
     NULL
@@ -346,18 +375,19 @@ update_error <- function(model, lhs, append, within, comment) {
     name_text(rlang::enexpr(within), "within")
   }
   append <- if (missing(append)) NULL else append
+  replace <- if (missing(replace)) NULL else replace
   comment <- arg_change(
     !missing(comment),
     if (missing(comment)) NULL else comment,
     "comment",
     check_string
   )
-  edit_code(model, "ERROR", append, lhs, NULL, within, comment)
+  edit_code(model, "ERROR", append, lhs, NULL, within, comment, replace)
 }
 
 #' @rdname update_code_records
 #' @export
-update_des <- function(model, lhs, append, within, comment) {
+update_des <- function(model, lhs, append, replace, within, comment) {
   lhs <- if (missing(lhs)) NULL else name_text(rlang::enexpr(lhs), "lhs")
   within <- if (missing(within)) {
     NULL
@@ -365,13 +395,14 @@ update_des <- function(model, lhs, append, within, comment) {
     name_text(rlang::enexpr(within), "within")
   }
   append <- if (missing(append)) NULL else append
+  replace <- if (missing(replace)) NULL else replace
   comment <- arg_change(
     !missing(comment),
     if (missing(comment)) NULL else comment,
     "comment",
     check_string
   )
-  edit_code(model, "DES", append, lhs, NULL, within, comment)
+  edit_code(model, "DES", append, lhs, NULL, within, comment, replace)
 }
 
 #' Add to a parameter's MU line
@@ -383,6 +414,7 @@ update_des <- function(model, lhs, append, within, comment) {
 #' @param model A hyperion_nonmem_model object.
 #' @param param Bare name of the parameter, e.g. `V`.
 #' @param append NONMEM code to add.
+#' @param replace New right-hand side for the MU line, replacing the old one.
 #' @param within Bare name of a function call inside the MU line.
 #' @param comment New comment for the MU line, or `NULL` to remove it. Leave
 #'   out to keep it.
@@ -394,7 +426,7 @@ update_des <- function(model, lhs, append, within, comment) {
 #'   add_theta(1.2, comment = "WT-on-Vc", ref = "wt_v") |>
 #'   update_mu(V, append = "+ {wt_v.theta} * LOG(WT / 70)")
 #' }
-update_mu <- function(model, param, append, within, comment) {
+update_mu <- function(model, param, append, replace, within, comment) {
   param <- name_text(rlang::enexpr(param), "param")
   within <- if (missing(within)) {
     NULL
@@ -402,13 +434,14 @@ update_mu <- function(model, param, append, within, comment) {
     name_text(rlang::enexpr(within), "within")
   }
   append <- if (missing(append)) NULL else append
+  replace <- if (missing(replace)) NULL else replace
   comment <- arg_change(
     !missing(comment),
     if (missing(comment)) NULL else comment,
     "comment",
     check_string
   )
-  edit_code(model, "PK", append, NULL, param, within, comment)
+  edit_code(model, "PK", append, NULL, param, within, comment, replace)
 }
 
 #' Write an edited model to disk

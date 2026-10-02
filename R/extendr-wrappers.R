@@ -93,7 +93,7 @@ edit_add_theta_impl <- function(source, path, init, lower = NULL, upper = NULL, 
 #' @return list(model = <hyperion_nonmem_model>, used = <ref names used>)
 #' @keywords internal
 #' @noRd
-edit_code_impl <- function(source, path, record, append, lhs = NULL, mu_of = NULL, within = NULL, ref_names, ref_kinds, ref_indices, ref_cols, comment_action = 'keep', comment = NULL) .Call(wrap__edit_code_impl, source, path, record, append, lhs, mu_of, within, ref_names, ref_kinds, ref_indices, ref_cols, comment_action, comment)
+edit_code_impl <- function(source, path, record, append, lhs = NULL, mu_of = NULL, within = NULL, ref_names, ref_kinds, ref_indices, ref_cols, comment_action = 'keep', comment = NULL, replace = NULL) .Call(wrap__edit_code_impl, source, path, record, append, lhs, mu_of, within, ref_names, ref_kinds, ref_indices, ref_cols, comment_action, comment, replace)
 
 #' Append a diagonal OMEGA or SIGMA row (internal)
 #'
@@ -162,6 +162,21 @@ edit_rename_variable_impl <- function(source, path, from, to) .Call(wrap__edit_r
 #' @keywords internal
 #' @noRd
 edit_assigned_names_impl <- function(source, record) .Call(wrap__edit_assigned_names_impl, source, record)
+
+#' Add or remove `$DATA` IGNORE/ACCEPT conditions (internal)
+#' @keywords internal
+#' @noRd
+edit_data_filter_impl <- function(source, path, kind, action, conditions) .Call(wrap__edit_data_filter_impl, source, path, kind, action, conditions)
+
+#' Add a `$EST` record (internal)
+#' @keywords internal
+#' @noRd
+edit_add_est_impl <- function(source, path, names, actions, values) .Call(wrap__edit_add_est_impl, source, path, names, actions, values)
+
+#' Remove a `$EST` record (internal)
+#' @keywords internal
+#' @noRd
+edit_remove_est_impl <- function(source, path, index) .Call(wrap__edit_remove_est_impl, source, path, index)
 
 #' `$MODEL` compartments without a `DADT` in `$DES` (internal)
 #' @keywords internal

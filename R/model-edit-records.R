@@ -20,7 +20,7 @@
 #' }
 update_table <- function(model, file, index, append) {
   file <- if (missing(file)) NULL else check_string(file, "file")
-  index <- if (missing(index)) NULL else as.integer(check_whole(index, "index"))
+  index <- if (missing(index)) NULL else as.integer(check_index(index, "index"))
   if (!is.character(append) || length(append) == 0 || anyNA(append)) {
     rlang::abort("`append` must be a character vector of column names.")
   }
@@ -61,14 +61,7 @@ option_value <- function(x, name) {
 #' }
 update_est <- function(model, ..., index) {
   check_model_object(model)
-  opts <- rlang::list2(...)
-  if (length(opts) == 0) {
-    rlang::abort("Give at least one option, e.g. `maxeval = 0`.")
-  }
-  nms <- names(opts)
-  if (is.null(nms) || any(!nzchar(nms))) {
-    rlang::abort("Every option must be named, e.g. `maxeval = 0`.")
-  }
+  opts <- est_options(rlang::list2(...), allow_remove = TRUE)
   n_est <- edit_est_count_impl(attr(model, "model_text"))
   if (missing(index)) {
     if (n_est > 1) {
@@ -80,30 +73,85 @@ update_est <- function(model, ..., index) {
     }
     index <- 1L
   }
-  check_whole(index, "index")
+  check_index(index, "index")
+  apply_edit(
+    model,
+    edit_update_est_impl,
+    as.integer(index) - 1L,
+    opts$names,
+    opts$actions,
+    opts$values
+  )
+}
+
+est_options <- function(opts, allow_remove) {
+  if (length(opts) == 0) {
+    rlang::abort("Give at least one option, e.g. `maxeval = 0`.")
+  }
+  nms <- names(opts)
+  if (is.null(nms) || any(!nzchar(nms))) {
+    rlang::abort("Every option must be named, e.g. `maxeval = 0`.")
+  }
   actions <- character(length(opts))
   values <- character(length(opts))
   for (k in seq_along(opts)) {
     x <- opts[[k]]
-    if (is.null(x)) {
+    if (is.null(x) && allow_remove) {
       actions[k] <- "remove"
+    } else if (is.null(x) || isFALSE(x)) {
+      rlang::abort(paste0(
+        "`",
+        nms[k],
+        "` must be a value or TRUE; leave an option out to not set it."
+      ))
     } else if (isTRUE(x)) {
       actions[k] <- "flag"
-    } else if (isFALSE(x)) {
-      rlang::abort(paste0("Use `", nms[k], " = NULL` to remove a flag."))
     } else {
       actions[k] <- "value"
       values[k] <- option_value(x, nms[k])
     }
   }
-  apply_edit(
-    model,
-    edit_update_est_impl,
-    as.integer(index) - 1L,
-    nms,
-    actions,
-    values
-  )
+  if (!allow_remove && anyDuplicated(toupper(nms))) {
+    rlang::abort("Each option can be given only once.")
+  }
+  list(names = nms, actions = actions, values = values)
+}
+
+#' Add or remove a $EST record
+#'
+#' `add_est()` adds a `$EST` after the last one, e.g. an `IMP` step after
+#' `SAEM`. Options are named arguments as in [update_est()]: a value sets the
+#' option, `TRUE` adds a flag. `remove_est()` removes the `$EST` at `index`;
+#' a model always keeps at least one.
+#'
+#' @param model A hyperion_nonmem_model object.
+#' @param ... Options, e.g. `method = "IMP"`, `eonly = 1`, `niter = 5`.
+#' @param index Which `$EST` record to remove, counting from 1.
+#' @return The edited model (not yet written; see [write_model()]).
+#' @name add_est
+#'
+#' @examples \dontrun{
+#' mod |>
+#'   update_est(method = "SAEM", nburn = 2000, niter = 1000) |>
+#'   add_est(method = "IMP", eonly = 1, niter = 5, isample = 3000)
+#'
+#' mod |> remove_est(2)
+#' }
+NULL
+
+#' @rdname add_est
+#' @export
+add_est <- function(model, ...) {
+  check_model_object(model)
+  opts <- est_options(rlang::list2(...), allow_remove = FALSE)
+  apply_edit(model, edit_add_est_impl, opts$names, opts$actions, opts$values)
+}
+
+#' @rdname add_est
+#' @export
+remove_est <- function(model, index) {
+  check_index(index, "index")
+  apply_edit(model, edit_remove_est_impl, as.integer(index) - 1L)
 }
 
 #' Change $SUBROUTINES
@@ -192,6 +240,60 @@ update_data <- function(model, path) {
     ))
   }
   apply_edit(model, edit_update_data_impl, path)
+}
+
+data_filter <- function(model, ignore, accept, action) {
+  check_model_object(model)
+  if (is.null(ignore) == is.null(accept)) {
+    rlang::abort("Give exactly one of `ignore` or `accept`.")
+  }
+  kind <- if (is.null(ignore)) "accept" else "ignore"
+  conditions <- if (is.null(ignore)) accept else ignore
+  if (
+    !is.character(conditions) || length(conditions) == 0 || anyNA(conditions)
+  ) {
+    rlang::abort(paste0(
+      "`",
+      kind,
+      "` must be a character vector of conditions, e.g. \"DV.EQ.0\"."
+    ))
+  }
+  apply_edit(model, edit_data_filter_impl, kind, action, conditions)
+}
+
+#' Add or remove $DATA filters
+#'
+#' Conditions are written as NONMEM writes them, e.g. `"BLQ.EQ.1"`. Each
+#' one is added to `$DATA` as its own `IGNORE=(...)` or `ACCEPT=(...)`
+#' option, after any already there. NONMEM doesn't allow `IGNORE` and
+#' `ACCEPT` lists together, so adding one kind is refused when the other is
+#' there. `IGNORE=@` and `IGNORE=#` are left as they are and can be used with
+#' `ACCEPT`. Labels must be `$INPUT` columns.
+#'
+#' `remove_data_filter()` matches the condition ignoring case and spaces.
+#'
+#' @param model A hyperion_nonmem_model object.
+#' @param ignore Conditions for records to drop.
+#' @param accept Conditions for records to keep.
+#' @return The edited model (not yet written; see [write_model()]).
+#' @name data_filters
+#'
+#' @examples \dontrun{
+#' mod |> add_data_filter(ignore = "BLQ.EQ.1")
+#' mod |> remove_data_filter(ignore = "BLQ.EQ.1")
+#' }
+NULL
+
+#' @rdname data_filters
+#' @export
+add_data_filter <- function(model, ignore = NULL, accept = NULL) {
+  data_filter(model, ignore, accept, "add")
+}
+
+#' @rdname data_filters
+#' @export
+remove_data_filter <- function(model, ignore = NULL, accept = NULL) {
+  data_filter(model, ignore, accept, "remove")
 }
 
 #' Add lines to $MODEL

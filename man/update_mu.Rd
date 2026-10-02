@@ -4,7 +4,7 @@
 \alias{update_mu}
 \title{Add to a parameter's MU line}
 \usage{
-update_mu(model, param, append, within, comment)
+update_mu(model, param, append, replace, within, comment)
 }
 \arguments{
 \item{model}{A hyperion_nonmem_model object.}
@@ -12,6 +12,8 @@ update_mu(model, param, append, within, comment)
 \item{param}{Bare name of the parameter, e.g. \code{V}.}
 
 \item{append}{NONMEM code to add.}
+
+\item{replace}{New right-hand side for the MU line, replacing the old one.}
 
 \item{within}{Bare name of a function call inside the MU line.}
 

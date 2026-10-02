@@ -33,7 +33,9 @@ The edited model (not yet written; see \code{\link[=write_model]{write_model()}}
 \description{
 Changes only the arguments given. Leave an argument out to keep it; \code{NULL}
 removes a bound or the comment. \code{update_omega()} and \code{update_sigma()} edit
-the diagonal element \code{index}, e.g. \code{index = 2} is \code{OMEGA(2,2)}.
+the diagonal element \code{index}, e.g. \code{index = 2} is \code{OMEGA(2,2)}. \code{init} is
+in the record's units: a standard deviation in an \code{SD} record, a Cholesky
+factor element in a \code{CHOLESKY} one.
 }
 \examples{
 \dontrun{

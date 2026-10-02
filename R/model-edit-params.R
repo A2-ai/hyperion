@@ -63,7 +63,9 @@ add_sigma <- function(model, init, fix = FALSE, comment = NULL, ref = NULL) {
 #'
 #' Changes only the arguments given. Leave an argument out to keep it; `NULL`
 #' removes a bound or the comment. `update_omega()` and `update_sigma()` edit
-#' the diagonal element `index`, e.g. `index = 2` is `OMEGA(2,2)`.
+#' the diagonal element `index`, e.g. `index = 2` is `OMEGA(2,2)`. `init` is
+#' in the record's units: a standard deviation in an `SD` record, a Cholesky
+#' factor element in a `CHOLESKY` one.
 #'
 #' @param model A hyperion_nonmem_model object.
 #' @param index Row number: `THETA(index)`, `OMEGA(index,index)` or
@@ -84,7 +86,7 @@ NULL
 #' @rdname update_params
 #' @export
 update_theta <- function(model, index, init, lower, upper, fix, comment) {
-  check_whole(index, "index")
+  check_index(index, "index")
   init <- arg_value(
     !missing(init),
     if (missing(init)) NULL else init,
@@ -131,7 +133,7 @@ update_theta <- function(model, index, init, lower, upper, fix, comment) {
 }
 
 update_random <- function(model, kind, index, init, fix, comment, has) {
-  check_whole(index, "index")
+  check_index(index, "index")
   init <- arg_value(has[["init"]], init, "init", check_number)
   fix <- arg_value(has[["fix"]], fix, "fix", check_flag)
   comment <- arg_change(has[["comment"]], comment, "comment", check_string)
@@ -229,6 +231,7 @@ add_omega_block <- function(
       length(index) == 0 ||
       anyNA(index) ||
       any(index != round(index)) ||
+      index[1] < 1 ||
       any(diff(index) != 1)
   ) {
     rlang::abort("`index` must be consecutive ETA numbers, e.g. `3:4`.")

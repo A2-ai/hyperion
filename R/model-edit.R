@@ -644,3 +644,53 @@ print.hyperion_model_diff <- function(x, ...) {
   }
   invisible(x)
 }
+
+#' Knit print method for hyperion_model_diff objects
+#'
+#' Writes the changes as HTML, with added lines in green and removed lines
+#' in red, for Quarto and R Markdown.
+#'
+#' @param x A hyperion_model_diff object.
+#' @param ... Additional arguments (ignored).
+#' @return HTML output for rendered documents.
+#' @exportS3Method knitr::knit_print
+knit_print.hyperion_model_diff <- function(x, ...) {
+  if (length(x$changes) == 0) {
+    return(knitr::asis_output("No changes.\n"))
+  }
+  escape <- function(s) {
+    s <- gsub("&", "&amp;", s, fixed = TRUE)
+    s <- gsub("<", "&lt;", s, fixed = TRUE)
+    gsub(">", "&gt;", s, fixed = TRUE)
+  }
+  record <- function(key) sub("#.*$", "", key)
+  line <- function(l) {
+    color <- if (startsWith(l, "+")) "#1a7f37" else "#cf222e"
+    paste0('<span style="color: ', color, ';">', escape(l), "</span>")
+  }
+  output <- character()
+  for (key in names(x$changes)) {
+    output <- c(
+      output,
+      paste0(
+        "<pre><strong>",
+        escape(record(key)),
+        "</strong>\n",
+        paste(vapply(x$changes[[key]], line, character(1)), collapse = "\n"),
+        "</pre>"
+      )
+    )
+  }
+  shown <- unique(record(setdiff(x$unchanged, "(header)")))
+  if (length(shown) > 0) {
+    output <- c(
+      output,
+      paste0(
+        '<p style="color: #6e7781;">(unchanged: ',
+        escape(paste(shown, collapse = ", ")),
+        ")</p>"
+      )
+    )
+  }
+  knitr::asis_output(paste(c("", output, ""), collapse = "\n"))
+}

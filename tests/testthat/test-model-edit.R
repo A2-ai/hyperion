@@ -144,6 +144,17 @@ test_that("copy_model() -> edit -> diff_models() -> write_model() -> reread", {
   expect_true(all(c("$PK", "$THETA") %in% names(vs_parent$changes)))
 })
 
+test_that("diff_models() knits as coloured HTML", {
+  mod <- local_model()
+  d <- mod |> update_theta(1, init = 2) |> diff_models()
+  out <- as.character(knitr::knit_print(d))
+  expect_match(out, "<pre><strong>$THETA</strong>\n", fixed = TRUE)
+  expect_match(out, '<span style="color: #cf222e;">-  (0, 1) ;CL</span>', fixed = TRUE)
+  expect_match(out, '<span style="color: #1a7f37;">+  (0, 2) ;CL</span>', fixed = TRUE)
+  expect_match(out, "(unchanged: $PROBLEM, ", fixed = TRUE)
+  expect_equal(as.character(knitr::knit_print(diff_models(mod))), "No changes.\n")
+})
+
 test_that("code verbs replace, place new lines, and set comments", {
   mod <- local_model()
 

@@ -4,7 +4,7 @@
 \alias{update_mu}
 \title{Add to a parameter's MU line}
 \usage{
-update_mu(model, param, append, within)
+update_mu(model, param, append, within, comment)
 }
 \arguments{
 \item{model}{A hyperion_nonmem_model object.}
@@ -14,6 +14,9 @@ update_mu(model, param, append, within)
 \item{append}{NONMEM code to add.}
 
 \item{within}{Bare name of a function call inside the MU line.}
+
+\item{comment}{New comment for the MU line, or \code{NULL} to remove it. Leave
+out to keep it.}
 }
 \value{
 The edited model (not yet written; see \code{\link[=write_model]{write_model()}}).

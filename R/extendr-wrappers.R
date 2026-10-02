@@ -86,13 +86,14 @@ edit_add_theta_impl <- function(source, path, init, lower = NULL, upper = NULL, 
 #' Edit a code record (internal)
 #'
 #' With `lhs` (or `mu_of`), `append` is added to the end of that statement's
-#' right-hand side (or the end of the `within` call). Without, each element
-#' of `append` is added as a new statement.
+#' right-hand side (or the end of the `within` call), and the statement's
+#' comment is changed per `comment_action` ("keep", "set" or "remove").
+#' Without, each element of `append` is added as a new statement.
 #'
 #' @return list(model = <hyperion_nonmem_model>, used = <ref names used>)
 #' @keywords internal
 #' @noRd
-edit_code_impl <- function(source, path, record, append, lhs = NULL, mu_of = NULL, within = NULL, ref_names, ref_kinds, ref_indices, ref_cols) .Call(wrap__edit_code_impl, source, path, record, append, lhs, mu_of, within, ref_names, ref_kinds, ref_indices, ref_cols)
+edit_code_impl <- function(source, path, record, append, lhs = NULL, mu_of = NULL, within = NULL, ref_names, ref_kinds, ref_indices, ref_cols, comment_action = 'keep', comment = NULL) .Call(wrap__edit_code_impl, source, path, record, append, lhs, mu_of, within, ref_names, ref_kinds, ref_indices, ref_cols, comment_action, comment)
 
 #' Append a diagonal OMEGA or SIGMA row (internal)
 #'

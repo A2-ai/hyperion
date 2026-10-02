@@ -120,8 +120,9 @@ pub fn edit_add_theta_impl(
 /// Edit a code record (internal)
 ///
 /// With `lhs` (or `mu_of`), `append` is added to the end of that statement's
-/// right-hand side (or the end of the `within` call). Without, each element
-/// of `append` is added as a new statement.
+/// right-hand side (or the end of the `within` call), and the statement's
+/// comment is changed per `comment_action` ("keep", "set" or "remove").
+/// Without, each element of `append` is added as a new statement.
 ///
 /// @return list(model = <hyperion_nonmem_model>, used = <ref names used>)
 /// @keywords internal
@@ -140,7 +141,10 @@ pub fn edit_code_impl(
     ref_kinds: Vec<String>,
     ref_indices: Vec<i32>,
     ref_cols: Vec<i32>,
+    #[extendr(default = "'keep'")] comment_action: &str,
+    #[extendr(default = "NULL")] comment: Option<String>,
 ) -> Result<Robj> {
+    let comment = change(comment_action, comment)?;
     let record = code_record(record)?;
     let refs = parse_refs(ref_names, ref_kinds, ref_indices, ref_cols)?;
     let mut model = parse_source(source)?;
@@ -166,18 +170,32 @@ pub fn edit_code_impl(
 
     match target {
         Some(lhs) => {
-            let [text] = resolved.as_slice() else {
-                return Err(extendr_err!(
-                    "`append` must be a single string when adding to an existing statement."
-                ));
-            };
+            match resolved.as_slice() {
+                [] if within.is_some() => {
+                    return Err(extendr_err!("`within` needs `append`."));
+                }
+                [] => {}
+                [text] => {
+                    model = model
+                        .append_to_statement(record, &lhs, within.as_deref(), text)
+                        .map_err(edit_err)?;
+                }
+                _ => {
+                    return Err(extendr_err!(
+                        "`append` must be a single string when adding to an existing statement."
+                    ));
+                }
+            }
             model = model
-                .append_to_statement(record, &lhs, within.as_deref(), text)
+                .set_statement_comment(record, &lhs, &comment)
                 .map_err(edit_err)?;
         }
         None => {
             if within.is_some() {
                 return Err(extendr_err!("`within` needs a target statement."));
+            }
+            if comment != Change::Keep {
+                return Err(extendr_err!("`comment` needs a target statement."));
             }
             for line in &resolved {
                 model = model.add_statement(record, line).map_err(edit_err)?;

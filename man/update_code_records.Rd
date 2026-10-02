@@ -7,11 +7,11 @@
 \alias{update_des}
 \title{Edit a code record}
 \usage{
-update_pk(model, lhs, append, within)
+update_pk(model, lhs, append, within, comment)
 
-update_error(model, lhs, append, within)
+update_error(model, lhs, append, within, comment)
 
-update_des(model, lhs, append, within)
+update_des(model, lhs, append, within, comment)
 }
 \arguments{
 \item{model}{A hyperion_nonmem_model object.}
@@ -22,6 +22,9 @@ update_des(model, lhs, append, within)
 
 \item{within}{Bare name of a function call inside \code{lhs}'s right-hand side,
 e.g. \code{SQRT}.}
+
+\item{comment}{New comment for the \code{lhs} statement, or \code{NULL} to remove it.
+Leave out to keep it.}
 }
 \value{
 The edited model (not yet written; see \code{\link[=write_model]{write_model()}}).
@@ -31,7 +34,8 @@ Without \code{lhs}, each element of \code{append} is added as a new statement; p
 places it after the last line like it (a \code{MU_n} line after the last MU
 line, a line with an ETA after the last line with an ETA, anything else
 at the end). With \code{lhs}, \code{append} is added to the end of that statement's
-right-hand side, or to the end of the \code{within} call inside it.
+right-hand side, or to the end of the \code{within} call inside it, and
+\code{comment} replaces the statement's comment (\code{NULL} removes it).
 }
 \details{
 Placeholders like \code{{wt.theta}} are replaced with the NONMEM reference for a

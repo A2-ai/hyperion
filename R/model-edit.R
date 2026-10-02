@@ -30,13 +30,13 @@ empty_refs <- function() {
 }
 
 model_refs <- function(model) {
-  attr(model, "refs") %||% empty_refs()
+  attr(model, "refs", exact = TRUE) %||% empty_refs()
 }
 
 # Copy the edit-session attributes from `old` onto a freshly parsed `new`.
 carry_edit_attrs <- function(new, old) {
   for (a in c("run_status", "from_copy", "refs", "refs_used")) {
-    attr(new, a) <- attr(old, a)
+    attr(new, a) <- attr(old, a, exact = TRUE)
   }
   attr(new, "unsaved_edits") <- (attr(old, "unsaved_edits") %||% 0L) + 1L
   new
@@ -245,9 +245,25 @@ add_theta <- function(
   new
 }
 
-edit_code <- function(model, record, append, lhs, mu_of, within) {
+edit_code <- function(
+  model,
+  record,
+  append,
+  lhs,
+  mu_of,
+  within,
+  comment = list(action = "keep", value = NULL)
+) {
   check_model_object(model)
-  if (!is.character(append) || length(append) == 0 || anyNA(append)) {
+  if (is.null(append)) {
+    if (is.null(lhs) && is.null(mu_of)) {
+      rlang::abort("`append` is required without a target statement.")
+    }
+    if (identical(comment$action, "keep")) {
+      rlang::abort("Give `append`, `comment`, or both.")
+    }
+    append <- character()
+  } else if (!is.character(append) || length(append) == 0 || anyNA(append)) {
     rlang::abort("`append` must be a character vector of NONMEM code.")
   }
   refs <- model_refs(model)
@@ -262,7 +278,9 @@ edit_code <- function(model, record, append, lhs, mu_of, within) {
     refs$name,
     refs$kind,
     refs$index,
-    refs$col
+    refs$col,
+    comment$action,
+    comment$value
   )
   new <- carry_edit_attrs(res$model, model)
   attr(new, "refs_used") <- union(attr(model, "refs_used"), res$used)
@@ -275,7 +293,8 @@ edit_code <- function(model, record, append, lhs, mu_of, within) {
 #' places it after the last line like it (a `MU_n` line after the last MU
 #' line, a line with an ETA after the last line with an ETA, anything else
 #' at the end). With `lhs`, `append` is added to the end of that statement's
-#' right-hand side, or to the end of the `within` call inside it.
+#' right-hand side, or to the end of the `within` call inside it, and
+#' `comment` replaces the statement's comment (`NULL` removes it).
 #'
 #' Placeholders like `{wt.theta}` are replaced with the NONMEM reference for a
 #' row declared with `ref`. Suffixes: `.theta`; `.eta`, `.mu`, `.omega` for
@@ -286,6 +305,8 @@ edit_code <- function(model, record, append, lhs, mu_of, within) {
 #' @param append NONMEM code to add.
 #' @param within Bare name of a function call inside `lhs`'s right-hand side,
 #'   e.g. `SQRT`.
+#' @param comment New comment for the `lhs` statement, or `NULL` to remove it.
+#'   Leave out to keep it.
 #' @return The edited model (not yet written; see [write_model()]).
 #' @name update_code_records
 #'
@@ -298,38 +319,59 @@ NULL
 
 #' @rdname update_code_records
 #' @export
-update_pk <- function(model, lhs, append, within) {
+update_pk <- function(model, lhs, append, within, comment) {
   lhs <- if (missing(lhs)) NULL else name_text(rlang::enexpr(lhs), "lhs")
   within <- if (missing(within)) {
     NULL
   } else {
     name_text(rlang::enexpr(within), "within")
   }
-  edit_code(model, "PK", append, lhs, NULL, within)
+  append <- if (missing(append)) NULL else append
+  comment <- arg_change(
+    !missing(comment),
+    if (missing(comment)) NULL else comment,
+    "comment",
+    check_string
+  )
+  edit_code(model, "PK", append, lhs, NULL, within, comment)
 }
 
 #' @rdname update_code_records
 #' @export
-update_error <- function(model, lhs, append, within) {
+update_error <- function(model, lhs, append, within, comment) {
   lhs <- if (missing(lhs)) NULL else name_text(rlang::enexpr(lhs), "lhs")
   within <- if (missing(within)) {
     NULL
   } else {
     name_text(rlang::enexpr(within), "within")
   }
-  edit_code(model, "ERROR", append, lhs, NULL, within)
+  append <- if (missing(append)) NULL else append
+  comment <- arg_change(
+    !missing(comment),
+    if (missing(comment)) NULL else comment,
+    "comment",
+    check_string
+  )
+  edit_code(model, "ERROR", append, lhs, NULL, within, comment)
 }
 
 #' @rdname update_code_records
 #' @export
-update_des <- function(model, lhs, append, within) {
+update_des <- function(model, lhs, append, within, comment) {
   lhs <- if (missing(lhs)) NULL else name_text(rlang::enexpr(lhs), "lhs")
   within <- if (missing(within)) {
     NULL
   } else {
     name_text(rlang::enexpr(within), "within")
   }
-  edit_code(model, "DES", append, lhs, NULL, within)
+  append <- if (missing(append)) NULL else append
+  comment <- arg_change(
+    !missing(comment),
+    if (missing(comment)) NULL else comment,
+    "comment",
+    check_string
+  )
+  edit_code(model, "DES", append, lhs, NULL, within, comment)
 }
 
 #' Add to a parameter's MU line
@@ -342,6 +384,8 @@ update_des <- function(model, lhs, append, within) {
 #' @param param Bare name of the parameter, e.g. `V`.
 #' @param append NONMEM code to add.
 #' @param within Bare name of a function call inside the MU line.
+#' @param comment New comment for the MU line, or `NULL` to remove it. Leave
+#'   out to keep it.
 #' @return The edited model (not yet written; see [write_model()]).
 #' @export
 #'
@@ -350,14 +394,21 @@ update_des <- function(model, lhs, append, within) {
 #'   add_theta(1.2, comment = "WT-on-Vc", ref = "wt_v") |>
 #'   update_mu(V, append = "+ {wt_v.theta} * LOG(WT / 70)")
 #' }
-update_mu <- function(model, param, append, within) {
+update_mu <- function(model, param, append, within, comment) {
   param <- name_text(rlang::enexpr(param), "param")
   within <- if (missing(within)) {
     NULL
   } else {
     name_text(rlang::enexpr(within), "within")
   }
-  edit_code(model, "PK", append, NULL, param, within)
+  append <- if (missing(append)) NULL else append
+  comment <- arg_change(
+    !missing(comment),
+    if (missing(comment)) NULL else comment,
+    "comment",
+    check_string
+  )
+  edit_code(model, "PK", append, NULL, param, within, comment)
 }
 
 #' Write an edited model to disk

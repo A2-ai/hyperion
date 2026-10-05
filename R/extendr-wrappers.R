@@ -534,17 +534,22 @@ scm_init_impl <- function(model, overwrite = FALSE) .Call(wrap__scm_init_wrap, m
 #'
 #' @param config path to the SCM config file (TOML) written by
 #'   [scm_init()] into the SCM out_dir: model, direction, forward_alpha,
-#'   backward_alpha, max_retries, cov_step, final_cov_step, and the
-#'   `[covariates]` section (fixed, the per-type `continuous` /
-#'   `categorical` tables, effects). Relative paths resolve against the
-#'   config file
+#'   backward_alpha, max_retries, cov_step, final_cov_step,
+#'   forward_final_cov_step, and the `[covariates]` section (fixed, the
+#'   per-type `continuous` / `categorical` tables, effects). Relative paths
+#'   resolve against the config file
 #' @param num_rounds pause after this many rounds per run (NULL = no cap)
-#' @param overwrite replace existing SCM output from a different plan
+#' @param overwrite discard the SCM process already in the out_dir (its
+#'   fits, state and summaries) once the plan has validated, so this plan
+#'   starts fresh. Refused while that process's driver may still be running
 #'
 #' @return a `hyperion_scm_plan` object; its `plan_path` attribute is the
-#'   `plan.json` just written, and its `context` attribute is where the
-#'   SCM process in the out_dir already stands plus what this plan changed about
-#'   the plan.json it replaced
+#'   `plan.json` just written, its `context` attribute is where the SCM
+#'   process in the out_dir already stands plus what this plan changed about
+#'   the plan.json it replaced, and its `discarded` attribute says what
+#'   `overwrite` threw away (`NULL` when nothing was). A plan the SCM
+#'   process already in the out_dir cannot resume under is an error, and is
+#'   not written
 #' @keywords internal
 scm_plan_impl <- function(config, num_rounds = NULL, overwrite = FALSE) .Call(wrap__scm_plan_wrap, config, num_rounds, overwrite)
 
@@ -552,9 +557,13 @@ scm_plan_impl <- function(config, num_rounds = NULL, overwrite = FALSE) .Call(wr
 #'
 #' Internal engine behind [scm_status()]; use that instead.
 #'
-#' @param path the SCM out_dir
+#' @param path the SCM out_dir, or its plan.json
 #'
-#' @return a `hyperion_scm_status` object
+#' @return a `hyperion_scm_status` object: the summary record, with the
+#'   text `pharos nonmem scm status` prints as its `rendered` attribute, the
+#'   out_dir it was read from as `out_dir`, whether the SCM process has
+#'   started as `started`, and the driver record (`scm_driver.json`, with
+#'   its liveness) as `driver` — `NULL` before a driver was ever started
 #' @keywords internal
 scm_status_impl <- function(path) .Call(wrap__scm_status_wrap, path)
 
@@ -562,7 +571,7 @@ scm_status_impl <- function(path) .Call(wrap__scm_status_wrap, path)
 #'
 #' Internal engine behind [scm_summary()]; use that instead.
 #'
-#' @param path the SCM out_dir
+#' @param path the SCM out_dir, or its plan.json
 #' @param round only this round: the Nth SCM round ("2" / "round 2"), a
 #'   round name (forward_round1, backward_round1), or "reference"; NULL for
 #'   every round

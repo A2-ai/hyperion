@@ -1,3 +1,40 @@
+# hyperion (development version)
+
+## New features
+
+- Stepwise covariate modeling (SCM), driven by pharos: `scm_init()` writes
+  the starter config beside a model, `scm_plan()` validates it and writes
+  `plan.json`, `scm_run()` hands the plan to the pharos CLI (the driver as
+  its own Slurm job, or on the login node in the background; one Slurm job
+  per fit, or every fit on one shared node), `scm_status()` shows where the
+  process stands, and `scm_summary()` renders the record of every round.
+  `summary()` on a status and `as.data.frame()` on a summary give one row per
+  candidate per round; every object has `print()` and `knit_print()` methods.
+- `scm_status()` shows the process as the driver's terminal does: the driver
+  (from `scm_driver.json`: running, exited, or gone while the process still
+  says it is running), each decided round's decision and table, and the
+  open round fit by fit with its Slurm job and latest iteration. The driver
+  record is the status's `driver` attribute.
+- `scm_plan()` refuses, with the reasons, a plan the SCM process already in
+  the out_dir cannot resume under; `overwrite = TRUE` discards that process
+  once the new plan has validated, and is refused while its driver is alive.
+- `scm_run(driver = "login")` reports pharos refusing to start a second
+  driver for the same SCM process instead of leaving it in the log.
+- The SCM config gains `forward_final_cov_step`: re-fit the forward phase's
+  model with `$COVARIANCE` on alongside backward elimination. The plan says
+  what becomes of the forward model.
+- `scm_init()` and `scm_plan()` write the out_dir's `.gitignore` from the
+  project's `[nonmem.scm] track_in_git`.
+- `copy_model()` gains `allow_partial` to update from the last iteration of
+  a run that never reached final estimates.
+
+## Breaking changes
+
+- Requires the pharos `scm-work` branch (its `scm` module, `scheduler` and
+  `utils` crates) to build from source.
+- `max_concurrent` no longer defaults to 4: unset, every ready fit is
+  submitted at once.
+
 # hyperion 0.6.0
 
 ## Breaking changes

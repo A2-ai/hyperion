@@ -2,21 +2,24 @@
 //!
 //! `scm_init_wrap` writes the starter config beside a model, `scm_plan_wrap`
 //! builds the validated plan and writes `plan.json` through the same Rust
-//! serializer the pharos CLI reads, and `scm_status_wrap` /
-//! `scm_summary_wrap` read an SCM process wherever it stands. Running happens through the pharos CLI in the background (see
-//! `scm_run()` on the R side), never in-process.
+//! code the pharos CLI runs (`pharos nonmem scm plan`), and `scm_status_wrap`
+//! / `scm_summary_wrap` read an SCM process wherever it stands, exactly as
+//! `scm status` and `scm summary` do. Running happens through the pharos CLI
+//! in the background (see `scm_run()` on the R side), never in-process.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use extendr_api::Result;
 use extendr_api::prelude::*;
 use extendr_api::serializer::to_robj;
 
 use nonmem::scm::{
-    self as pharos_scm, Compatibility, PlanChange, PlanContext, Retuning, SummaryOptions,
+    self as pharos_scm, Compatibility, PlanChange, PlanContext, Retuning, ScmStatus,
+    SummaryOptions,
     state::ScmProcess,
-    summary::round_summary_md,
+    summary::{CandidateSummary, Fits, RoundSummary},
 };
+use scheduler::{DriverRecord, Liveness, fit_place_lookup, scm_driver::DRIVER_RECORD_FILENAME};
 
 use hyperion_core::{ResultExt, extendr_err};
 
@@ -49,17 +52,22 @@ pub fn scm_init_wrap(model: &str, #[extendr(default = "FALSE")] overwrite: bool)
 ///
 /// @param config path to the SCM config file (TOML) written by
 ///   [scm_init()] into the SCM out_dir: model, direction, forward_alpha,
-///   backward_alpha, max_retries, cov_step, final_cov_step, and the
-///   `[covariates]` section (fixed, the per-type `continuous` /
-///   `categorical` tables, effects). Relative paths resolve against the
-///   config file
+///   backward_alpha, max_retries, cov_step, final_cov_step,
+///   forward_final_cov_step, and the `[covariates]` section (fixed, the
+///   per-type `continuous` / `categorical` tables, effects). Relative paths
+///   resolve against the config file
 /// @param num_rounds pause after this many rounds per run (NULL = no cap)
-/// @param overwrite replace existing SCM output from a different plan
+/// @param overwrite discard the SCM process already in the out_dir (its
+///   fits, state and summaries) once the plan has validated, so this plan
+///   starts fresh. Refused while that process's driver may still be running
 ///
 /// @return a `hyperion_scm_plan` object; its `plan_path` attribute is the
-///   `plan.json` just written, and its `context` attribute is where the
-///   SCM process in the out_dir already stands plus what this plan changed about
-///   the plan.json it replaced
+///   `plan.json` just written, its `context` attribute is where the SCM
+///   process in the out_dir already stands plus what this plan changed about
+///   the plan.json it replaced, and its `discarded` attribute says what
+///   `overwrite` threw away (`NULL` when nothing was). A plan the SCM
+///   process already in the out_dir cannot resume under is an error, and is
+///   not written
 /// @keywords internal
 #[extendr(r_name = "scm_plan_impl")]
 pub fn scm_plan_wrap(
@@ -77,19 +85,58 @@ pub fn scm_plan_wrap(
 
     let overrides = pharos_scm::ScmPlanOverrides {
         num_rounds: num_rounds.map(|n| n as usize),
-        overwrite,
     };
 
-    let built = pharos_scm::build_plan_from_config(
+    // Built, and so validated, before anything in the out_dir is touched —
+    // the same order as `pharos nonmem scm plan`.
+    let mut built = pharos_scm::build_plan_from_config(
         Path::new(config),
         &overrides,
         env!("CARGO_PKG_VERSION"),
     )
     .map_to_extendr_err("Failed to build SCM plan")?;
 
+    // `overwrite` acts on the out_dir once the plan is built: it discards the
+    // SCM process there, unless its driver may still be running.
+    let mut discarded: Option<String> = None;
+    if overwrite {
+        let out_dir = built.plan.out_dir_path();
+        refuse_live_driver(&out_dir)?;
+        discarded = built.context.progress.as_ref().map(|p| {
+            let n = p.state.completed_rounds();
+            let s = if n == 1 { "" } else { "s" };
+            format!("{}, {n} round{s} complete", p.state.status)
+        });
+        built
+            .clear_previous_output()
+            .map_to_extendr_err("Failed to discard the SCM process in the out_dir")?;
+    }
+
+    // A plan the SCM process already in the out_dir cannot resume under is
+    // not written: `scm status` reads that process under whatever plan.json
+    // says, so the file stays the one it ran under. pharos says the same in
+    // CLI terms; this spells out what to do in R.
+    if let Some(verdict) = built
+        .context
+        .compatibility
+        .as_ref()
+        .filter(|c| c.is_incompatible())
+    {
+        let reasons: String = verdict
+            .reasons
+            .iter()
+            .map(|r| format!("\n  - {r}"))
+            .collect();
+        return Err(extendr_err!(
+            "plan not written: the SCM process in {} belongs to the previous plan and cannot \
+             resume under this one:{reasons}\nre-plan with `overwrite = TRUE` to discard that \
+             process and start fresh",
+            built.plan.out_dir
+        ));
+    }
+
     let written = built
-        .plan
-        .save()
+        .write()
         .map_to_extendr_err("Failed to write plan.json")?;
 
     let mut robj = to_robj(&built.plan).map_to_extendr_err("Failed to convert plan to Robj")?;
@@ -109,24 +156,16 @@ pub fn scm_plan_wrap(
     // quoting one of its own.
     robj.set_attrib("retry_jitter", nonmem::scm::round::RETRY_JITTER.into_robj())?;
     robj.set_attrib("plan_path", written.to_string_lossy().into_robj())?;
-    // Read while the plan was built, i.e. before the save above replaced the
-    // plan.json it compares against: how far the SCM process in the out_dir got,
-    // and what this plan changed. Printing leans on it; a fresh out_dir has
-    // nothing to say and renders exactly as it always did.
+    // Read while the plan was built (and again after `overwrite` cleared the
+    // out_dir), i.e. before the write above replaced the plan.json it
+    // compares against: how far the SCM process in the out_dir got, and what
+    // this plan changed. Printing leans on it; a fresh out_dir has nothing
+    // to say and renders exactly as it always did.
     robj.set_attrib("context", context_robj(&built.context)?)?;
+    robj.set_attrib("discarded", or_null(discarded))?;
     let robj = robj.set_class(["hyperion_scm_plan"])?.to_owned();
     Ok(robj)
 }
-
-/// What `scm status` shows: the summary header and one line per round.
-const BRIEF: SummaryOptions = SummaryOptions {
-    round: None,
-    candidate: None,
-    brief: true,
-    long: false,
-    timing: false,
-    files: false,
-};
 
 /// The SCM-defining plan fields — the ones the plan digest covers, so moving
 /// any of them is a different SCM process and the state in the out_dir
@@ -255,29 +294,150 @@ fn context_robj(ctx: &PlanContext) -> Result<Robj> {
     .into_robj())
 }
 
+// Driver ---------------------------------------------------------------------
+//
+// pharos keeps these next to its CLI rather than in the `scm` module, so
+// hyperion carries its own copies: the same checks, worded for R.
+
+/// The SCM out_dir a status / summary argument names: the directory itself,
+/// or the directory holding a plan.json.
+fn scm_out_dir(path: &Path) -> PathBuf {
+    if path.is_file() {
+        path.parent()
+            .map(Path::to_path_buf)
+            .unwrap_or_else(|| PathBuf::from("."))
+    } else {
+        path.to_path_buf()
+    }
+}
+
+/// Refuse to discard an SCM process whose driver may still be running: its
+/// fits would land in an out_dir that no longer records them.
+fn refuse_live_driver(out_dir: &Path) -> Result<()> {
+    let Some(record) = DriverRecord::read(out_dir) else {
+        return Ok(());
+    };
+    let dir = out_dir.display();
+    match record.liveness() {
+        Liveness::Gone => Ok(()),
+        Liveness::Alive => {
+            let stop = match record.job_id {
+                Some(id) => format!("`scancel {id}`"),
+                None => "Ctrl-C in its terminal, or kill the process".to_string(),
+            };
+            Err(extendr_err!(
+                "the SCM process in {dir} is still being driven by {}; stop it ({stop}) \
+                 before discarding it with overwrite = TRUE",
+                record.describe()
+            ))
+        }
+        Liveness::Unknown(why) => Err(extendr_err!(
+            "cannot tell whether the driver of the SCM process in {dir} ({}) is still \
+             running: {why}; once it has stopped, delete {dir}/{DRIVER_RECORD_FILENAME} and \
+             re-plan with overwrite = TRUE",
+            record.describe()
+        )),
+    }
+}
+
+/// What `scm status` adds about the driver: whether it is still there, and
+/// when it is not while the process says it is running, where to look.
+fn driver_status(record: &DriverRecord, scm_status: &str) -> Vec<String> {
+    let mut lines = Vec::new();
+    let log = record
+        .log
+        .as_ref()
+        .map(|l| format!("; see {}", l.display()))
+        .unwrap_or_default();
+    let liveness = record.liveness();
+    match &liveness {
+        Liveness::Alive => lines.push(format!("driver     : running ({})", record.describe())),
+        Liveness::Gone if scm_status == "running" || scm_status == "planned" => {
+            lines.push(format!(
+                "driver     : NOT RUNNING ({}, {}) — the SCM process stopped before finishing{log}",
+                record.describe(),
+                record.mode
+            ));
+            lines.push(
+                "             resubmit the same plan to resume; fits still in the queue are waited for, not rerun"
+                    .to_string(),
+            );
+        }
+        Liveness::Gone => lines.push(format!("driver     : exited ({}){log}", record.describe())),
+        Liveness::Unknown(why) => lines.push(format!(
+            "driver     : {} — cannot check it from here ({why})",
+            record.describe()
+        )),
+    }
+    if let Some(allocation) = record.allocation
+        && liveness != Liveness::Alive
+        && scheduler::slurm::job_is_queued(allocation)
+    {
+        lines.push(format!(
+            "allocation : slurm allocation {allocation} is still held; release it with `scancel {allocation}`"
+        ));
+    }
+    lines
+}
+
+/// The driver record as R sees it: what `scm_driver.json` holds, plus
+/// whether that driver is still alive.
+fn driver_robj(record: &DriverRecord) -> Robj {
+    let (liveness, detail) = match record.liveness() {
+        Liveness::Alive => ("alive", None),
+        Liveness::Gone => ("gone", None),
+        Liveness::Unknown(why) => ("unknown", Some(why)),
+    };
+    list!(
+        mode = record.mode.clone(),
+        job_id = or_null(record.job_id.map(|j| j as i32)),
+        host = or_null(record.host.clone()),
+        pid = or_null(record.pid.map(|p| p as i32)),
+        allocation = or_null(record.allocation.map(|a| a as i32)),
+        log = or_null(record.log.as_ref().map(|l| l.to_string_lossy().to_string())),
+        started = record.started.clone(),
+        liveness = liveness,
+        detail = or_null(detail)
+    )
+    .into_robj()
+}
+
 /// Read the status of an SCM process
 ///
 /// Internal engine behind [scm_status()]; use that instead.
 ///
-/// @param path the SCM out_dir
+/// @param path the SCM out_dir, or its plan.json
 ///
-/// @return a `hyperion_scm_status` object
+/// @return a `hyperion_scm_status` object: the summary record, with the
+///   text `pharos nonmem scm status` prints as its `rendered` attribute, the
+///   out_dir it was read from as `out_dir`, whether the SCM process has
+///   started as `started`, and the driver record (`scm_driver.json`, with
+///   its liveness) as `driver` — `NULL` before a driver was ever started
 /// @keywords internal
 #[extendr(r_name = "scm_status_impl")]
 pub fn scm_status_wrap(path: &str) -> Result<Robj> {
-    // Status is the summary read briefly — the same record, the same reader,
-    // so status and summary can never describe different SCM processes.
-    let status = pharos_scm::read_summary(Path::new(path))
-        .map_to_extendr_err("Failed to read SCM status")?;
-    let rendered = status
-        .render_text(&BRIEF)
-        .map_to_extendr_err("Failed to render SCM status")?;
+    let out_dir = scm_out_dir(Path::new(path));
+    // The process as its driver's terminal shows it, read off disk now: the
+    // state reconciled with what the fits have left behind, then summarized
+    // — the same reader `scm_summary()` uses, so the two never describe
+    // different SCM processes.
+    let status = ScmStatus::read(&out_dir).map_to_extendr_err("Failed to read SCM status")?;
+    let record = DriverRecord::read(&out_dir);
+    let driver_lines = record
+        .as_ref()
+        .map(|r| driver_status(r, &status.summary.status))
+        .unwrap_or_default();
+    let place_of = fit_place_lookup();
+    let rendered = status.render(&driver_lines, &place_of);
 
-    let mut robj = to_robj(&status).map_to_extendr_err("Failed to convert status to Robj")?;
+    let mut robj =
+        to_robj(&status.summary).map_to_extendr_err("Failed to convert status to Robj")?;
     robj.set_attrib("rendered", rendered.into_robj())?;
     // The record's own `out_dir` is written relative to the pharos project
     // root, so the directory it was read from is the one to go back to.
-    robj.set_attrib("out_dir", path.into_robj())?;
+    robj.set_attrib("out_dir", out_dir.to_string_lossy().into_robj())?;
+    robj.set_attrib("started", status.process.started.into_robj())?;
+    robj.set_attrib("driver", or_null(record.as_ref().map(driver_robj)))?;
     let robj = robj.set_class(["hyperion_scm_status"])?.to_owned();
     Ok(robj)
 }
@@ -286,7 +446,7 @@ pub fn scm_status_wrap(path: &str) -> Result<Robj> {
 ///
 /// Internal engine behind [scm_summary()]; use that instead.
 ///
-/// @param path the SCM out_dir
+/// @param path the SCM out_dir, or its plan.json
 /// @param round only this round: the Nth SCM round ("2" / "round 2"), a
 ///   round name (forward_round1, backward_round1), or "reference"; NULL for
 ///   every round
@@ -313,10 +473,11 @@ pub fn scm_summary_wrap(
         long,
         timing,
         files,
+        extra: Vec::new(),
     };
 
-    let summary =
-        pharos_scm::read_summary(Path::new(path)).map_to_extendr_err("Failed to read SCM summary")?;
+    let summary = pharos_scm::read_summary(&scm_out_dir(Path::new(path)))
+        .map_to_extendr_err("Failed to read SCM summary")?;
     let rendered = summary
         .render_text(&opts)
         .map_to_extendr_err("Failed to render SCM summary")?;
@@ -337,13 +498,13 @@ pub fn scm_summary_wrap(
         }
     }
 
-    // pharos renders each round's markdown as a `## <round>` section; the
-    // selection decides which ones, and the fits the read already loaded for
-    // all of them carry over.
+    // Each round's markdown is a `## <round>` section, as in pharos's
+    // scm_summary.md; the selection decides which ones, and the fits the
+    // read already loaded for all of them carry over.
     let fits = &summary.fits;
     let mut markdown = String::from("# SCM summary\n\n");
     for r in &selected.rounds {
-        markdown.push_str(&round_summary_md(r, fits));
+        markdown.push_str(&round_markdown(r, fits));
         markdown.push('\n');
     }
 
@@ -352,6 +513,221 @@ pub fn scm_summary_wrap(
     robj.set_attrib("markdown", markdown.into_robj())?;
     let robj = robj.set_class(["hyperion_scm_summary"])?.to_owned();
     Ok(robj)
+}
+
+// Markdown -------------------------------------------------------------------
+//
+// pharos renders each round's section of `scm_summary.md` from the same
+// record (`summary.rs`, `round_markdown` and `add_candidate_table`), but
+// keeps that renderer to itself; this is the same rendering, built over the
+// record's public types, so a knitted summary reads like the file on disk.
+
+/// Accumulates the lines of a rendered section
+#[derive(Default)]
+struct Lines(String);
+
+impl Lines {
+    fn add(&mut self, line: impl AsRef<str>) {
+        self.0.push_str(line.as_ref().trim_end());
+        self.0.push('\n');
+    }
+
+    fn blank(&mut self) {
+        self.0.push('\n');
+    }
+}
+
+/// Every rendering gives its numbers three decimals.
+const DIGITS: usize = 3;
+
+fn yes_no(flag: bool) -> &'static str {
+    if flag { "yes" } else { "no" }
+}
+
+fn none_or_list(items: &[String]) -> String {
+    if items.is_empty() {
+        "none".to_string()
+    } else {
+        items.join(", ")
+    }
+}
+
+fn ofv_suffix(ofv: Option<f64>) -> String {
+    ofv.map(|o| format!(" (OFV {o:.DIGITS$})"))
+        .unwrap_or_default()
+}
+
+/// `0.412 (14.2%)`, or `0.412 (N/A)` when the fit carries no standard error
+/// to make an RSE from — same as `pharos nonmem summary` with covariance step off
+fn fmt_estimate(e: &nonmem::output_files::ext::ThetaEstimate) -> String {
+    match e.rse {
+        Some(rse) => format!("{:.DIGITS$} ({rse:.1}%)", e.estimate),
+        None => format!("{:.DIGITS$} (N/A)", e.estimate),
+    }
+}
+
+/// The condition number of a candidate's fit's last `$EST`.
+fn condition_number(c: &CandidateSummary, fits: &Fits) -> Option<f64> {
+    fits.get(c.files.summary_json.as_deref()?)?
+        .minimization_results
+        .last()?
+        .condition_number
+        .filter(|v| v.is_finite())
+}
+
+/// The markdown record of one round: its facts, then its candidate table.
+fn round_markdown(round: &RoundSummary, fits: &Fits) -> String {
+    let mut out = Lines::default();
+    out.add(format!("## {}", round.round));
+    out.blank();
+    if !round.has_reference() {
+        reference_markdown(&mut out, round);
+        return out.0;
+    }
+    out.add(format!(
+        "- reference: `{}`{}",
+        round.reference_model,
+        ofv_suffix(round.reference_ofv)
+    ));
+    if let Some(a) = round.alpha {
+        out.add(format!("- alpha: {a}"));
+    }
+    let c = &round.counts;
+    out.add(format!(
+        "- all models minimized: {}",
+        yes_no(c.succeeded + c.withdrawn == c.candidates)
+    ));
+    out.add(format!(
+        "- heuristic checks fired: {}",
+        yes_no(round.candidates.iter().any(|c| !c.heuristics.is_empty()))
+    ));
+    if c.withdrawn > 0 {
+        out.add(format!("- withdrawn candidates: {}", c.withdrawn));
+    }
+    if !round.removed_before.is_empty() {
+        out.add(format!(
+            "- removed before this round: {}",
+            round.removed_before.join(", ")
+        ));
+    }
+    if !round.decision.is_empty() {
+        out.add(format!("- decision: {}", round.decision));
+    }
+    out.add(format!(
+        "- retained before this round: {}",
+        none_or_list(&round.retained_before)
+    ));
+    // An open round has changed nothing yet
+    if round.complete {
+        out.add(format!("- {}", round.change_label()));
+    }
+    if let Some(w) = round.timing.wall_seconds {
+        out.add(format!("- wall time: {}", utils::format_duration(Some(w))));
+    }
+    out.blank();
+    add_candidate_table(&mut out, round, fits);
+    if c.unusable > 0 {
+        out.blank();
+        out.add(
+            "_Unusable candidates are reported above; they are never scored as insignificant._",
+        );
+    }
+    out.0
+}
+
+/// The reference fit's markdown: one model, so its facts and no table.
+fn reference_markdown(out: &mut Lines, round: &RoundSummary) {
+    for c in &round.candidates {
+        out.add(format!("- model: `{}` ({})", c.model, c.status));
+        if c.attempts.len() > 1 {
+            let tries: Vec<String> = c
+                .attempts
+                .iter()
+                .map(|a| format!("`{}` {}", a.model, a.outcome))
+                .collect();
+            out.add(format!("- attempts: {}", tries.join("; ")));
+        }
+        out.add(format!(
+            "- heuristic checks fired: {}",
+            none_or_list(&c.heuristics)
+        ));
+    }
+    if !round.decision.is_empty() {
+        out.add(format!("- decision: {}", round.decision));
+    }
+    if let Some(w) = round.timing.wall_seconds {
+        out.add(format!("- wall time: {}", utils::format_duration(Some(w))));
+    }
+}
+
+/// A markdown table of one round's candidates. The attempts, cond# and
+/// heuristic checks columns appear only when some candidate in the round
+/// was retried, has a condition number or tripped a check.
+fn add_candidate_table(out: &mut Lines, round: &RoundSummary, fits: &Fits) {
+    let shown = [
+        ("candidate", true),
+        ("model", true),
+        (
+            "attempts",
+            round.candidates.iter().any(|c| c.attempts.len() > 1),
+        ),
+        ("status", true),
+        ("OFV", true),
+        ("\u{394}OFV", true),
+        ("p", true),
+        ("significant", true),
+        ("selected", true),
+        ("estimate (RSE%)", true),
+        (
+            "cond#",
+            round
+                .candidates
+                .iter()
+                .any(|c| condition_number(c, fits).is_some()),
+        ),
+        (
+            "heuristic checks",
+            round.candidates.iter().any(|c| !c.heuristics.is_empty()),
+        ),
+    ];
+    let pick = |cells: Vec<String>| {
+        let kept: Vec<String> = cells
+            .into_iter()
+            .zip(&shown)
+            .filter_map(|(cell, (_, on))| on.then_some(cell))
+            .collect();
+        format!("| {} |", kept.join(" | "))
+    };
+    out.add(pick(shown.iter().map(|(h, _)| h.to_string()).collect()));
+    out.add(format!(
+        "|{}",
+        "---|".repeat(shown.iter().filter(|(_, on)| *on).count())
+    ));
+    let num =
+        |v: Option<f64>, digits: usize| v.map(|v| format!("{v:.digits$}")).unwrap_or_default();
+    for c in &round.candidates {
+        out.add(pick(vec![
+            c.candidate.clone(),
+            if c.model.is_empty() {
+                String::new()
+            } else {
+                format!("`{}`", c.model)
+            },
+            c.attempts.len().to_string(),
+            c.status.to_string(),
+            num(c.ofv, DIGITS),
+            c.delta_ofv.map(|v| format!("{v:+.3}")).unwrap_or_default(),
+            c.p_value.map(|p| format!("{p:.4e}")).unwrap_or_default(),
+            c.significant.map(yes_no).unwrap_or("").to_string(),
+            if c.selected { "**yes**" } else { "" }.to_string(),
+            round
+                .effect_of(c, fits)
+                .map(fmt_estimate)
+                .unwrap_or_default(),
+            num(condition_number(c, fits), 0),
+            c.heuristics.join("; "),
+        ]));
+    }
 }
 
 extendr_module! {

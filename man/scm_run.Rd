@@ -36,18 +36,19 @@ partition of the one node they all run on); \code{NULL} uses the project's
 
 \item{max_concurrent}{how many of a round's fits run at once (\code{0} = no
 cap). Further models start as earlier ones finish. \code{NULL} uses the
-project's \verb{[nonmem.scm] max_concurrent}, else the pharos default (4; with
-\code{shared_node}, as many as the node's CPUs hold).}
+project's \verb{[nonmem.scm] max_concurrent}, else no cap: every ready fit is
+submitted at once (with \code{shared_node}, as many as the node's CPUs hold).}
 
 \item{shared_node}{run every fit on one whole node instead of one Slurm
 job per fit}
 
-\item{overwrite}{replace existing SCM output in the out_dir from a
-\emph{different} plan (resuming the same plan needs no overwrite)}
+\item{overwrite}{discard the SCM process already in the out_dir and run
+this plan from scratch (resuming needs no overwrite)}
 }
 \value{
 invisibly, a list with \code{out_dir}, \code{plan_path}, and \code{log} (the
-file the pharos output went to)
+file the pharos output went to; with \code{driver = "login"} the driver's own
+record is \code{scm_driver.log} in the out_dir)
 }
 \description{
 Hands the plan to the pharos CLI, which drives the whole SCM process —
@@ -65,7 +66,23 @@ submits and scores them runs:
 finishes or pauses. The R session stays free.
 }
 
-Either way, check on the SCM process with \code{\link[=scm_status]{scm_status()}}.
+Either way, check on the SCM process with \code{\link[=scm_status]{scm_status()}}. Whatever the
+mode, the driver records where it runs in \code{scm_driver.json} in the out_dir
+(its Slurm job, or its pid and host) and writes a timestamped record of
+what happens — each fit as it is submitted and as it ends, each round's
+decision and the round at a glance — to the driver job's Slurm log, or
+with \code{driver = "login"} to \code{scm_driver.log} in the out_dir. pharos refuses
+to start a driver while another one for the same SCM process is queued or
+alive, and \code{scm_run()} reports that refusal. With \code{shared_node}, the fits
+run on one whole node: the driver's own with \code{driver = "slurm"}, or one
+allocated for them with \code{driver = "login"} and released when the process
+ends or is stopped.
+
+Fits submitted as Slurm jobs are independent of the driver: a driver that
+stops (Ctrl-C, \code{scancel}, a time limit) leaves them running, and running
+the same plan again resumes — a fit whose job is still in the queue is
+waited for, not resubmitted. Fits on a shared node die with it and are
+refitted on resume.
 
 Everything that defines the SCM process lives in the plan (see \code{\link[=scm_plan]{scm_plan()}}),
 including \code{num_rounds}, which paces how many rounds run before the SCM process
@@ -74,8 +91,9 @@ run and how many fits run at once.
 Everything else (NONMEM version) comes from
 pharos.toml — where \verb{[nonmem.scm]} also holds this project's own defaults
 for \code{max_concurrent}, \code{partition}, \code{driver_partition} and \code{account},
-each overridden by the matching argument here — and the pharos CLI
-defaults; the pharos executable itself is
+each overridden by the matching argument here, and \code{poll_interval}, the
+seconds between the driver's checks on Slurm fits (30 unless set) — and
+the pharos CLI defaults; the pharos executable itself is
 found on the PATH, or set
 \code{options(hyperion.pharos_exe = "/path/to/pharos")} to use another build.
 }

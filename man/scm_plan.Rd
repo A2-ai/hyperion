@@ -12,15 +12,17 @@ scm_plan(config, num_rounds = NULL, overwrite = FALSE)
 \item{num_rounds}{pause the SCM process after this many rounds per
 \code{\link[=scm_run]{scm_run()}} invocation; the SCM process is resumable. \code{NULL} = no cap.}
 
-\item{overwrite}{replace existing SCM output from a \emph{different} plan in
-\code{out_dir} (re-running the same plan resumes and needs no overwrite)}
+\item{overwrite}{discard the SCM process already in \code{out_dir} and start
+fresh under this plan. Re-running the same plan, or one the process can
+resume under, needs no overwrite.}
 }
 \value{
 A \code{hyperion_scm_plan} object; \code{plan.json} is already on disk in
 the output directory (its path is the \code{plan_path} attribute). Run it with
 \code{\link[=scm_run]{scm_run()}}. When the out_dir already holds an SCM process, printing the plan
 also says where that SCM process got to and what this plan changed about the
-plan it replaced (the \code{context} attribute).
+plan it replaced (the \code{context} attribute); what \code{overwrite} discarded is
+the \code{discarded} attribute.
 }
 \description{
 Reads the SCM process setup from an SCM config file (TOML) — the one
@@ -34,7 +36,7 @@ holds the rest out by fixing their thetas at their \code{fixed} value.
 }
 \details{
 The config file defines the SCM process; the \code{scm_plan()} call carries only
-per-invocation control (\code{num_rounds}, overrides, \code{overwrite}):
+per-invocation control (\code{num_rounds}, and \code{overwrite} to start over):
 
 \if{html}{\out{<div class="sourceCode toml">}}\preformatted{model = "../../scm-demo.mod"
 direction = ["forward", "backward"]
@@ -45,6 +47,7 @@ backward_alpha = 0.001
 max_retries = 3
 cov_step = false
 final_cov_step = true
+forward_final_cov_step = true
 
 [covariates]
 fixed = 0                     # default: what a held-out effect's theta is fixed at
@@ -61,6 +64,15 @@ effects = [
 \verb{$COVARIANCE} on once the SCM process finishes, whatever the rounds
 themselves ran with: the SCM process chooses the covariates, and that one
 fit is what reports their estimates with standard errors.
+\code{forward_final_cov_step} (default \code{TRUE}) does the same for the forward
+phase's model the moment forward selection ends, as a fit that runs
+alongside backward elimination rather than holding it up; it only applies
+when both phases run, and when \code{cov_step} is on the forward model has
+already run the step and is used as it is. Backward elimination that drops
+nothing leaves the forward model as the final model, and that fit of it
+is copied into \verb{final/} rather than fitted again. Neither \code{num_rounds} nor
+\code{forward_final_cov_step} is SCM-defining: an SCM process resumes across a
+change to either.
 
 Relative paths in the config resolve against the config file's own
 directory. The config lives in the SCM process's own directory,
@@ -113,7 +125,13 @@ model written from then on, and a candidate still in the open round is
 refitted under them (its earlier attempts kept on record and on disk, but
 never scored). Rounds already concluded keep the results they ran under.
 Removing a candidate that has won a round, adding one, or changing any
-other SCM-defining setting needs \code{overwrite}.
+other SCM-defining setting is a different SCM process: the plan is not
+written and \code{scm_plan()} errors, saying why, until re-planned with
+\code{overwrite = TRUE} — which discards the SCM process in the out_dir (its
+fits, state and summaries; the config, \code{plan.json} and anything else in
+the directory stay) once the new plan has validated. It is refused while
+that process's driver is still running (see \code{\link[=scm_status]{scm_status()}}), so a running
+SCM process is never pulled out from under its fits.
 }
 \examples{
 \dontrun{
@@ -124,5 +142,9 @@ plan <- scm_plan("model/nonmem/PK/scm/scm-demo/scm-demoscm.toml",
                  num_rounds = 2)
 plan
 scm_run(plan)
+
+# start over under a changed config, discarding the fits so far
+plan <- scm_plan("model/nonmem/PK/scm/scm-demo/scm-demoscm.toml",
+                 overwrite = TRUE)
 }
 }

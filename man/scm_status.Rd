@@ -11,19 +11,33 @@ scm_status(x)
 path}
 }
 \value{
-a \code{hyperion_scm_status} object; its \code{\link[=summary]{summary()}} method returns the
-record as a data.frame, one row per candidate per round
+a \code{hyperion_scm_status} object: the summary record (see
+\code{\link[=scm_summary]{scm_summary()}}), with the text \verb{pharos nonmem scm status} prints as its
+\code{rendered} attribute and the driver record — \code{scm_driver.json}, plus
+whether that driver is \code{"alive"}, \code{"gone"} or \code{"unknown"} from here — as
+its \code{driver} attribute (\code{NULL} before a driver was ever started). Its
+\code{\link[=summary]{summary()}} method returns the record as a data.frame, one row per
+candidate per round
 }
 \description{
-Reads the plan and the persistent SCM process state — rounds completed, the
-decision each round made, retries used, models running right now, the
-current reference model and OFV — wherever the SCM process currently stands
-(planned, running, paused, completed, or failed).
+Where the SCM process stands, as its driver's terminal would show it now:
+the process facts (status, phase, what is running, the forward and final
+models once fitted), the driver — running, exited, or gone while the
+process still says it is running, in which case re-running the plan
+resumes it — then each decided round's decision line and the round at a
+glance (every candidate best first, with its OFV, ΔOFV, p and what became
+of it), and the open round fit by fit: fitted, unusable, running (its
+Slurm job, for how long, and the latest iteration and OFV read off its
+\code{.ext} file), queued or pending. Read off disk now, wherever the process
+stands (planned, running, paused, completed, or failed): fits that
+finished since the driver last wrote its state are picked up and scored
+the same way the driver will.
 }
 \examples{
 \dontrun{
 st <- scm_status(plan)
 st
+attr(st, "driver")$liveness
 summary(st)   # one row per candidate per round
 }
 }

@@ -15,5 +15,7 @@
 invisible copy of x
 }
 \description{
-Print method for hyperion_scm_status objects
+Prints the text \verb{pharos nonmem scm status} prints: the process facts and
+the driver, each decided round's decision and table, and the open round
+fit by fit.
 }

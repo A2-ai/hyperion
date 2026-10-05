@@ -7,10 +7,14 @@
 scm_status_impl(path)
 }
 \arguments{
-\item{path}{the SCM out_dir}
+\item{path}{the SCM out_dir, or its plan.json}
 }
 \value{
-a \code{hyperion_scm_status} object
+a \code{hyperion_scm_status} object: the summary record, with the
+text \verb{pharos nonmem scm status} prints as its \code{rendered} attribute, the
+out_dir it was read from as \code{out_dir}, whether the SCM process has
+started as \code{started}, and the driver record (\code{scm_driver.json}, with
+its liveness) as \code{driver} — \code{NULL} before a driver was ever started
 }
 \description{
 Internal engine behind \code{\link[=scm_status]{scm_status()}}; use that instead.

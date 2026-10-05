@@ -9,20 +9,25 @@ scm_plan_impl(config, num_rounds = NULL, overwrite = FALSE)
 \arguments{
 \item{config}{path to the SCM config file (TOML) written by
 \code{\link[=scm_init]{scm_init()}} into the SCM out_dir: model, direction, forward_alpha,
-backward_alpha, max_retries, cov_step, final_cov_step, and the
-\verb{[covariates]} section (fixed, the per-type \code{continuous} /
-\code{categorical} tables, effects). Relative paths resolve against the
-config file}
+backward_alpha, max_retries, cov_step, final_cov_step,
+forward_final_cov_step, and the \verb{[covariates]} section (fixed, the
+per-type \code{continuous} / \code{categorical} tables, effects). Relative paths
+resolve against the config file}
 
 \item{num_rounds}{pause after this many rounds per run (NULL = no cap)}
 
-\item{overwrite}{replace existing SCM output from a different plan}
+\item{overwrite}{discard the SCM process already in the out_dir (its
+fits, state and summaries) once the plan has validated, so this plan
+starts fresh. Refused while that process's driver may still be running}
 }
 \value{
 a \code{hyperion_scm_plan} object; its \code{plan_path} attribute is the
-\code{plan.json} just written, and its \code{context} attribute is where the
-SCM process in the out_dir already stands plus what this plan changed about
-the plan.json it replaced
+\code{plan.json} just written, its \code{context} attribute is where the SCM
+process in the out_dir already stands plus what this plan changed about
+the plan.json it replaced, and its \code{discarded} attribute says what
+\code{overwrite} threw away (\code{NULL} when nothing was). A plan the SCM
+process already in the out_dir cannot resume under is an error, and is
+not written
 }
 \description{
 Internal engine behind \code{\link[=scm_plan]{scm_plan()}}; use that instead.

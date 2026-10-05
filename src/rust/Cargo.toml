@@ -42,6 +42,7 @@ nonmem = { path = "/data/user-homes/brendan/projects/pharos/components/nonmem" }
 nmparser = { path = "/data/user-homes/brendan/projects/pharos/components/nonmem-parser", package = "nonmem-parser" }
 config = { path = "/data/user-homes/brendan/projects/pharos/components/config" }
 scheduler = { path = "/data/user-homes/brendan/projects/pharos/components/scheduler" }
+utils = { path = "/data/user-homes/brendan/projects/pharos/components/utils" }
 
 # Core utilities
 anyhow = "1.0.100"

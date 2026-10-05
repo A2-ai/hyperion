@@ -37,9 +37,11 @@ per round.
 Where \code{\link[=scm_status]{scm_status()}} shows where the SCM process stands (what is running,
 what to do next), \code{scm_summary()} is the scientific record: every round
 to date, each candidate's ΔOFV and p-value against the round's critical
-value, sorted winner-first, plus the reference fit and the retained set.
-The same record pharos writes to \code{scm_summary.json} and to each round's
-\code{round_summary.json}, so the file and the screen never disagree.
+value, sorted winner-first, plus the reference fit, the path the rounds
+took (\verb{+WT_CL (forward 1) -> -WT_CL (backward 1) => none}) and the
+forward and final models once fitted. The same record pharos writes to
+\code{scm_summary.json} and to each round's \code{round_summary.json}, so the file
+and the screen never disagree.
 }
 \details{
 Flags stack detail onto the default view, in the spirit of \code{ls -la -t}:

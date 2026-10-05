@@ -27,7 +27,12 @@ in at its default and the \verb{[covariates]} section's \code{effects} left empt
 name the covariate effects to be tested — by the name the initial model's
 \verb{$THETA} record gives each one, e.g. \verb{effects = ["WT_CL", "CRCL_CL"]} —
 then \code{\link[=scm_plan]{scm_plan()}} the file. Nothing is planned and nothing is fitted —
-the candidates are yours to choose.
+the candidates are yours to choose. The directory also gets a \code{.gitignore}
+that tracks what the project's \verb{[nonmem.scm] track_in_git} setting asks
+for (\code{"milestones"} unless \code{pharos.toml} says otherwise: the final model,
+the reference fit and the forward model's fit; \code{"final"} or \code{"all"} for
+less or more), rewritten by every \code{\link[=scm_plan]{scm_plan()}} so a changed setting takes
+effect at the next plan.
 }
 \details{
 The model is the \emph{initial model}: it carries a theta for each candidate

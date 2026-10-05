@@ -124,5 +124,15 @@ reference = [
     "submit_model_to_sge",
 		"get_partition_info",
   ] },
+  { label = "Stepwise Covariate Modeling", collapsed = true, contents = [
+    "scm_init",
+    "scm_plan",
+    "scm_run",
+    "scm_status",
+    "scm_summary",
+    "summary.hyperion_scm_status",
+    "as.data.frame.hyperion_scm_summary",
+    "print.hyperion_scm_plan",
+  ] },
 ]
 news = { label = "Changelog", source = "NEWS.md" }

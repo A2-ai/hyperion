@@ -102,6 +102,16 @@ edit_code_impl <- function(source, path, record, append, lhs = NULL, mu_of = NUL
 #' @noRd
 edit_add_random_impl <- function(source, path, kind, init, fix = FALSE, comment = NULL) .Call(wrap__edit_add_random_impl, source, path, kind, init, fix, comment)
 
+#' Remove a THETA row (internal)
+#' @keywords internal
+#' @noRd
+edit_remove_theta_impl <- function(source, path, index) .Call(wrap__edit_remove_theta_impl, source, path, index)
+
+#' Remove a diagonal OMEGA or SIGMA row (internal)
+#' @keywords internal
+#' @noRd
+edit_remove_random_impl <- function(source, path, kind, index) .Call(wrap__edit_remove_random_impl, source, path, kind, index)
+
 #' Update one THETA (internal)
 #'
 #' `*_action` is "keep", "set" or "remove".

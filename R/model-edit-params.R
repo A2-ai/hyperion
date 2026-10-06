@@ -187,6 +187,87 @@ update_sigma <- function(model, index, init, fix, comment) {
   )
 }
 
+#' Remove a THETA, OMEGA or SIGMA row
+#'
+#' Takes the parameter out of the code, deletes its row, and renumbers the
+#' later rows, in memory. `remove_omega()` and `remove_sigma()` take the ETA
+#' or EPS number of a diagonal row, e.g. `index = 2` is `OMEGA(2,2)`.
+#'
+#' Each statement using the parameter is simplified as if it were 0:
+#' - A term that becomes 0 leaves its sum:
+#'   `MU_2 = THETA(2) + THETA(4) * LOG(WT / 70)` becomes `MU_2 = THETA(2)`.
+#' - A factor that becomes 1 leaves its product: `CL = TVCL * EXP(ETA(3))`
+#'   becomes `CL = TVCL`.
+#' - A statement that becomes 0 is deleted, along with its `$TABLE` columns.
+#'   This is refused when the variable it assigns is used elsewhere.
+#'
+#' Anything else, such as a sign flip, a division by zero, or a use in an `IF`
+#' condition, is refused; edit the statement first. For example, change the
+#' error model before removing its SIGMA. Rows in a `BLOCK` are refused.
+#'
+#' Later `THETA(n)`, `ETA(n)` and `EPS(n)` move down one, as do `MU_n` and
+#' `ETAn` table columns for an OMEGA. The removed ETA's `MU_n` has nothing
+#' left to pair with, so its definition replaces it where it's used and its
+#' line is deleted. Refs follow their rows; a ref to the removed row is
+#' dropped.
+#'
+#' @param model A hyperion_nonmem_model object.
+#' @param index Row number: `THETA(index)`, `OMEGA(index,index)` or
+#'   `SIGMA(index,index)`.
+#' @return The edited model (not yet written; see [write_model()]).
+#' @name remove_params
+#'
+#' @examples \dontrun{
+#' # KA = EXP(MU_1 + ETA(1)) becomes KA = EXP(THETA(1)).
+#' mod |> remove_omega(1)
+#' }
+NULL
+
+#' @rdname remove_params
+#' @export
+remove_theta <- function(model, index) {
+  check_index(index, "index")
+  new <- apply_edit(model, edit_remove_theta_impl, as.integer(index))
+  drop_ref_row(new, "theta", index)
+}
+
+#' @rdname remove_params
+#' @export
+remove_omega <- function(model, index) {
+  check_index(index, "index")
+  new <- apply_edit(model, edit_remove_random_impl, "omega", as.integer(index))
+  drop_ref_row(new, "omega", index)
+}
+
+#' @rdname remove_params
+#' @export
+remove_sigma <- function(model, index) {
+  check_index(index, "index")
+  new <- apply_edit(model, edit_remove_random_impl, "sigma", as.integer(index))
+  drop_ref_row(new, "sigma", index)
+}
+
+# Drop refs to a removed row and move refs to later rows up one, so they keep
+# pointing at the same rows.
+drop_ref_row <- function(model, kind, index) {
+  refs <- model_refs(model)
+  same <- refs$kind == kind
+  refs <- refs[
+    !(same & (refs$index == index | refs$col == index)),
+    ,
+    drop = FALSE
+  ]
+  same <- refs$kind == kind
+  refs$index[same & refs$index > index] <- refs$index[
+    same & refs$index > index
+  ] -
+    1L
+  refs$col[same & refs$col > index] <- refs$col[same & refs$col > index] - 1L
+  rownames(refs) <- NULL
+  attr(model, "refs") <- refs
+  model
+}
+
 #' Make an OMEGA block
 #'
 #' Turns consecutive diagonal OMEGA rows into one `$OMEGA BLOCK(n)`, written

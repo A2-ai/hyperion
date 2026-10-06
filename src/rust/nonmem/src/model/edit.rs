@@ -269,6 +269,27 @@ pub fn edit_add_random_impl(
     Ok(list!(model = to_robj(edited, path)?, index = index as i32).into())
 }
 
+/// Remove a THETA row (internal)
+/// @keywords internal
+/// @noRd
+#[extendr]
+pub fn edit_remove_theta_impl(source: &str, path: &str, index: i32) -> Result<Robj> {
+    let model = parse_source(source)?;
+    to_robj(model.remove_theta(index as usize).map_err(edit_err)?, path)
+}
+
+/// Remove a diagonal OMEGA or SIGMA row (internal)
+/// @keywords internal
+/// @noRd
+#[extendr]
+pub fn edit_remove_random_impl(source: &str, path: &str, kind: &str, index: i32) -> Result<Robj> {
+    let model = parse_source(source)?;
+    let edited = model
+        .remove_random(random_kind(kind)?, index as usize)
+        .map_err(edit_err)?;
+    to_robj(edited, path)
+}
+
 /// Update one THETA (internal)
 ///
 /// `*_action` is "keep", "set" or "remove".
@@ -570,6 +591,8 @@ extendr_module! {
     fn edit_add_theta_impl;
     fn edit_code_impl;
     fn edit_add_random_impl;
+    fn edit_remove_theta_impl;
+    fn edit_remove_random_impl;
     fn edit_update_theta_impl;
     fn edit_update_random_impl;
     fn edit_add_omega_block_impl;

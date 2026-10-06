@@ -208,6 +208,33 @@ test_that("$EST records add and remove", {
   expect_error(add_est(mod, method = "IMP", noabort = FALSE), "value or TRUE")
 })
 
+test_that("removing a row takes it out of the code and renumbers", {
+  mod <- local_model()
+
+  no_iiv_cl <- remove_omega(mod, 1)
+  expect_match(text_of(no_iiv_cl), " CL = TVCL\n V = TVV * EXP(ETA(1))\n", fixed = TRUE)
+  expect_match(text_of(no_iiv_cl), "$OMEGA\n 0.1 ;IIV V\n$SIGMA", fixed = TRUE)
+
+  expect_error(remove_theta(mod, 1), "`TVCL`")
+  expect_error(remove_omega(mod, 3), "no OMEGA\\(3,3\\)")
+  expect_error(remove_sigma(mod, 0), "1 or more")
+})
+
+test_that("refs follow rows past a removed one", {
+  mod <- local_model()
+  edited <- mod |>
+    add_theta(0.75, comment = "WT-on-CL", ref = "wt_cl") |>
+    add_omega(0.2, comment = "IIV KA", ref = "iiv_ka") |>
+    remove_omega(2) |>
+    update_pk(KA, append = "* EXP({iiv_ka.eta})")
+
+  expect_match(text_of(edited), "KA = THETA(3) * EXP(ETA(2))", fixed = TRUE)
+  expect_equal(attr(edited, "refs")$index, c(4L, 2L))
+
+  dropped <- remove_theta(edited, 4)
+  expect_equal(attr(dropped, "refs")$name, "iiv_ka")
+})
+
 test_that("indexes must be whole numbers from 1", {
   mod <- local_model()
   expect_error(remove_est(mod, 0), "1 or more")

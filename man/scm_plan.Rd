@@ -17,7 +17,7 @@ fresh under this plan. Re-running the same plan, or one the process can
 resume under, needs no overwrite.}
 }
 \value{
-A \code{hyperion_scm_plan} object; \code{plan.json} is already on disk in
+A \code{hyperion_scm_plan} object; \code{pharos_scm_plan.json} is already on disk in
 the output directory (its path is the \code{plan_path} attribute). Run it with
 \code{\link[=scm_run]{scm_run()}}. When the out_dir already holds an SCM process, printing the plan
 also says where that SCM process got to and what this plan changed about the
@@ -28,7 +28,7 @@ the \code{discarded} attribute.
 Reads the SCM process setup from an SCM config file (TOML) — the one
 \code{\link[=scm_init]{scm_init()}} wrote — validates the covariate candidates against the
 user-authored initial model it names, returns the plan as a
-\code{hyperion_scm_plan} object, and writes it to \verb{<out_dir>/plan.json} —
+\code{hyperion_scm_plan} object, and writes it to \verb{<out_dir>/pharos_scm_plan.json} —
 \code{\link[=scm_run]{scm_run()}} and \verb{pharos nonmem scm submit} execute. Nothing is fitted. The initial model
 names a theta for each candidate effect in its \verb{$THETA} records; the
 \verb{[covariates]} section names the ones to test, and every model generated
@@ -46,8 +46,8 @@ forward_alpha = 0.05
 backward_alpha = 0.001
 max_retries = 3
 cov_step = false
-final_cov_step = true
 forward_final_cov_step = true
+final_cov_step = true
 
 [covariates]
 fixed = 0                     # default: what a held-out effect's theta is fixed at
@@ -65,11 +65,10 @@ effects = [
 themselves ran with: the SCM process chooses the covariates, and that one
 fit is what reports their estimates with standard errors.
 \code{forward_final_cov_step} (default \code{TRUE}) does the same for the forward
-phase's model the moment forward selection ends, as a fit that runs
-alongside backward elimination rather than holding it up; it only applies
-when both phases run, and when \code{cov_step} is on the forward model has
-already run the step and is used as it is. Backward elimination that drops
-nothing leaves the forward model as the final model, and that fit of it
+phase's model the moment forward selection ends; it only applies when both
+phases run, and when \code{cov_step} is on the forward model has already run
+the step and is used as it is. Backward elimination that drops nothing
+leaves the forward model as the final model, and that fit of it
 is copied into \verb{final/} rather than fitted again. Neither \code{num_rounds} nor
 \code{forward_final_cov_step} is SCM-defining: an SCM process resumes across a
 change to either.
@@ -128,7 +127,7 @@ Removing a candidate that has won a round, adding one, or changing any
 other SCM-defining setting is a different SCM process: the plan is not
 written and \code{scm_plan()} errors, saying why, until re-planned with
 \code{overwrite = TRUE} — which discards the SCM process in the out_dir (its
-fits, state and summaries; the config, \code{plan.json} and anything else in
+fits, state and summaries; the config, \code{pharos_scm_plan.json} and anything else in
 the directory stay) once the new plan has validated. It is refused while
 that process's driver is still running (see \code{\link[=scm_status]{scm_status()}}), so a running
 SCM process is never pulled out from under its fits.

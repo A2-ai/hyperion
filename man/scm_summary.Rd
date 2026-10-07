@@ -15,7 +15,7 @@ scm_summary(
 }
 \arguments{
 \item{x}{a \code{hyperion_scm_plan}, a \code{hyperion_scm_status}, an SCM output
-directory, or a plan.json path}
+directory, or a pharos_scm_plan.json path}
 
 \item{round}{only this round: the Nth SCM round (\code{2} or \code{"round 2"} — the
 reference fit is not a round), a round name (\code{"forward_round1"},

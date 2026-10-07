@@ -7,7 +7,7 @@
 scm_status_impl(path)
 }
 \arguments{
-\item{path}{the SCM out_dir, or its plan.json}
+\item{path}{the SCM out_dir, or its pharos_scm_plan.json}
 }
 \value{
 a \code{hyperion_scm_status} object: the summary record, with the

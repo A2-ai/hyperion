@@ -17,7 +17,7 @@ scm_run(
 }
 \arguments{
 \item{plan}{a \code{hyperion_scm_plan} from \code{\link[=scm_plan]{scm_plan()}}, or a path to a
-plan.json}
+pharos_scm_plan.json}
 
 \item{driver}{where the SCM driver runs: \code{"slurm"} (its own Slurm job) or
 \code{"login"} (this machine, in the background)}
@@ -102,6 +102,6 @@ found on the PATH, or set
 scm_run(plan)
 scm_run(plan, max_concurrent = 12)
 scm_run(plan, shared_node = TRUE, partition = "big")
-scm_run("model/nonmem/scm/1001/plan.json", driver = "login")
+scm_run("model/nonmem/scm/1001/pharos_scm_plan.json", driver = "login")
 }
 }

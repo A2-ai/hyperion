@@ -4,7 +4,7 @@
 
 - Stepwise covariate modeling (SCM), driven by pharos: `scm_init()` writes
   the starter config beside a model, `scm_plan()` validates it and writes
-  `plan.json`, `scm_run()` hands the plan to the pharos CLI (the driver as
+  `pharos_scm_plan.json`, `scm_run()` hands the plan to the pharos CLI (the driver as
   its own Slurm job, or on the login node in the background; one Slurm job
   per fit, or every fit on one shared node), `scm_status()` shows where the
   process stands, and `scm_summary()` renders the record of every round.
@@ -21,8 +21,8 @@
 - `scm_run(driver = "login")` reports pharos refusing to start a second
   driver for the same SCM process instead of leaving it in the log.
 - The SCM config gains `forward_final_cov_step`: re-fit the forward phase's
-  model with `$COVARIANCE` on alongside backward elimination. The plan says
-  what becomes of the forward model.
+  model with `$COVARIANCE` on. The plan says what becomes of the forward
+  model.
 - `scm_init()` and `scm_plan()` write the out_dir's `.gitignore` from the
   project's `[nonmem.scm] track_in_git`.
 - `copy_model()` gains `allow_partial` to update from the last iteration of

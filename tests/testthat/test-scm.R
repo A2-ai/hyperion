@@ -118,7 +118,7 @@ no_cov_step_warning <- function(expr) {
 }
 
 # A plan writes its paths relative to the pharos project root, so the
-# out_dir on disk is the directory its plan.json landed in.
+# out_dir on disk is the directory its pharos_scm_plan.json landed in.
 scm_dir <- function(plan) dirname(attr(plan, "plan_path"))
 
 make_plan <- function(dir, ...) {
@@ -152,7 +152,7 @@ test_that("scm_init writes the config into the SCM process dir it makes", {
   # the per-type initial estimates are a table each, not one flat default
   for (default in c("forward_alpha = 0.05", "backward_alpha = 0.001",
                     "max_retries = 3", "cov_step = false",
-                    "final_cov_step = true", "forward_final_cov_step = true",
+                    "forward_final_cov_step = true", "final_cov_step = true",
                     "fixed = 0",
                     "continuous  = { initial = 0.1 }",
                     "categorical = { initial = 1 }")) {
@@ -163,7 +163,7 @@ test_that("scm_init writes the config into the SCM process dir it makes", {
   # track_in_git`: milestones unless pharos.toml says otherwise
   gitignore <- readLines(file.path(setup$out_dir, ".gitignore"))
   expect_match(gitignore[1], 'track_in_git = "milestones"', fixed = TRUE)
-  expect_true(all(c("/*", "!/1001scm.toml", "!/plan.json", "!/final/",
+  expect_true(all(c("/*", "!/1001scm.toml", "!/pharos_scm_plan.json", "!/final/",
                     "!/base/", "!/forward_final/") %in% gitignore))
   expect_false("!/forward_round1/" %in% gitignore)
 })
@@ -186,8 +186,8 @@ test_that("the config scm_init writes only needs its covariates filled in", {
     vapply(plan$candidates, function(c) c$name, character(1)),
     c("WT_CL", "CRCL_CL")
   )
-  # the plan lands in the directory scm_init already created; plan.json
-  # writes its paths relative to the pharos project root, so the plan.json
+  # the plan lands in the directory scm_init already created; pharos_scm_plan.json
+  # writes its paths relative to the pharos project root, so the pharos_scm_plan.json
   # on disk is what locates it
   expect_equal(plan$out_dir, "scm/1001")
   expect_equal(
@@ -246,7 +246,7 @@ test_that("scm_plan names candidates from their $THETA names and carries default
   expect_true(plan$options$final_cov_step)
   expect_true(plan$options$forward_final_cov_step)
   expect_equal(plan$out_dir, "scm/1001")
-  expect_match(attr(plan, "plan_path"), "scm/1001/plan.json$")
+  expect_match(attr(plan, "plan_path"), "scm/1001/pharos_scm_plan.json$")
   # nothing was discarded: a fresh out_dir
   expect_null(attr(plan, "discarded"))
 })
@@ -565,7 +565,7 @@ test_that("the plan says what becomes of the forward model", {
   write_scm_fixture(dir)
 
   # both phases, cov step off: the forward model is re-fitted with the cov
-  # step on while backward elimination runs
+  # step on
   both <- no_cov_step_warning(scm_plan(write_scm_config(dir)))
   txt <- cli_text_of(print(both))
   expect_match(txt, "forward fit: re-fit the forward model with the cov step on", fixed = TRUE)
@@ -633,13 +633,13 @@ test_that("the config sets the SCM process; the call-site knobs only pace it", {
   expect_equal(plan$options$forward_alpha, 0.01)
 })
 
-test_that("scm_plan writes plan.json that scm_status reads back", {
+test_that("scm_plan writes pharos_scm_plan.json that scm_status reads back", {
   dir <- withr::local_tempdir()
   plan <- make_plan(dir)
 
   path <- attr(plan, "plan_path")
   expect_true(file.exists(path))
-  expect_equal(basename(path), "plan.json")
+  expect_equal(basename(path), "pharos_scm_plan.json")
   expect_equal(normalizePath(dirname(path)), normalizePath(scm_dir(plan)))
 
   st <- scm_status(plan)
@@ -994,7 +994,7 @@ test_that("a plan the SCM process cannot resume under is refused, not written", 
   expect_match(msg, "forward_alpha 0.05 -> 0.01: this SCM process ran under the previous value",
                fixed = TRUE)
   expect_match(msg, "re-plan with `overwrite = TRUE`", fixed = TRUE)
-  # plan.json stays the one the process ran under, and the process is intact
+  # pharos_scm_plan.json stays the one the process ran under, and the process is intact
   expect_equal(readLines(attr(plan, "plan_path")), before)
   expect_true(file.exists(file.path(scm_dir(plan), "scm_state.json")))
   expect_equal(scm_status(plan)$status, "completed")
@@ -1028,7 +1028,7 @@ test_that("overwrite discards the SCM process in the out_dir once the plan valid
   expect_false(file.exists(file.path(out_dir, "scm_state.json")))
   expect_equal(readLines(file.path(out_dir, "notes.txt")), "mine")
   expect_true(file.exists(file.path(dir, "scm.toml")))
-  # the plan.json it replaced is still the previous plan: the changes show,
+  # the pharos_scm_plan.json it replaced is still the previous plan: the changes show,
   # and there is no SCM process behind it any more
   ctx <- attr(replan, "context")
   expect_true(unlist(ctx$had_previous_plan))
@@ -1098,7 +1098,7 @@ test_that("re-planning without a never-selected candidate keeps the SCM process"
 
   # WT_CL won round 1: dropping it is a different SCM process, refused
   # without overwrite. (The fabricated state predates the roster, so pharos
-  # seeds its roster from the plan.json beside it: put the full plan back
+  # seeds its roster from the pharos_scm_plan.json beside it: put the full plan back
   # first.)
   suppressWarnings(scm_plan(write_scm_config(dir)))
   err <- expect_error(
@@ -1331,7 +1331,7 @@ test_that("scm_summary renders every round by default and drills into one", {
   expect_match(txt, "unusable")
 
   # one round: number, "round N", full name, and "reference" all resolve;
-  # so do the plan / out_dir / plan.json addressing forms
+  # so do the plan / out_dir / pharos_scm_plan.json addressing forms
   rd <- scm_summary(plan, 1)
   expect_length(rd$rounds, 1)
   expect_equal(rd$rounds[[1]]$round, "forward_round1")
@@ -1408,7 +1408,7 @@ test_that("scm_summary renders every round by default and drills into one", {
   expect_error(scm_summary(plan, long = "yes"), "TRUE or FALSE")
 })
 
-test_that("scm_status resolves plans, dirs, and plan.json paths", {
+test_that("scm_status resolves plans, dirs, and pharos_scm_plan.json paths", {
   dir <- withr::local_tempdir()
   plan <- make_plan(dir)
   path <- attr(plan, "plan_path")
@@ -1420,14 +1420,14 @@ test_that("scm_status resolves plans, dirs, and plan.json paths", {
   expect_equal(st2$status, st3$status)
 
   expect_error(scm_status(file.path(dir, "nope")), "no SCM output")
-  expect_error(scm_status(dir), "plan.json")
+  expect_error(scm_status(dir), "pharos_scm_plan.json")
 })
 
 test_that("scm_run rejects inputs that are not plans", {
   expect_error(scm_run(42), "hyperion_scm_plan")
 })
 
-test_that("scm_run refuses a plan whose plan.json is gone", {
+test_that("scm_run refuses a plan whose pharos_scm_plan.json is gone", {
   dir <- withr::local_tempdir()
   plan <- make_plan(dir)
   unlink(attr(plan, "plan_path"))

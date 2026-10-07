@@ -1,7 +1,7 @@
 //! Stepwise covariate modeling (SCM) wrappers.
 //!
 //! `scm_init_wrap` writes the starter config beside a model, `scm_plan_wrap`
-//! builds the validated plan and writes `plan.json` through the same Rust
+//! builds the validated plan and writes `pharos_scm_plan.json` through the same Rust
 //! code the pharos CLI runs (`pharos nonmem scm plan`), and `scm_status_wrap`
 //! / `scm_summary_wrap` read an SCM process wherever it stands, exactly as
 //! `scm status` and `scm summary` do. Running happens through the pharos CLI
@@ -46,14 +46,14 @@ pub fn scm_init_wrap(model: &str, #[extendr(default = "FALSE")] overwrite: bool)
     .into_robj())
 }
 
-/// Build and validate an SCM plan (runs nothing) and write its plan.json
+/// Build and validate an SCM plan (runs nothing) and write its pharos_scm_plan.json
 ///
 /// Internal engine behind [scm_plan()]; use that instead.
 ///
 /// @param config path to the SCM config file (TOML) written by
 ///   [scm_init()] into the SCM out_dir: model, direction, forward_alpha,
-///   backward_alpha, max_retries, cov_step, final_cov_step,
-///   forward_final_cov_step, and the `[covariates]` section (fixed, the
+///   backward_alpha, max_retries, cov_step, forward_final_cov_step,
+///   final_cov_step, and the `[covariates]` section (fixed, the
 ///   per-type `continuous` / `categorical` tables, effects). Relative paths
 ///   resolve against the config file
 /// @param num_rounds pause after this many rounds per run (NULL = no cap)
@@ -62,9 +62,9 @@ pub fn scm_init_wrap(model: &str, #[extendr(default = "FALSE")] overwrite: bool)
 ///   starts fresh. Refused while that process's driver may still be running
 ///
 /// @return a `hyperion_scm_plan` object; its `plan_path` attribute is the
-///   `plan.json` just written, its `context` attribute is where the SCM
+///   `pharos_scm_plan.json` just written, its `context` attribute is where the SCM
 ///   process in the out_dir already stands plus what this plan changed about
-///   the plan.json it replaced, and its `discarded` attribute says what
+///   the pharos_scm_plan.json it replaced, and its `discarded` attribute says what
 ///   `overwrite` threw away (`NULL` when nothing was). A plan the SCM
 ///   process already in the out_dir cannot resume under is an error, and is
 ///   not written
@@ -113,7 +113,7 @@ pub fn scm_plan_wrap(
     }
 
     // A plan the SCM process already in the out_dir cannot resume under is
-    // not written: `scm status` reads that process under whatever plan.json
+    // not written: `scm status` reads that process under whatever pharos_scm_plan.json
     // says, so the file stays the one it ran under. pharos says the same in
     // CLI terms; this spells out what to do in R.
     if let Some(verdict) = built
@@ -137,7 +137,7 @@ pub fn scm_plan_wrap(
 
     let written = built
         .write()
-        .map_to_extendr_err("Failed to write plan.json")?;
+        .map_to_extendr_err("Failed to write pharos_scm_plan.json")?;
 
     let mut robj = to_robj(&built.plan).map_to_extendr_err("Failed to convert plan to Robj")?;
     robj.set_attrib("warnings", built.warnings.iter().collect_robj())?;
@@ -157,7 +157,7 @@ pub fn scm_plan_wrap(
     robj.set_attrib("retry_jitter", nonmem::scm::round::RETRY_JITTER.into_robj())?;
     robj.set_attrib("plan_path", written.to_string_lossy().into_robj())?;
     // Read while the plan was built (and again after `overwrite` cleared the
-    // out_dir), i.e. before the write above replaced the plan.json it
+    // out_dir), i.e. before the write above replaced the pharos_scm_plan.json it
     // compares against: how far the SCM process in the out_dir got, and what
     // this plan changed. Printing leans on it; a fresh out_dir has nothing
     // to say and renders exactly as it always did.
@@ -225,7 +225,7 @@ fn progress_robj(p: &ScmProcess) -> Robj {
 
 /// The `context` attribute a freshly built plan carries: where the SCM
 /// process in its out_dir already stands, and what this plan changed about
-/// the plan.json it replaced.
+/// the pharos_scm_plan.json it replaced.
 ///
 /// pharos renders its `PlanContext` straight to text for the CLI and never
 /// serializes it, so hyperion takes it apart here and hands R the pieces its
@@ -300,7 +300,7 @@ fn context_robj(ctx: &PlanContext) -> Result<Robj> {
 // hyperion carries its own copies: the same checks, worded for R.
 
 /// The SCM out_dir a status / summary argument names: the directory itself,
-/// or the directory holding a plan.json.
+/// or the directory holding a pharos_scm_plan.json.
 fn scm_out_dir(path: &Path) -> PathBuf {
     if path.is_file() {
         path.parent()
@@ -406,7 +406,7 @@ fn driver_robj(record: &DriverRecord) -> Robj {
 ///
 /// Internal engine behind [scm_status()]; use that instead.
 ///
-/// @param path the SCM out_dir, or its plan.json
+/// @param path the SCM out_dir, or its pharos_scm_plan.json
 ///
 /// @return a `hyperion_scm_status` object: the summary record, with the
 ///   text `pharos nonmem scm status` prints as its `rendered` attribute, the
@@ -446,7 +446,7 @@ pub fn scm_status_wrap(path: &str) -> Result<Robj> {
 ///
 /// Internal engine behind [scm_summary()]; use that instead.
 ///
-/// @param path the SCM out_dir, or its plan.json
+/// @param path the SCM out_dir, or its pharos_scm_plan.json
 /// @param round only this round: the Nth SCM round ("2" / "round 2"), a
 ///   round name (forward_round1, backward_round1), or "reference"; NULL for
 ///   every round

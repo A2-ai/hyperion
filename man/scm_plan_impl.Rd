@@ -2,15 +2,15 @@
 % Please edit documentation in R/extendr-wrappers.R
 \name{scm_plan_impl}
 \alias{scm_plan_impl}
-\title{Build and validate an SCM plan (runs nothing) and write its plan.json}
+\title{Build and validate an SCM plan (runs nothing) and write its pharos_scm_plan.json}
 \usage{
 scm_plan_impl(config, num_rounds = NULL, overwrite = FALSE)
 }
 \arguments{
 \item{config}{path to the SCM config file (TOML) written by
 \code{\link[=scm_init]{scm_init()}} into the SCM out_dir: model, direction, forward_alpha,
-backward_alpha, max_retries, cov_step, final_cov_step,
-forward_final_cov_step, and the \verb{[covariates]} section (fixed, the
+backward_alpha, max_retries, cov_step, forward_final_cov_step,
+final_cov_step, and the \verb{[covariates]} section (fixed, the
 per-type \code{continuous} / \code{categorical} tables, effects). Relative paths
 resolve against the config file}
 
@@ -22,9 +22,9 @@ starts fresh. Refused while that process's driver may still be running}
 }
 \value{
 a \code{hyperion_scm_plan} object; its \code{plan_path} attribute is the
-\code{plan.json} just written, its \code{context} attribute is where the SCM
+\code{pharos_scm_plan.json} just written, its \code{context} attribute is where the SCM
 process in the out_dir already stands plus what this plan changed about
-the plan.json it replaced, and its \code{discarded} attribute says what
+the pharos_scm_plan.json it replaced, and its \code{discarded} attribute says what
 \code{overwrite} threw away (\code{NULL} when nothing was). A plan the SCM
 process already in the out_dir cannot resume under is an error, and is
 not written

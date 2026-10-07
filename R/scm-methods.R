@@ -3,7 +3,7 @@
 # hyperion sets up, plans and inspects; pharos executes. `scm_init()` writes
 # the config file beside a model and creates the SCM output directory,
 # `scm_plan()` builds the plan
-# (an S3 object wrapping the pharos ScmPlan struct) and writes the plan.json
+# (an S3 object wrapping the pharos ScmPlan struct) and writes the pharos_scm_plan.json
 # to out_dir, `scm_run()` hands it to the pharos CLI in the
 # background, and `scm_status()` checks on the SCM process in its entirety while
 # it runs -- the driver (recorded in scm_driver.json), each decided round's
@@ -88,7 +88,7 @@ scm_init <- function(model, overwrite = FALSE) {
 #' Reads the SCM process setup from an SCM config file (TOML) — the one
 #' [scm_init()] wrote — validates the covariate candidates against the
 #' user-authored initial model it names, returns the plan as a
-#' `hyperion_scm_plan` object, and writes it to `<out_dir>/plan.json` —
+#' `hyperion_scm_plan` object, and writes it to `<out_dir>/pharos_scm_plan.json` —
 #' [scm_run()] and `pharos nonmem scm submit` execute. Nothing is fitted. The initial model
 #' names a theta for each candidate effect in its `$THETA` records; the
 #' `[covariates]` section names the ones to test, and every model generated
@@ -106,8 +106,8 @@ scm_init <- function(model, overwrite = FALSE) {
 #' backward_alpha = 0.001
 #' max_retries = 3
 #' cov_step = false
-#' final_cov_step = true
 #' forward_final_cov_step = true
+#' final_cov_step = true
 #'
 #' [covariates]
 #' fixed = 0                     # default: what a held-out effect's theta is fixed at
@@ -125,11 +125,10 @@ scm_init <- function(model, overwrite = FALSE) {
 #' themselves ran with: the SCM process chooses the covariates, and that one
 #' fit is what reports their estimates with standard errors.
 #' `forward_final_cov_step` (default `TRUE`) does the same for the forward
-#' phase's model the moment forward selection ends, as a fit that runs
-#' alongside backward elimination rather than holding it up; it only applies
-#' when both phases run, and when `cov_step` is on the forward model has
-#' already run the step and is used as it is. Backward elimination that drops
-#' nothing leaves the forward model as the final model, and that fit of it
+#' phase's model the moment forward selection ends; it only applies when both
+#' phases run, and when `cov_step` is on the forward model has already run
+#' the step and is used as it is. Backward elimination that drops nothing
+#' leaves the forward model as the final model, and that fit of it
 #' is copied into `final/` rather than fitted again. Neither `num_rounds` nor
 #' `forward_final_cov_step` is SCM-defining: an SCM process resumes across a
 #' change to either.
@@ -188,7 +187,7 @@ scm_init <- function(model, overwrite = FALSE) {
 #' other SCM-defining setting is a different SCM process: the plan is not
 #' written and `scm_plan()` errors, saying why, until re-planned with
 #' `overwrite = TRUE` — which discards the SCM process in the out_dir (its
-#' fits, state and summaries; the config, `plan.json` and anything else in
+#' fits, state and summaries; the config, `pharos_scm_plan.json` and anything else in
 #' the directory stay) once the new plan has validated. It is refused while
 #' that process's driver is still running (see [scm_status()]), so a running
 #' SCM process is never pulled out from under its fits.
@@ -200,7 +199,7 @@ scm_init <- function(model, overwrite = FALSE) {
 #'   fresh under this plan. Re-running the same plan, or one the process can
 #'   resume under, needs no overwrite.
 #'
-#' @return A `hyperion_scm_plan` object; `plan.json` is already on disk in
+#' @return A `hyperion_scm_plan` object; `pharos_scm_plan.json` is already on disk in
 #'   the output directory (its path is the `plan_path` attribute). Run it with
 #'   [scm_run()]. When the out_dir already holds an SCM process, printing the plan
 #'   also says where that SCM process got to and what this plan changed about the
@@ -259,18 +258,18 @@ scm_plan <- function(config,
   }
 
   # The plan is on disk the moment it exists --
-  # <out_dir>/plan.json, ready for scm_run() or `pharos nonmem scm submit`.
+  # <out_dir>/pharos_scm_plan.json, ready for scm_run() or `pharos nonmem scm submit`.
   cli::cli_inform("plan written to {.file {attr(plan, 'plan_path')}}")
 
   plan
 }
 
-#' Resolve a plan object / out_dir / plan.json path to the SCM out_dir
+#' Resolve a plan object / out_dir / pharos_scm_plan.json path to the SCM out_dir
 #' @noRd
 scm_out_dir <- function(x) {
   if (inherits(x, "hyperion_scm_plan")) {
     # a plan writes its paths relative to the pharos project root, so the
-    # plan.json it was just saved to is what locates the out_dir on disk
+    # pharos_scm_plan.json it was just saved to is what locates the out_dir on disk
     return(dirname(attr(x, "plan_path")))
   }
   if (inherits(x, "hyperion_scm_status")) {
@@ -286,7 +285,7 @@ scm_out_dir <- function(x) {
     rlang::abort(paste0("no SCM output found at ", x))
   }
   rlang::abort(
-    "expected a hyperion_scm_plan, an SCM out_dir, or a plan.json path"
+    "expected a hyperion_scm_plan, an SCM out_dir, or a pharos_scm_plan.json path"
   )
 }
 
@@ -336,7 +335,7 @@ scm_out_dir <- function(x) {
 #' `options(hyperion.pharos_exe = "/path/to/pharos")` to use another build.
 #'
 #' @param plan a `hyperion_scm_plan` from [scm_plan()], or a path to a
-#'   plan.json
+#'   pharos_scm_plan.json
 #' @param driver where the SCM driver runs: `"slurm"` (its own Slurm job) or
 #'   `"login"` (this machine, in the background)
 #' @param partition Slurm partition for the fits (with `shared_node`, the
@@ -366,7 +365,7 @@ scm_out_dir <- function(x) {
 #' scm_run(plan)
 #' scm_run(plan, max_concurrent = 12)
 #' scm_run(plan, shared_node = TRUE, partition = "big")
-#' scm_run("model/nonmem/scm/1001/plan.json", driver = "login")
+#' scm_run("model/nonmem/scm/1001/pharos_scm_plan.json", driver = "login")
 #' }
 scm_run <- function(plan,
                     driver = c("slurm", "login"),
@@ -380,7 +379,7 @@ scm_run <- function(plan,
     plan_path <- attr(plan, "plan_path")
     if (is.null(plan_path) || !file.exists(plan_path)) {
       rlang::abort(c(
-        "this plan's plan.json is missing on disk",
+        "this plan's pharos_scm_plan.json is missing on disk",
         "i" = "rebuild it with `scm_plan()` before running"
       ))
     }
@@ -389,7 +388,7 @@ scm_run <- function(plan,
     plan_path <- plan
     out_dir <- dirname(plan)
   } else {
-    rlang::abort("`plan` must be a hyperion_scm_plan or a path to plan.json")
+    rlang::abort("`plan` must be a hyperion_scm_plan or a path to pharos_scm_plan.json")
   }
 
   driver <- rlang::arg_match(driver)
@@ -550,7 +549,7 @@ scm_run_subcommand <- function(driver) {
 #' finished since the driver last wrote its state are picked up and scored
 #' the same way the driver will.
 #'
-#' @param x a `hyperion_scm_plan`, an SCM output directory, or a plan.json
+#' @param x a `hyperion_scm_plan`, an SCM output directory, or a pharos_scm_plan.json
 #'   path
 #'
 #' @return a `hyperion_scm_status` object: the summary record (see
@@ -638,7 +637,7 @@ scm_plan_display_parts <- function(x) {
       if (isTRUE(x$options$cov_step)) {
         "the forward model already runs the cov step; it is used as it is"
       } else {
-        "re-fit the forward model with the cov step on, alongside backward elimination"
+        "re-fit the forward model with the cov step on"
       }
     },
     candidates = candidates,
@@ -650,7 +649,7 @@ scm_plan_display_parts <- function(x) {
 
 #' Tidy the `context` attribute a freshly built plan carries: where the
 #' SCM process in its out_dir already stands, and what the plan changed about the
-#' plan.json it replaced. `NULL` for a plan with nothing behind it -- a fresh
+#' pharos_scm_plan.json it replaced. `NULL` for a plan with nothing behind it -- a fresh
 #' out_dir, or a plan object from an older hyperion.
 #' @noRd
 scm_plan_context_parts <- function(x) {
@@ -1083,7 +1082,7 @@ knit_print.hyperion_scm_status <- function(x, ...) {
 #' - `files`: run directory, `.lst`, `.ext` and summary JSON per candidate
 #'
 #' @param x a `hyperion_scm_plan`, a `hyperion_scm_status`, an SCM output
-#'   directory, or a plan.json path
+#'   directory, or a pharos_scm_plan.json path
 #' @param round only this round: the Nth SCM round (`2` or `"round 2"` — the
 #'   reference fit is not a round), a round name (`"forward_round1"`,
 #'   `"backward_round1"`), or `"reference"`. A single round always lists

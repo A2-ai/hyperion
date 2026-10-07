@@ -7,7 +7,7 @@
 scm_status(x)
 }
 \arguments{
-\item{x}{a \code{hyperion_scm_plan}, an SCM output directory, or a plan.json
+\item{x}{a \code{hyperion_scm_plan}, an SCM output directory, or a pharos_scm_plan.json
 path}
 }
 \value{

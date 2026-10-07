@@ -14,7 +14,7 @@ scm_summary_impl(
 )
 }
 \arguments{
-\item{path}{the SCM out_dir, or its plan.json}
+\item{path}{the SCM out_dir, or its pharos_scm_plan.json}
 
 \item{round}{only this round: the Nth SCM round ("2" / "round 2"), a
 round name (forward_round1, backward_round1), or "reference"; NULL for

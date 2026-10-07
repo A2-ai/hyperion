@@ -210,6 +210,26 @@ remove_cov <- function(model) {
   apply_edit(model, edit_remove_cov_impl)
 }
 
+#' Change the $PROBLEM title
+#'
+#' Replaces the first line of `$PROBLEM`. The note [copy_model()] adds
+#' ("created from pharos see <run>_metadata.json for details.") stays at the
+#' end, and any lines below the title are kept.
+#'
+#' @param model A hyperion_nonmem_model object.
+#' @param text The new title, one line.
+#' @return The edited model (not yet written; see [write_model()]).
+#' @export
+#'
+#' @examples \dontrun{
+#' mod |> update_problem("Base model, FOCEI estimation")
+#' }
+update_problem <- function(model, text) {
+  check_model_object(model)
+  check_string(text, "text")
+  apply_edit(model, edit_update_problem_impl, text)
+}
+
 #' Change the $DATA path
 #'
 #' `path` is written exactly as given, so it is relative to the model file,

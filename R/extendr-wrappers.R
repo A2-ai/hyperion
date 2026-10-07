@@ -148,6 +148,11 @@ edit_update_subroutines_impl <- function(source, path, advan, trans_action, tran
 #' @noRd
 edit_remove_cov_impl <- function(source, path) .Call(wrap__edit_remove_cov_impl, source, path)
 
+#' Replace the `$PROBLEM` title (internal)
+#' @keywords internal
+#' @noRd
+edit_update_problem_impl <- function(source, path, text) .Call(wrap__edit_update_problem_impl, source, path, text)
+
 #' Set the `$DATA` path (internal)
 #' @keywords internal
 #' @noRd

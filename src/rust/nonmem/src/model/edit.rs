@@ -451,6 +451,17 @@ pub fn edit_remove_cov_impl(source: &str, path: &str) -> Result<Robj> {
     to_robj(edited, path)
 }
 
+/// Replace the `$PROBLEM` title (internal)
+/// @keywords internal
+/// @noRd
+#[extendr]
+pub fn edit_update_problem_impl(source: &str, path: &str, text: &str) -> Result<Robj> {
+    let edited = parse_source(source)?
+        .update_problem(text)
+        .map_err(edit_err)?;
+    to_robj(edited, path)
+}
+
 /// Set the `$DATA` path (internal)
 /// @keywords internal
 /// @noRd
@@ -599,6 +610,7 @@ extendr_module! {
     fn edit_update_est_impl;
     fn edit_update_subroutines_impl;
     fn edit_remove_cov_impl;
+    fn edit_update_problem_impl;
     fn edit_update_data_impl;
     fn edit_update_model_record_impl;
     fn edit_update_table_impl;

@@ -144,6 +144,21 @@ test_that("copy_model() -> edit -> diff_models() -> write_model() -> reread", {
   expect_true(all(c("$PK", "$THETA") %in% names(vs_parent$changes)))
 })
 
+test_that("update_problem() keeps the pharos note", {
+  root <- local_project()
+  new <- copy_model(
+    file.path(root, "run001.mod"),
+    file.path(root, "run002.mod"),
+    description = "FOCEI"
+  ) |>
+    update_problem("FOCEI estimation")
+  expect_match(
+    text_of(new),
+    "^\\$PROBLEM FOCEI estimation created from pharos see run002_metadata.json for details.\n"
+  )
+  expect_error(update_problem(new, c("a", "b")), "single string")
+})
+
 test_that("diff_models() knits as coloured HTML", {
   mod <- local_model()
   d <- mod |> update_theta(1, init = 2) |> diff_models()

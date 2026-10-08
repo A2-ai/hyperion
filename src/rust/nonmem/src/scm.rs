@@ -7,7 +7,7 @@
 //! `scm status` and `scm summary` do. Running happens through the pharos CLI
 //! in the background (see `scm_run()` on the R side), never in-process.
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use extendr_api::Result;
 use extendr_api::prelude::*;
@@ -19,7 +19,7 @@ use nonmem::scm::{
     state::ScmProcess,
     summary::{CandidateSummary, Fits, RoundSummary},
 };
-use scheduler::{DriverRecord, Liveness, fit_place_lookup, scm_driver::DRIVER_RECORD_FILENAME};
+use scheduler::{DriverRecord, Liveness, fit_place_lookup};
 
 use hyperion_core::{ResultExt, extendr_err};
 
@@ -101,7 +101,11 @@ pub fn scm_plan_wrap(
     let mut discarded: Option<String> = None;
     if overwrite {
         let out_dir = built.plan.out_dir_path();
-        refuse_live_driver(&out_dir)?;
+        if let Some(record) = DriverRecord::read(&out_dir) {
+            record
+                .refuse_if_alive(&out_dir.display().to_string(), "overwrite = TRUE")
+                .map_err(|e| extendr_err!("{e:#}"))?;
+        }
         discarded = built.context.progress.as_ref().map(|p| {
             let n = p.state.completed_rounds();
             let s = if n == 1 { "" } else { "s" };
@@ -295,90 +299,6 @@ fn context_robj(ctx: &PlanContext) -> Result<Robj> {
 }
 
 // Driver ---------------------------------------------------------------------
-//
-// pharos keeps these next to its CLI rather than in the `scm` module, so
-// hyperion carries its own copies: the same checks, worded for R.
-
-/// The SCM out_dir a status / summary argument names: the directory itself,
-/// or the directory holding a pharos_scm_plan.json.
-fn scm_out_dir(path: &Path) -> PathBuf {
-    if path.is_file() {
-        path.parent()
-            .map(Path::to_path_buf)
-            .unwrap_or_else(|| PathBuf::from("."))
-    } else {
-        path.to_path_buf()
-    }
-}
-
-/// Refuse to discard an SCM process whose driver may still be running: its
-/// fits would land in an out_dir that no longer records them.
-fn refuse_live_driver(out_dir: &Path) -> Result<()> {
-    let Some(record) = DriverRecord::read(out_dir) else {
-        return Ok(());
-    };
-    let dir = out_dir.display();
-    match record.liveness() {
-        Liveness::Gone => Ok(()),
-        Liveness::Alive => {
-            let stop = match record.job_id {
-                Some(id) => format!("`scancel {id}`"),
-                None => "Ctrl-C in its terminal, or kill the process".to_string(),
-            };
-            Err(extendr_err!(
-                "the SCM process in {dir} is still being driven by {}; stop it ({stop}) \
-                 before discarding it with overwrite = TRUE",
-                record.describe()
-            ))
-        }
-        Liveness::Unknown(why) => Err(extendr_err!(
-            "cannot tell whether the driver of the SCM process in {dir} ({}) is still \
-             running: {why}; once it has stopped, delete {dir}/{DRIVER_RECORD_FILENAME} and \
-             re-plan with overwrite = TRUE",
-            record.describe()
-        )),
-    }
-}
-
-/// What `scm status` adds about the driver: whether it is still there, and
-/// when it is not while the process says it is running, where to look.
-fn driver_status(record: &DriverRecord, scm_status: &str) -> Vec<String> {
-    let mut lines = Vec::new();
-    let log = record
-        .log
-        .as_ref()
-        .map(|l| format!("; see {}", l.display()))
-        .unwrap_or_default();
-    let liveness = record.liveness();
-    match &liveness {
-        Liveness::Alive => lines.push(format!("driver     : running ({})", record.describe())),
-        Liveness::Gone if scm_status == "running" || scm_status == "planned" => {
-            lines.push(format!(
-                "driver     : NOT RUNNING ({}, {}) — the SCM process stopped before finishing{log}",
-                record.describe(),
-                record.mode
-            ));
-            lines.push(
-                "             resubmit the same plan to resume; fits still in the queue are waited for, not rerun"
-                    .to_string(),
-            );
-        }
-        Liveness::Gone => lines.push(format!("driver     : exited ({}){log}", record.describe())),
-        Liveness::Unknown(why) => lines.push(format!(
-            "driver     : {} — cannot check it from here ({why})",
-            record.describe()
-        )),
-    }
-    if let Some(allocation) = record.allocation
-        && liveness != Liveness::Alive
-        && scheduler::slurm::job_is_queued(allocation)
-    {
-        lines.push(format!(
-            "allocation : slurm allocation {allocation} is still held; release it with `scancel {allocation}`"
-        ));
-    }
-    lines
-}
 
 /// The driver record as R sees it: what `scm_driver.json` holds, plus
 /// whether that driver is still alive.
@@ -416,7 +336,7 @@ fn driver_robj(record: &DriverRecord) -> Robj {
 /// @keywords internal
 #[extendr(r_name = "scm_status_impl")]
 pub fn scm_status_wrap(path: &str) -> Result<Robj> {
-    let out_dir = scm_out_dir(Path::new(path));
+    let out_dir = pharos_scm::out_dir_named(Path::new(path));
     // The process as its driver's terminal shows it, read off disk now: the
     // state reconciled with what the fits have left behind, then summarized
     // — the same reader `scm_summary()` uses, so the two never describe
@@ -425,7 +345,7 @@ pub fn scm_status_wrap(path: &str) -> Result<Robj> {
     let record = DriverRecord::read(&out_dir);
     let driver_lines = record
         .as_ref()
-        .map(|r| driver_status(r, &status.summary.status))
+        .map(|r| r.status_lines(&status.summary.status, &|p| p.display().to_string()))
         .unwrap_or_default();
     let place_of = fit_place_lookup();
     let rendered = status.render(&driver_lines, &place_of);
@@ -469,14 +389,12 @@ pub fn scm_summary_wrap(
     let opts = SummaryOptions {
         round,
         candidate,
-        brief: false,
         long,
         timing,
         files,
-        extra: Vec::new(),
     };
 
-    let summary = pharos_scm::read_summary(&scm_out_dir(Path::new(path)))
+    let summary = pharos_scm::read_summary(&pharos_scm::out_dir_named(Path::new(path)))
         .map_to_extendr_err("Failed to read SCM summary")?;
     let rendered = summary
         .render_text(&opts)

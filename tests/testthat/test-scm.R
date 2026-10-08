@@ -1324,7 +1324,7 @@ test_that("scm_summary renders every round by default and drills into one", {
   expect_match(txt, "records    : scm_summary.{json,md}", fixed = TRUE)
   expect_match(txt, "forward_round1   added WT_CL (p = 7.700e-6, dOFV = -20.000) [4 retries]", fixed = TRUE)
   expect_match(txt, "                 ref OFV 1000.000 · alpha 0.05 · crit dOFV 3.841", fixed = TRUE)
-  expect_match(txt, "<- selected", fixed = TRUE)
+  expect_match(txt, "<- added", fixed = TRUE)
   # sorted winner-first: WT_CL, then CRCL_CL, then the unusable WT_V
   expect_lt(regexpr("  WT_CL   ", txt, fixed = TRUE),
             regexpr("  CRCL_CL   ", txt, fixed = TRUE))

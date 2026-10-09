@@ -5,7 +5,6 @@ use extendr_api::Result;
 use extendr_api::prelude::*;
 
 use std::path::PathBuf;
-use which::which;
 
 // pharos scheduler crate
 use nonmem::{RunOptions, expand_model_pattern};
@@ -71,44 +70,16 @@ fn process_model_robj(model: Robj) -> Result<Vec<PathBuf>> {
     }
 }
 
-/// Submits a NONMEM model to SLURM for execution
+/// Submits NONMEM models to SLURM (internal implementation)
 ///
-/// This function submits a NONMEM model file to a SLURM cluster for execution,
-/// allowing for parallel processing and job queue management. The function handles
-/// job configuration, resource allocation, and job submission through pharos
+/// Called by the exported `submit_model_to_slurm()` in `R/submit.R`, which
+/// resolves `pharos_exe_path` to an absolute path with `resolve_pharos()`.
+/// The path is written into the job script, so this function never looks
+/// pharos up itself.
 ///
-/// @param model A hyperion_nonmem_model object, path to the NONMEM model file,
-/// or character vector of model paths/patterns (required)
-/// @param overwrite Whether to overwrite existing output files (default: FALSE)
-/// @param dry_run Whether to perform a dry run without actually submitting the job (default: FALSE)
-/// @param run_in_output_dir Whether to run the job in the output directory (default: FALSE)
-/// @param ncpu Number of CPUs to allocate for the job (default: 1)
-/// @param partition SLURM partition to submit the job to (default: NULL, uses cluster default)
-/// @param clean_level Level of cleanup to perform after job completion (default: 1)
-/// @param parafile Path to parameter file for parallel runs (default: NULL)
-/// @param template Path to SLURM template file for job submission (default: NULL)
-/// @param account SLURM account to charge the job to (default: NULL)
-/// @param verbose Whether to include DEBUG logs in output log file (default: FALSE)
-///
-/// @return Returns invisibly after printing job submission results. Prints model path and corresponding SLURM job ID for each submitted job.
-/// @export
-///
-/// @examples
-/// \dontrun{
-/// # Submit a basic NONMEM model
-/// submit_model_to_slurm("model.mod")
-///
-/// # Submit using a model object
-/// model <- read_model("model.mod")
-/// submit_model_to_slurm(model)
-///
-/// # Dry run to test submission without actually running
-/// submit_model_to_slurm("model.mod", dry_run = TRUE)
-///
-/// # Submit to specific partition with account
-/// submit_model_to_slurm("model.mod", partition = "gpu", account = "myproject")
-/// }
-#[extendr]
+/// @keywords internal
+/// @noRd
+#[extendr(r_name = ".submit_model_to_slurm")]
 #[allow(clippy::too_many_arguments)]
 pub fn submit_model_to_slurm(
     model: Robj,
@@ -122,6 +93,7 @@ pub fn submit_model_to_slurm(
     #[extendr(default = "NULL")] template: Option<String>,
     #[extendr(default = "NULL")] account: Option<String>,
     #[extendr(default = "FALSE")] verbose: bool,
+    pharos_exe_path: String,
 ) -> Result<()> {
     // Process model input to get list of model files
     let model_files = process_model_robj(model)?;
@@ -177,8 +149,7 @@ pub fn submit_model_to_slurm(
                                 // mpi_timeout: (),
     };
 
-    let pharos_exe_path =
-        which("pharos").map_to_extendr_err("Failed to locate pharos executable")?;
+    let pharos_exe_path = PathBuf::from(pharos_exe_path);
 
     let res = scheduler
         .submit(
@@ -196,39 +167,16 @@ pub fn submit_model_to_slurm(
     Ok(())
 }
 
-/// Submits a NONMEM model to SGE for execution
+/// Submits NONMEM models to SGE (internal implementation)
 ///
-/// This function submits a NONMEM model file to a SGE cluster for execution,
-/// allowing for parallel processing and job queue management. The function handles
-/// job configuration, resource allocation, and job submission through pharos
+/// Called by the exported `submit_model_to_sge()` in `R/submit.R`, which
+/// resolves `pharos_exe_path` to an absolute path with `resolve_pharos()`.
+/// The path is written into the job script, so this function never looks
+/// pharos up itself.
 ///
-/// @param model A hyperion_nonmem_model object, path to the NONMEM model file,
-/// or character vector of model paths/patterns (required)
-/// @param overwrite Whether to overwrite existing output files (default: FALSE)
-/// @param dry_run Whether to perform a dry run without actually submitting the job (default: FALSE)
-/// @param run_in_output_dir Whether to run the job in the output directory (default: FALSE)
-/// @param ncpu Number of CPUs to allocate for the job (default: 1)
-/// @param clean_level Level of cleanup to perform after job completion (default: 1)
-/// @param parafile Path to parameter file for parallel runs (default: NULL)
-/// @param template Path to SGE template file for job submission (default: NULL)
-/// @param verbose Whether to include DEBUG logs in output log file (default: FALSE)
-///
-/// @return Returns invisibly after printing job submission results. Prints model path and corresponding SGE job ID for each submitted job.
-/// @export
-///
-/// @examples
-/// \dontrun{
-/// # Submit a basic NONMEM model
-/// submit_model_to_sge("model.mod")
-///
-/// # Submit using a model object
-/// model <- read_model("model.mod")
-/// submit_model_to_sge(model)
-///
-/// # Dry run to test submission without actually running
-/// submit_model_to_sge("model.mod", dry_run = TRUE)
-///}
-#[extendr]
+/// @keywords internal
+/// @noRd
+#[extendr(r_name = ".submit_model_to_sge")]
 #[allow(clippy::too_many_arguments)]
 pub fn submit_model_to_sge(
     model: Robj,
@@ -240,6 +188,7 @@ pub fn submit_model_to_sge(
     #[extendr(default = "NULL")] parafile: Option<String>,
     #[extendr(default = "NULL")] template: Option<String>,
     #[extendr(default = "FALSE")] verbose: bool,
+    pharos_exe_path: String,
 ) -> Result<()> {
     // Process model input to get list of model files
     let model_files = process_model_robj(model)?;
@@ -271,8 +220,7 @@ pub fn submit_model_to_sge(
                                 // mpi_timeout: (),
     };
 
-    let pharos_exe_path =
-        which("pharos").map_to_extendr_err("Failed to locate pharos executable")?;
+    let pharos_exe_path = PathBuf::from(pharos_exe_path);
 
     let res = scheduler
         .submit(

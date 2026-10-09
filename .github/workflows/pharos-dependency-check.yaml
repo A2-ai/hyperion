@@ -13,6 +13,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Pharos crates (incl. CLI) resolve to one commit (I4)
+        run: bash .github/scripts/check-pharos-same-commit.sh src/rust/Cargo.lock
+
       - name: Check pharos dependency status
         run: |
           # Determine whether Cargo.toml pins pharos via branch or tag.

@@ -18,3 +18,6 @@ dependencies = [
 
   { name = "hyperion", path = ".", dependencies_only = false, install_suggestions = true },
 ]
+
+[project.packages_env_vars.hyperion]
+HYPERION_SKIP_PHAROS_CLI = 'false'

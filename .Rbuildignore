@@ -25,3 +25,8 @@
 ^Meta$
 ^_starlightr\.toml$
 ^\.positai$
+^src/pharos$
+^src/pharos\.exe$
+^src/pharos-cli-skipped$
+^inst/bin$
+^design$

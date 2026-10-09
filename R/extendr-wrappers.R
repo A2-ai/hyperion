@@ -564,78 +564,27 @@ from_config_relative <- function(path) .Call(wrap__from_config_relative_wrap, pa
 #' @noRd
 to_config_relative <- function(path) .Call(wrap__to_config_relative_wrap, path)
 
-#' Submits a NONMEM model to SLURM for execution
+#' Submits NONMEM models to SLURM (internal implementation)
 #'
-#' This function submits a NONMEM model file to a SLURM cluster for execution,
-#' allowing for parallel processing and job queue management. The function handles
-#' job configuration, resource allocation, and job submission through pharos
+#' Called by the exported `submit_model_to_slurm()` in `R/submit.R`, which
+#' resolves `pharos_exe_path` to an absolute path with `resolve_pharos()`.
+#' The path is written into the job script, so this function never looks
+#' pharos up itself.
 #'
-#' @param model A hyperion_nonmem_model object, path to the NONMEM model file,
-#' or character vector of model paths/patterns (required)
-#' @param overwrite Whether to overwrite existing output files (default: FALSE)
-#' @param dry_run Whether to perform a dry run without actually submitting the job (default: FALSE)
-#' @param run_in_output_dir Whether to run the job in the output directory (default: FALSE)
-#' @param ncpu Number of CPUs to allocate for the job (default: 1)
-#' @param partition SLURM partition to submit the job to (default: NULL, uses cluster default)
-#' @param clean_level Level of cleanup to perform after job completion (default: 1)
-#' @param parafile Path to parameter file for parallel runs (default: NULL)
-#' @param template Path to SLURM template file for job submission (default: NULL)
-#' @param account SLURM account to charge the job to (default: NULL)
-#' @param verbose Whether to include DEBUG logs in output log file (default: FALSE)
-#'
-#' @return Returns invisibly after printing job submission results. Prints model path and corresponding SLURM job ID for each submitted job.
-#' @export
-#'
-#' @examples
-#' \dontrun{
-#' # Submit a basic NONMEM model
-#' submit_model_to_slurm("model.mod")
-#'
-#' # Submit using a model object
-#' model <- read_model("model.mod")
-#' submit_model_to_slurm(model)
-#'
-#' # Dry run to test submission without actually running
-#' submit_model_to_slurm("model.mod", dry_run = TRUE)
-#'
-#' # Submit to specific partition with account
-#' submit_model_to_slurm("model.mod", partition = "gpu", account = "myproject")
-#' }
-submit_model_to_slurm <- function(model, overwrite = FALSE, dry_run = FALSE, run_in_output_dir = FALSE, ncpu = 1, partition = NULL, clean_level = 1, parafile = NULL, template = NULL, account = NULL, verbose = FALSE) .Call(wrap__submit_model_to_slurm, model, overwrite, dry_run, run_in_output_dir, ncpu, partition, clean_level, parafile, template, account, verbose)
+#' @keywords internal
+#' @noRd
+.submit_model_to_slurm <- function(model, overwrite = FALSE, dry_run = FALSE, run_in_output_dir = FALSE, ncpu = 1, partition = NULL, clean_level = 1, parafile = NULL, template = NULL, account = NULL, verbose = FALSE, pharos_exe_path) .Call(wrap__submit_model_to_slurm, model, overwrite, dry_run, run_in_output_dir, ncpu, partition, clean_level, parafile, template, account, verbose, pharos_exe_path)
 
-#' Submits a NONMEM model to SGE for execution
+#' Submits NONMEM models to SGE (internal implementation)
 #'
-#' This function submits a NONMEM model file to a SGE cluster for execution,
-#' allowing for parallel processing and job queue management. The function handles
-#' job configuration, resource allocation, and job submission through pharos
+#' Called by the exported `submit_model_to_sge()` in `R/submit.R`, which
+#' resolves `pharos_exe_path` to an absolute path with `resolve_pharos()`.
+#' The path is written into the job script, so this function never looks
+#' pharos up itself.
 #'
-#' @param model A hyperion_nonmem_model object, path to the NONMEM model file,
-#' or character vector of model paths/patterns (required)
-#' @param overwrite Whether to overwrite existing output files (default: FALSE)
-#' @param dry_run Whether to perform a dry run without actually submitting the job (default: FALSE)
-#' @param run_in_output_dir Whether to run the job in the output directory (default: FALSE)
-#' @param ncpu Number of CPUs to allocate for the job (default: 1)
-#' @param clean_level Level of cleanup to perform after job completion (default: 1)
-#' @param parafile Path to parameter file for parallel runs (default: NULL)
-#' @param template Path to SGE template file for job submission (default: NULL)
-#' @param verbose Whether to include DEBUG logs in output log file (default: FALSE)
-#'
-#' @return Returns invisibly after printing job submission results. Prints model path and corresponding SGE job ID for each submitted job.
-#' @export
-#'
-#' @examples
-#' \dontrun{
-#' # Submit a basic NONMEM model
-#' submit_model_to_sge("model.mod")
-#'
-#' # Submit using a model object
-#' model <- read_model("model.mod")
-#' submit_model_to_sge(model)
-#'
-#' # Dry run to test submission without actually running
-#' submit_model_to_sge("model.mod", dry_run = TRUE)
-#'}
-submit_model_to_sge <- function(model, overwrite = FALSE, dry_run = FALSE, run_in_output_dir = FALSE, ncpu = 1, clean_level = 1, parafile = NULL, template = NULL, verbose = FALSE) .Call(wrap__submit_model_to_sge, model, overwrite, dry_run, run_in_output_dir, ncpu, clean_level, parafile, template, verbose)
+#' @keywords internal
+#' @noRd
+.submit_model_to_sge <- function(model, overwrite = FALSE, dry_run = FALSE, run_in_output_dir = FALSE, ncpu = 1, clean_level = 1, parafile = NULL, template = NULL, verbose = FALSE, pharos_exe_path) .Call(wrap__submit_model_to_sge, model, overwrite, dry_run, run_in_output_dir, ncpu, clean_level, parafile, template, verbose, pharos_exe_path)
 
 #' Get the cluster partition information
 #'

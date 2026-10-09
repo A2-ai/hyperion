@@ -5,6 +5,11 @@
 # a release builds or deploys, edit .github/prism.yml, run
 # `gh prism init --force`, and commit both files together.
 #
+# HAND-EDITED after generation (design/pharos-cli-bundling.md, P5): the steps
+# marked "P5 (hand-added)" check the source tarball (I5) and the Linux binary
+# packages (bundled bin/pharos, D6/I2/D10). `gh prism init --force` drops
+# them; re-add them after regenerating. The logic lives in .github/scripts/.
+#
 # gh-prism-version: v0.1.1-0.20260813184036-47acba2b668f
 # prism-config-sha256: 5a5071cc2cb5b9c705afba8bf0fc09d39be4437f849fecbf32b4b75b981ecaa9
 # =============================================================================
@@ -225,6 +230,13 @@ jobs:
               "PrismRemoteSha": "${{ github.sha }}"
             }
 
+      # P5 (hand-added): I5, the source tarball ships no binaries / inst/bin.
+      - name: Source tarball has no binaries (I5)
+        shell: bash
+        env:
+          TARBALL: ${{ steps.build-src.outputs.tarball_path }}
+        run: bash .github/scripts/check-source-tarball.sh "$TARBALL"
+
       - name: Upload source tarball to release
         uses: svenstaro/upload-release-action@v2
         with:
@@ -252,6 +264,16 @@ jobs:
           src_tarball_path: ${{ steps.build-src.outputs.tarball_path }}
           linking_to_deps: ${{ steps.build-src.outputs.linking_to_deps }}
           no_sys_deps: true
+
+      # P5 (hand-added): Linux binaries must ship bin/pharos reporting
+      # Config/PharosVersion (D6, I2, D9). macOS skips the CLI by default (D10)
+      # and is deliberately not checked.
+      - name: Binary ships bundled pharos CLI (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          BINARY: ${{ steps.build-bin.outputs.binary_path }}
+        run: bash .github/scripts/check-bundled-pharos.sh "$BINARY"
 
       - name: Upload binary to release
         uses: svenstaro/upload-release-action@v2
@@ -389,6 +411,16 @@ jobs:
           src_tarball_path: ${{ steps.src-tarball.outputs.path }}
           linking_to_deps: ${{ needs.build-primary.outputs.linking_to_deps }}
           no_sys_deps: true
+
+      # P5 (hand-added): Linux binaries must ship bin/pharos reporting
+      # Config/PharosVersion (D6, I2, D9). macOS skips the CLI by default (D10)
+      # and is deliberately not checked.
+      - name: Binary ships bundled pharos CLI (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          BINARY: ${{ steps.build-bin.outputs.binary_path }}
+        run: bash .github/scripts/check-bundled-pharos.sh "$BINARY"
 
       - name: Upload binary to release
         uses: svenstaro/upload-release-action@v2

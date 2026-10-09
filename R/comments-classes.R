@@ -314,14 +314,25 @@ ModelComments <- S7::new_class(
         },
         character(1)
       )
-      omega_keys <- omega_keys[!is.na(omega_keys)]
-      dups <- omega_keys[duplicated(omega_keys)]
+      dups <- unique(omega_keys[!is.na(omega_keys) & duplicated(omega_keys)])
       if (length(dups) > 0) {
+        duplicate_details <- vapply(
+          dups,
+          function(key) {
+            parameters <- vapply(
+              omega_comments[which(omega_keys == key)],
+              function(cmt) cmt@nonmem_name,
+              character(1)
+            )
+            sprintf("%s [%s]", key, paste(parameters, collapse = ", "))
+          },
+          character(1)
+        )
         errors <- c(
           errors,
           sprintf(
             "Duplicate name + associated_theta in omega: %s",
-            paste(unique(dups), collapse = ", ")
+            paste(duplicate_details, collapse = "; ")
           )
         )
       }

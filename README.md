@@ -40,7 +40,8 @@ library(hyperion)
 #> 
 #> 
 #> ── pharos configuration ────────────────────────────────────────────────────────
-#> ✔ pharos CLI: 0.6.0 (/data/user-homes/matthews/.local/bin/pharos)
+#> ✔ pharos CLI: 0.6.1 (PATH: /data/user-homes/matthews/.local/bin/pharos)
+#>     └ hyperion.pharos_exec_path : (unset)
 #> ✔ pharos.toml found: /tmp/RtmptxW6mE/hyperion-readme-14b9cc3467c701/pharos.toml
 #>     └ hyperion.config_dir : (unset)
 #> ── hyperion options ────────────────────────────────────────────────────────────

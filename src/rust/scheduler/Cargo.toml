@@ -9,8 +9,6 @@ extendr-api = { workspace = true }
 hyperion-nonmem = { path = "../nonmem" }
 hyperion-core = { path = "../core" }
 
-which = "8.0.0"
-
 # Pharos components
 nonmem = { workspace = true }
 scheduler = { workspace = true }

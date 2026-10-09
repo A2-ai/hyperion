@@ -112,6 +112,8 @@ reference = [
     "get_comment_type",
     "use_comments",
     "migrate_run_start_files",
+    "pharos_path",
+    "pharos_version",
   ] },
   { label = "Metadata Files", collapsed = true, contents = [
     "set_metadata_file",

@@ -17,3 +17,6 @@ lefthook.yaml
 /Meta/
 .positai
 .claude
+src/pharos
+src/pharos.exe
+src/pharos-cli-skipped

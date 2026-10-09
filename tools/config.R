@@ -73,6 +73,56 @@ cfg <- if (is_debug) "debug" else "release"
 # read in the Makevars.in file checking
 is_windows <- .Platform[["OS.type"]] == "windows"
 
+# decide whether to build the bundled pharos CLI alongside the staticlib.
+# it is only needed on Linux, and never for devtools::load_all(). DEVTOOLS_LOAD
+# is checked as well as DEBUG because pkgbuild only sets DEBUG when its debug
+# compiler flags are on. HYPERION_SKIP_PHAROS_CLI overrides the default.
+skip_values <- c("true", "1", "yes")
+build_values <- c("false", "0", "no")
+env_skip_cli <- tolower(trimws(Sys.getenv("HYPERION_SKIP_PHAROS_CLI")))
+
+if (nzchar(env_skip_cli) && !env_skip_cli %in% c(skip_values, build_values)) {
+  message(
+    "Ignoring unrecognised HYPERION_SKIP_PHAROS_CLI value `",
+    env_skip_cli,
+    "`; expected true/false."
+  )
+}
+
+skip_cli_reason <- if (env_skip_cli %in% skip_values) {
+  "HYPERION_SKIP_PHAROS_CLI is set"
+} else if (env_skip_cli %in% build_values) {
+  NULL
+} else if (!identical(Sys.info()[["sysname"]], "Linux")) {
+  "this platform is not Linux"
+} else if (is_debug) {
+  "this is a DEBUG (devtools::load_all()) build"
+} else if (Sys.getenv("DEVTOOLS_LOAD") != "") {
+  "this is a devtools::load_all() build"
+}
+skip_cli <- !is.null(skip_cli_reason)
+
+# install.libs.R uses this marker to tell a deliberate skip apart from a build
+# that failed to produce the binary. stale binaries are removed so that any
+# binary it finds in src/ came from this build.
+cli_marker <- "src/pharos-cli-skipped"
+unlink(c("src/pharos", "src/pharos.exe"))
+
+if (skip_cli) {
+  message(
+    "Skipping the bundled pharos CLI because ", skip_cli_reason, ": ",
+    "the pharos CLI is only needed for run submission on Linux clusters. ",
+    "Set HYPERION_SKIP_PHAROS_CLI=false to build it anyway."
+  )
+  writeLines(skip_cli_reason, cli_marker)
+} else {
+  message("Building the bundled pharos CLI.")
+  unlink(cli_marker)
+}
+
+# used to replace @CLI_TARGETS@
+.cli_targets <- ifelse(skip_cli, "", "--bin pharos -p hyperion-pharos-cli")
+
 # if windows we replace in the Makevars.win.in
 mv_fp <- ifelse(
   is_windows,
@@ -102,7 +152,8 @@ new_txt <- gsub("@CRAN_FLAGS@", .cran_flags, mv_txt) |>
   gsub("@CLEAN_TARGET@", .clean_targets, x = _) |>
   gsub("@LIBDIR@", .libdir, x = _) |>
   gsub("@TARGET@", .target, x = _) |>
-  gsub("@PANIC_EXPORTS@", .panic_exports, x = _)
+  gsub("@PANIC_EXPORTS@", .panic_exports, x = _) |>
+  gsub("@CLI_TARGETS@", .cli_targets, x = _)
 
 message("Writing `", mv_ofp, "`.")
 con <- file(mv_ofp, open = "wb")

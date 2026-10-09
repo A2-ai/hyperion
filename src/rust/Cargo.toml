@@ -14,7 +14,7 @@ name = 'document'
 path = 'document.rs'
 
 [workspace]
-members = ["nonmem", "scheduler", "core"]
+members = ["nonmem", "scheduler", "core", "pharos-cli"]
 
 [dependencies]
 # Internal crates
@@ -38,6 +38,7 @@ serde = { workspace = true }
 extendr-api = { version = "0.9.0", features = ["serde"] }
 
 # Pharos components
+pharos = { git = "https://github.com/a2-ai/pharos", package = "pharos", tag = "v0.6.0" }
 nonmem = { git = "https://github.com/a2-ai/pharos", package = "nonmem", tag = "v0.6.0" }
 nmparser = { git = "https://github.com/a2-ai/pharos", package = "nonmem-parser", tag = "v0.6.0" }
 config = { git = "https://github.com/a2-ai/pharos", package = "config", tag = "v0.6.0" }
@@ -52,6 +53,16 @@ toml = "0.9.7"
 
 # Testing and utilities
 tempfile = "3.23.0"
+
+# DEV ONLY: before merge, delete this [patch] section, bump all pharos
+# tags to v0.6.1, and regenerate Cargo.lock so no pharos crate is path-sourced.
+# Absolute paths so builds from a copied source tree (rv, R CMD build) still resolve.
+[patch."https://github.com/a2-ai/pharos"]
+pharos = { path = "/Users/wescummings/projects/pharos" }
+nonmem = { path = "/Users/wescummings/projects/pharos/components/nonmem" }
+nonmem-parser = { path = "/Users/wescummings/projects/pharos/components/nonmem-parser" }
+config = { path = "/Users/wescummings/projects/pharos/components/config" }
+scheduler = { path = "/Users/wescummings/projects/pharos/components/scheduler" }
 
 [profile.release]
 lto = true

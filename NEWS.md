@@ -1,3 +1,30 @@
+# hyperion (development version)
+
+## Breaking changes
+
+- Requires pharos 0.6.1 (`Config/PharosVersion`).
+- `submit_model_to_slurm()` and `submit_model_to_sge()` no longer use the first
+  `pharos` on `PATH`. They use the pharos CLI bundled with hyperion, then fall
+  back to `PATH`.
+
+## New features
+
+- On Linux, installing hyperion builds the pharos CLI from the same pinned
+  release and installs it with the package. macOS and Windows skip it by
+  default, as the CLI is only needed for submission on Linux clusters. Set
+  `HYPERION_SKIP_PHAROS_CLI=false` when installing to build it anyway, or
+  `true` to skip it on Linux.
+- `pharos_path()` returns the absolute path of the pharos CLI hyperion submits
+  with.
+- `pharos_version()` returns the version of that CLI as a `numeric_version`,
+  e.g. `pharos_version() >= "0.6.1"`.
+- New option `hyperion.pharos_exec_path` chooses the pharos CLI used for
+  submission: unset (default) for the bundled CLI then `PATH`, `"pharos"` for
+  `PATH` only, or a path to a pharos executable readable from the compute
+  nodes.
+- The startup message shows whether the pharos CLI is bundled, from `PATH` or
+  from the `hyperion.pharos_exec_path` option, and the option's value.
+
 # hyperion 0.6.0
 
 ## Breaking changes

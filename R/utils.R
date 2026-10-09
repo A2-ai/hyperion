@@ -393,36 +393,48 @@ print_data_table_knit <- function(formatted_data, title) {
   return(output)
 }
 
-#' Detect the installed pharos CLI and its version
+#' Detect the pharos CLI hyperion would submit with, and its version
 #'
-#' Locates the `pharos` executable on the user's PATH via [Sys.which()] and
-#' parses the version reported by `pharos --version`.
+#' Resolves the executable with `resolve_pharos()`, so the
+#' `hyperion.pharos_exec_path` option applies, and parses the version reported
+#' by `pharos --version`. Never errors, as the attach message uses it.
 #'
 #' @return A list with elements:
 #'   \itemize{
 #'     \item `path` — absolute path to the pharos binary, or `NA_character_` if not found
 #'     \item `version` — installed version string (e.g. `"0.4.2"`), or `NA_character_` if not found or unparseable
+#'     \item `source` — `"override"`, `"bundled"` or `"path"` (see `resolve_pharos()`), or `NA_character_` if not found
 #'   }
 #' @keywords internal
 #' @noRd
 detect_pharos <- function() {
-  path <- unname(Sys.which("pharos"))
-  if (!nzchar(path)) {
-    return(list(path = NA_character_, version = NA_character_))
+  resolved <- tryCatch(resolve_pharos(), error = function(e) NULL)
+  if (is.null(resolved)) {
+    return(list(
+      path = NA_character_,
+      version = NA_character_,
+      source = NA_character_
+    ))
   }
 
-  out <- tryCatch(
-    suppressWarnings(system2(path, "--version", stdout = TRUE, stderr = TRUE)),
-    error = function(e) NULL
+  version <- tryCatch(
+    read_pharos_version(resolved$path),
+    error = function(e) NA_character_
   )
-  if (is.null(out) || !length(out)) {
-    return(list(path = path, version = NA_character_))
+
+  list(path = resolved$path, version = version, source = resolved$source)
+}
+
+# Formats an option value for the attach message. Never errors: values that
+# toString() cannot handle (functions, environments) are shown by class.
+format_option_value <- function(x) {
+  if (identical(x, "")) {
+    return("\"\"")
   }
-
-  match <- regmatches(out[1], regexpr("[0-9]+\\.[0-9]+\\.[0-9]+", out[1]))
-  version <- if (length(match)) match else NA_character_
-
-  list(path = path, version = version)
+  tryCatch(
+    toString(x),
+    error = function(e) paste0("<", paste(class(x), collapse = "/"), ">")
+  )
 }
 
 #' Generates a tidyverse-esque onAttach message for hyperion options
@@ -507,13 +519,32 @@ hyperion_options_message <- function() {
     "\n"
   )
 
-  # Pharos CLI: absent, mismatched, or matched
-  if (is.na(pharos_cli$path)) {
+  # Pharos CLI: absent, mismatched, or matched. A PATH pharos is not pinned
+  # to this hyperion, so say where it came from.
+  pharos_source_label <- switch(
+    pharos_cli$source %||% NA_character_,
+    override = "option",
+    bundled = "bundled",
+    path = "PATH",
+    "unknown source"
+  )
+  pharos_exec_path_value <- getOption("hyperion.pharos_exec_path")
+  if (is.na(pharos_cli$path) && !is.null(pharos_exec_path_value)) {
+    # The option replaces the bundled/PATH lookup, so "not bundled, not on
+    # PATH" would point at the wrong cause. The value is on the sub-line.
     msg <- paste0(
       msg,
       cli::col_red(cli::symbol$cross),
       " ",
-      cli::col_red("pharos CLI not found on PATH"),
+      cli::col_red("pharos CLI not usable at hyperion.pharos_exec_path"),
+      "\n"
+    )
+  } else if (is.na(pharos_cli$path)) {
+    msg <- paste0(
+      msg,
+      cli::col_red(cli::symbol$cross),
+      " ",
+      cli::col_red("pharos CLI not found (not bundled with hyperion, not on PATH)"),
       "\n"
     )
   } else if (is.na(pharos_cli$version)) {
@@ -524,7 +555,9 @@ hyperion_options_message <- function() {
       cli::col_red(paste0(
         "pharos CLI found at ",
         pharos_cli$path,
-        " but version could not be determined"
+        " (",
+        pharos_source_label,
+        ") but version could not be determined"
       )),
       "\n"
     )
@@ -541,6 +574,8 @@ hyperion_options_message <- function() {
         ", expected ",
         expected_pharos,
         " (",
+        pharos_source_label,
+        ": ",
         pharos_cli$path,
         ")"
       )),
@@ -554,8 +589,29 @@ hyperion_options_message <- function() {
       "pharos CLI: ",
       pharos_cli$version,
       " (",
+      pharos_source_label,
+      ": ",
       pharos_cli$path,
       ")",
+      "\n"
+    )
+  }
+
+  # hyperion.pharos_exec_path is shown as a sub-detail of the pharos CLI line
+  # since it controls which executable is resolved. Any value can be set, so
+  # format it without erroring: library(hyperion) must not fail on a bad
+  # option. "" is quoted so it does not read as a missing value.
+  if (!is.null(pharos_exec_path_value)) {
+    msg <- paste0(
+      msg,
+      "    \u2514 hyperion.pharos_exec_path : ",
+      format_option_value(pharos_exec_path_value),
+      "\n"
+    )
+  } else {
+    msg <- paste0(
+      msg,
+      cli::style_dim("    \u2514 hyperion.pharos_exec_path : (unset)"),
       "\n"
     )
   }

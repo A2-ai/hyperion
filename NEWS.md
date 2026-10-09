@@ -16,11 +16,14 @@
   `true` to skip it on Linux.
 - `pharos_path()` returns the absolute path of the pharos CLI hyperion submits
   with.
-- `submit_model_to_slurm()`, `submit_model_to_sge()` and `pharos_path()` gain
-  `pharos_exec_path`: `NULL` (default) for the bundled CLI then `PATH`,
-  `"pharos"` for `PATH` only, or a path to a pharos executable readable from
-  the compute nodes.
-- The startup message shows whether the pharos CLI is bundled or from `PATH`.
+- `pharos_version()` returns the version of that CLI as a `numeric_version`,
+  e.g. `pharos_version() >= "0.6.1"`.
+- New option `hyperion.pharos_exec_path` chooses the pharos CLI used for
+  submission: unset (default) for the bundled CLI then `PATH`, `"pharos"` for
+  `PATH` only, or a path to a pharos executable readable from the compute
+  nodes.
+- The startup message shows whether the pharos CLI is bundled, from `PATH` or
+  from the `hyperion.pharos_exec_path` option, and the option's value.
 
 # hyperion 0.6.0
 

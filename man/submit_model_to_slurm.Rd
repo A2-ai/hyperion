@@ -15,8 +15,7 @@ submit_model_to_slurm(
   parafile = NULL,
   template = NULL,
   account = NULL,
-  verbose = FALSE,
-  pharos_exec_path = NULL
+  verbose = FALSE
 )
 }
 \arguments{
@@ -42,19 +41,6 @@ or character vector of model paths/patterns (required)}
 \item{account}{SLURM account to charge the job to (default: NULL)}
 
 \item{verbose}{Whether to include DEBUG logs in output log file (default: FALSE)}
-
-\item{pharos_exec_path}{Which pharos executable the job runs (default: NULL).
-\code{NULL} uses the pharos bundled with hyperion, then \code{pharos} on \code{PATH};
-\code{"pharos"} uses only \code{pharos} on \code{PATH}; any other value is a path to a
-pharos executable, absolute or relative to the R working directory. See
-\code{\link[=pharos_path]{pharos_path()}}.
-
-The bundled CLI is built by default on Linux only, because the pharos CLI
-is only needed for run submission on Linux clusters.
-
-The path is written into the job script, so it must be readable from the
-compute nodes. This holds for the bundled CLI when the R library is on
-shared storage.}
 }
 \value{
 Returns invisibly after printing job submission results. Prints model path and corresponding SLURM job ID for each submitted job.
@@ -63,6 +49,12 @@ Returns invisibly after printing job submission results. Prints model path and c
 This function submits a NONMEM model file to a SLURM cluster for execution,
 allowing for parallel processing and job queue management. The function handles
 job configuration, resource allocation, and job submission through pharos
+}
+\details{
+The job runs the pharos executable returned by \code{\link[=pharos_path]{pharos_path()}}: by default
+the pharos bundled with hyperion, then \code{pharos} on \code{PATH}. Set the option
+\code{hyperion.pharos_exec_path} to use a different one. The path is written into
+the job script, so it must be readable from the compute nodes.
 }
 \examples{
 \dontrun{
@@ -80,6 +72,7 @@ submit_model_to_slurm("model.mod", dry_run = TRUE)
 submit_model_to_slurm("model.mod", partition = "gpu", account = "myproject")
 
 # Use a specific pharos executable
-submit_model_to_slurm("model.mod", pharos_exec_path = "/opt/pharos/bin/pharos")
+options(hyperion.pharos_exec_path = "/opt/pharos/bin/pharos")
+submit_model_to_slurm("model.mod")
 }
 }

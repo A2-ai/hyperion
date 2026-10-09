@@ -249,3 +249,15 @@ These shipped without an earlier written resolution. Listed so this spec stays t
 | R36 | pharos logic lives in a private module `src/cli.rs`; `lib.rs` wraps it. Public API is exactly M1. M2's `Error: ` prefix changes pharos's stderr versus v0.6.0. | M1, M2 | Claude (implementer) |
 | R37 | CI checks are wider than specified: I1 also forbids `extendr-ffi`; I11/I4 also cover the transitive `utils` crate; I5 scans magic bytes and rejects `src/rust/target/` in a dedicated job; D10's artifact check also verifies `--version` and runs in R-CMD-check on Linux. | I1, I4, I5, I11, D10 | Claude (implementer) |
 | R38 | `rproject.toml` sets `HYPERION_SKIP_PHAROS_CLI = 'false'` for rv installs of this project, so dev installs build the CLI on every platform. | D10 (dev installs only) | Wes (edited outside the run) |
+
+## §3 Override moves from an argument to an option (R39–R41)
+
+Supersedes D13, R15, R20, A1 and A5, and the `pharos_exec_path` argument wherever W1/W2 mention it.
+
+| ID | Decision | Supersedes | Decided by |
+| --- | --- | --- | --- |
+| R39 | The override is the R option `hyperion.pharos_exec_path`, not a function argument. Unset (`NULL`) by default and not set in `.onLoad`, like `hyperion.config_dir`. Values mean the same as before: `"pharos"` = PATH only; any other string = a path relative to the working dir or absolute; unset = bundled, then PATH. No env-var fallback. | D13, R15, R20 | Wes |
+| R40 | `submit_model_to_slurm()` and `submit_model_to_sge()` keep exactly their baseline (ef9c2ea4) signatures, with no new argument. `pharos_path()` takes no arguments. All three, and `detect_pharos()`, resolve through W1 reading the option, so `detect_pharos()` can now report `source = "override"`. | A1, A5, W2 (argument wording) | Wes |
+| R41 | The status display shows the option as a sub-line under the pharos CLI line, in the same style as `hyperion.config_dir` (`└ hyperion.pharos_exec_path : <value>` or `(unset)`). The W1 "not found" error tells users to set the option instead of passing an argument. | A3, I10 (remedy wording) | Claude (small call) |
+| R42 | New exported `pharos_version()` (no arguments): resolves the CLI through W1 (same as `pharos_path()`), runs `--version`, and returns the version as `numeric_version` (e.g. `numeric_version("0.6.1")`). Errors with W1's message when no CLI resolves, and with a clear error when `--version` fails or prints no parseable version. `detect_pharos()` stays the never-erroring internal used by the status display. | A (new item) | Wes (asked); Claude (return type, small call) |
+| R43 | Status display: when `hyperion.pharos_exec_path` is set but unusable, the pharos CLI line says the option's value could not be used (not "not bundled, not on PATH"); an empty-string option is shown as `""`; values that can't be formatted (functions, environments) are shown by class so `library(hyperion)` never fails. `read_pharos_version()` prefers a line starting with `pharos`, then falls back to the first version-like token. `resolve_pharos()` takes no parameters. README's start-up example shows the new sub-line. | A3, R41, R42 | Claude (small calls from review) |

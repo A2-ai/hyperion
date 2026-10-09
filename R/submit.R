@@ -16,18 +16,12 @@
 #' @param template Path to SLURM template file for job submission (default: NULL)
 #' @param account SLURM account to charge the job to (default: NULL)
 #' @param verbose Whether to include DEBUG logs in output log file (default: FALSE)
-#' @param pharos_exec_path Which pharos executable the job runs (default: NULL).
-#'   `NULL` uses the pharos bundled with hyperion, then `pharos` on `PATH`;
-#'   `"pharos"` uses only `pharos` on `PATH`; any other value is a path to a
-#'   pharos executable, absolute or relative to the R working directory. See
-#'   [pharos_path()].
 #'
-#'   The bundled CLI is built by default on Linux only, because the pharos CLI
-#'   is only needed for run submission on Linux clusters.
-#'
-#'   The path is written into the job script, so it must be readable from the
-#'   compute nodes. This holds for the bundled CLI when the R library is on
-#'   shared storage.
+#' @details
+#' The job runs the pharos executable returned by [pharos_path()]: by default
+#' the pharos bundled with hyperion, then `pharos` on `PATH`. Set the option
+#' `hyperion.pharos_exec_path` to use a different one. The path is written into
+#' the job script, so it must be readable from the compute nodes.
 #'
 #' @return Returns invisibly after printing job submission results. Prints model path and corresponding SLURM job ID for each submitted job.
 #' @export
@@ -48,7 +42,8 @@
 #' submit_model_to_slurm("model.mod", partition = "gpu", account = "myproject")
 #'
 #' # Use a specific pharos executable
-#' submit_model_to_slurm("model.mod", pharos_exec_path = "/opt/pharos/bin/pharos")
+#' options(hyperion.pharos_exec_path = "/opt/pharos/bin/pharos")
+#' submit_model_to_slurm("model.mod")
 #' }
 submit_model_to_slurm <- function(
   model,
@@ -61,10 +56,9 @@ submit_model_to_slurm <- function(
   parafile = NULL,
   template = NULL,
   account = NULL,
-  verbose = FALSE,
-  pharos_exec_path = NULL
+  verbose = FALSE
 ) {
-  pharos <- resolve_pharos(pharos_exec_path)
+  pharos <- resolve_pharos()
   # By name, so a reordered Rust signature cannot shift arguments.
   .submit_model_to_slurm(
     model = model,
@@ -98,7 +92,8 @@ submit_model_to_slurm <- function(
 #' @param parafile Path to parameter file for parallel runs (default: NULL)
 #' @param template Path to SGE template file for job submission (default: NULL)
 #' @param verbose Whether to include DEBUG logs in output log file (default: FALSE)
-#' @inheritParams submit_model_to_slurm
+#'
+#' @inherit submit_model_to_slurm details
 #'
 #' @return Returns invisibly after printing job submission results. Prints model path and corresponding SGE job ID for each submitted job.
 #' @export
@@ -116,7 +111,8 @@ submit_model_to_slurm <- function(
 #' submit_model_to_sge("model.mod", dry_run = TRUE)
 #'
 #' # Use a specific pharos executable
-#' submit_model_to_sge("model.mod", pharos_exec_path = "/opt/pharos/bin/pharos")
+#' options(hyperion.pharos_exec_path = "/opt/pharos/bin/pharos")
+#' submit_model_to_sge("model.mod")
 #'}
 submit_model_to_sge <- function(
   model,
@@ -127,10 +123,9 @@ submit_model_to_sge <- function(
   clean_level = 1,
   parafile = NULL,
   template = NULL,
-  verbose = FALSE,
-  pharos_exec_path = NULL
+  verbose = FALSE
 ) {
-  pharos <- resolve_pharos(pharos_exec_path)
+  pharos <- resolve_pharos()
   # By name, so a reordered Rust signature cannot shift arguments.
   .submit_model_to_sge(
     model = model,

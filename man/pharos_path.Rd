@@ -4,22 +4,7 @@
 \alias{pharos_path}
 \title{Locate the pharos CLI used for run submission}
 \usage{
-pharos_path(pharos_exec_path = NULL)
-}
-\arguments{
-\item{pharos_exec_path}{Which pharos executable to use.
-\itemize{
-\item \code{NULL} (the default): the pharos bundled with hyperion, then \code{pharos}
-on \code{PATH}.
-\item \code{"pharos"}: only \code{pharos} on \code{PATH}.
-\item Any other string: a path to a pharos executable, absolute or relative
-to the R working directory.
-}
-
-The bundled CLI is built by default on Linux only, because the pharos CLI
-is only needed for run submission on Linux clusters. Elsewhere, pass a
-path here or reinstall hyperion with the environment variable
-\code{HYPERION_SKIP_PHAROS_CLI=false} to build it.}
+pharos_path()
 }
 \value{
 The absolute path to the pharos executable, as a single string.
@@ -32,10 +17,39 @@ scripts. On Linux, hyperion builds pharos from the same pinned release as
 the R package and installs it with the package, so the CLI always matches
 hyperion's version.
 }
+\section{Choosing a pharos executable}{
+
+Set the option \code{hyperion.pharos_exec_path} to choose which pharos
+executable is used. It is unset by default.
+\itemize{
+\item Unset (\code{NULL}, the default): the pharos bundled with hyperion, then
+\code{pharos} on \code{PATH}.
+\item \code{"pharos"}: only \code{pharos} on \code{PATH}.
+\item Any other string: a path to a pharos executable, absolute or relative
+to the R working directory when the path is resolved.
+}
+
+The bundled CLI is built by default on Linux only, because the pharos CLI
+is only needed for run submission on Linux clusters. Elsewhere, set
+\code{options(hyperion.pharos_exec_path = "path/to/pharos")} or reinstall
+hyperion with the environment variable \code{HYPERION_SKIP_PHAROS_CLI=false} to
+build it.
+
+The path is written into job scripts, so it must be readable from the
+compute nodes. This holds for the bundled CLI when the R library is on
+shared storage.
+}
+
 \examples{
 \dontrun{
 pharos_path()
-pharos_path("pharos")
-pharos_path("~/bin/pharos")
+
+# Only use pharos on PATH
+options(hyperion.pharos_exec_path = "pharos")
+pharos_path()
+
+# Use a specific pharos executable
+options(hyperion.pharos_exec_path = "~/bin/pharos")
+pharos_path()
 }
 }

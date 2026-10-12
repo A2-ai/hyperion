@@ -4,10 +4,13 @@
 \alias{scm_plan}
 \title{What running a stepwise covariate modeling (SCM) config would do}
 \usage{
-scm_plan(config, num_rounds = NULL, overwrite = FALSE)
+scm_plan(config, ..., num_rounds = NULL, overwrite = FALSE)
 }
 \arguments{
 \item{config}{path to the SCM config file (TOML), as above}
+
+\item{...}{unused; it makes every argument after \code{config} named-only, so a
+value that was meant for one of them cannot land in another by position}
 
 \item{num_rounds}{pause the SCM process after this many rounds per
 \code{\link[=scm_run]{scm_run()}}, over the config's \code{num_rounds}; \code{0} runs all rounds.

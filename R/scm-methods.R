@@ -224,6 +224,8 @@ scm_check_count <- function(value, name, min, what) {
 #' under its fits.
 #'
 #' @param config path to the SCM config file (TOML), as above
+#' @param ... unused; it makes every argument after `config` named-only, so a
+#'   value that was meant for one of them cannot land in another by position
 #' @param num_rounds pause the SCM process after this many rounds per
 #'   [scm_run()], over the config's `num_rounds`; `0` runs all rounds.
 #'   `NULL` = as the config says.
@@ -261,8 +263,10 @@ scm_check_count <- function(value, name, min, what) {
 #' scm_plan("model/nonmem/PK/scm/scm-demo/scm-demoscm.toml", overwrite = TRUE)
 #' }
 scm_plan <- function(config,
+                     ...,
                      num_rounds = NULL,
                      overwrite = FALSE) {
+  rlang::check_dots_empty()
   if (!is.character(config) || length(config) != 1L || is.na(config)) {
     rlang::abort("`config` must be a single path to an SCM config file (TOML)")
   }
@@ -435,6 +439,8 @@ scm_pharos_exe <- function() {
 #' @param x the SCM config to run: a `hyperion_scm_plan` from [scm_plan()],
 #'   a `hyperion_scm_status`, the path to the `<stem>scm.toml`, or the SCM
 #'   out_dir holding it
+#' @param ... unused; it makes every argument after `x` named-only, so a
+#'   value that was meant for one of them cannot land in another by position
 #' @param driver where the SCM driver runs: `"slurm"` (its own Slurm job) or
 #'   `"login"` (this machine, in the background)
 #' @param num_rounds pause the SCM process after this many rounds, over the
@@ -471,6 +477,7 @@ scm_pharos_exe <- function() {
 #' scm_run("model/nonmem/scm/1001/1001scm.toml", driver = "login")
 #' }
 scm_run <- function(x,
+                    ...,
                     driver = c("slurm", "login"),
                     num_rounds = NULL,
                     partition = NULL,
@@ -479,6 +486,7 @@ scm_run <- function(x,
                     max_concurrent = NULL,
                     shared_node = FALSE,
                     overwrite = FALSE) {
+  rlang::check_dots_empty()
   if (!(inherits(x, "hyperion_scm_plan") || inherits(x, "hyperion_scm_status") ||
         (is.character(x) && length(x) == 1L && !is.na(x)))) {
     rlang::abort(
@@ -1025,9 +1033,9 @@ print.hyperion_scm_plan <- function(x, ...) {
       cli::cli_text("{.strong {label}:} {lines[[label]]}")
     }
 
-    cli::cli_h2("Changes from the plan the SCM process runs under")
+    cli::cli_h2("Changes from the config the SCM process was submitted under")
     if (!length(ctx$changes)) {
-      cli::cli_text("none - identical to the plan the SCM process runs under")
+      cli::cli_text("none - identical to the config the SCM process was submitted under")
     } else {
       cli::cli_ul(vapply(ctx$changes, scm_change_line, character(1)))
     }
@@ -1142,10 +1150,10 @@ knit_print.hyperion_scm_plan <- function(x, ...) {
       "",
       paste0("- **", names(lines), ":** ", unname(lines)),
       "",
-      "#### Changes from the plan the SCM process runs under",
+      "#### Changes from the config the SCM process was submitted under",
       "",
       if (!length(ctx$changes)) {
-        "none - identical to the plan the SCM process runs under"
+        "none - identical to the config the SCM process was submitted under"
       } else {
         paste0("- ", vapply(ctx$changes, scm_change_line, character(1)))
       },

@@ -304,6 +304,9 @@ test_that("scm_plan validates its inputs", {
   expect_error(scm_plan(cfg, num_rounds = -1), "num_rounds")
   expect_error(scm_plan(cfg, num_rounds = 1.5), "num_rounds")
   expect_error(scm_plan(cfg, overwrite = NA), "overwrite")
+  # ... and named-only after config: a positional value is refused as such
+  err <- expect_error(scm_plan(cfg, 2), "must be empty")
+  expect_no_match(conditionMessage(err), "num_rounds", fixed = TRUE)
   # an initial estimate equal to the held-out value tests nothing: pharos refuses
   cfg <- write_scm_config(
     dir,
@@ -1211,7 +1214,7 @@ test_that("re-planning without a never-selected candidate keeps the SCM process"
   expect_match(txt, "progress: completed -- 1 round complete", fixed = TRUE)
   expect_match(txt, "selected: WT_CL", fixed = TRUE)
   expect_match(txt, "final model: final/1001_scm_final.mod", fixed = TRUE)
-  expect_match(txt, "Changes from the plan the SCM process runs under")
+  expect_match(txt, "Changes from the config the SCM process was submitted under")
   expect_match(txt, "candidates: WT_V removed THETA(6)", fixed = TRUE)
   expect_no_match(txt, "(SCM-defining)", fixed = TRUE)
   expect_no_match(txt, "refused right now", fixed = TRUE)
@@ -1298,9 +1301,9 @@ test_that("re-planning the same SCM process reports no changes", {
   expect_true(attr(replan, "resumable"))
 
   txt <- cli_text_of(print(replan))
-  expect_match(txt, "none - identical to the plan the SCM process runs under", fixed = TRUE)
+  expect_match(txt, "none - identical to the config the SCM process was submitted under", fixed = TRUE)
   expect_match(as.character(knitr::knit_print(replan)),
-               "none - identical to the plan the SCM process runs under", fixed = TRUE)
+               "none - identical to the config the SCM process was submitted under", fixed = TRUE)
 
   # with no process started there is nothing to compare the plan with, so
   # nothing is said about changes either way
@@ -1592,6 +1595,15 @@ test_that("scm_run validates max_concurrent", {
   expect_error(scm_run(plan, num_rounds = -1), "num_rounds")
   expect_error(scm_run(plan, num_rounds = 1.5), "num_rounds")
   expect_error(scm_run(plan, num_rounds = NA), "num_rounds")
+
+  # everything after x is named-only: a stray positional value (here a
+  # quoted "name = value") is refused as such, not validated as whichever
+  # argument comes next in the signature
+  err <- expect_error(scm_run(plan, "max_concurrent = 4"), "must be empty")
+  expect_match(conditionMessage(err), "max_concurrent = 4", fixed = TRUE)
+  expect_no_match(conditionMessage(err), "num_rounds", fixed = TRUE)
+  expect_error(scm_run(plan, 2), "must be empty")
+  expect_error(scm_run(plan, driver = "login", 2), "must be empty")
 })
 
 test_that("scm_run validates the driver and slurm arguments", {
@@ -1614,8 +1626,10 @@ test_that("scm_run validates the driver and slurm arguments", {
     "driver_partition"
   )
 
-  # `slurm = FALSE` (a local run) no longer exists in pharos
-  expect_error(scm_run(plan, slurm = FALSE), "unused argument")
+  # `slurm = FALSE` (a local run) no longer exists in pharos: an unknown
+  # named argument is refused by name
+  err <- expect_error(scm_run(plan, slurm = FALSE), "must be empty")
+  expect_match(conditionMessage(err), "slurm = FALSE", fixed = TRUE)
 })
 
 # A stand-in for the pharos executable: a shell script that prints `output`

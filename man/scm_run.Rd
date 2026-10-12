@@ -6,6 +6,7 @@
 \usage{
 scm_run(
   x,
+  ...,
   driver = c("slurm", "login"),
   num_rounds = NULL,
   partition = NULL,
@@ -20,6 +21,9 @@ scm_run(
 \item{x}{the SCM config to run: a \code{hyperion_scm_plan} from \code{\link[=scm_plan]{scm_plan()}},
 a \code{hyperion_scm_status}, the path to the \verb{<stem>scm.toml}, or the SCM
 out_dir holding it}
+
+\item{...}{unused; it makes every argument after \code{x} named-only, so a
+value that was meant for one of them cannot land in another by position}
 
 \item{driver}{where the SCM driver runs: \code{"slurm"} (its own Slurm job) or
 \code{"login"} (this machine, in the background)}

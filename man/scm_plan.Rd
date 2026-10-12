@@ -2,7 +2,7 @@
 % Please edit documentation in R/scm-methods.R
 \name{scm_plan}
 \alias{scm_plan}
-\title{Plan a stepwise covariate modeling (SCM) process}
+\title{What running a stepwise covariate modeling (SCM) config would do}
 \usage{
 scm_plan(config, num_rounds = NULL, overwrite = FALSE)
 }
@@ -10,33 +10,42 @@ scm_plan(config, num_rounds = NULL, overwrite = FALSE)
 \item{config}{path to the SCM config file (TOML), as above}
 
 \item{num_rounds}{pause the SCM process after this many rounds per
-\code{\link[=scm_run]{scm_run()}} invocation; the SCM process is resumable. \code{NULL} = no cap.}
+\code{\link[=scm_run]{scm_run()}}, over the config's \code{num_rounds}; \code{0} runs all rounds.
+\code{NULL} = as the config says.}
 
-\item{overwrite}{discard the SCM process already in \code{out_dir} and start
-fresh under this plan. Re-running the same plan, or one the process can
-resume under, needs no overwrite.}
+\item{overwrite}{preview a run with \code{overwrite = TRUE}: the SCM process
+already in \code{out_dir} is discarded when the driver starts, so the plan
+is shown against an empty out_dir and the \code{discards} attribute says
+what goes. Nothing is discarded here.}
 }
 \value{
-A \code{hyperion_scm_plan} object; \code{pharos_scm_plan.json} is already on disk in
-the output directory (its path is the \code{plan_path} attribute). Run it with
-\code{\link[=scm_run]{scm_run()}}. When the out_dir already holds an SCM process, printing the plan
-also says where that SCM process got to and what this plan changed about the
-plan it replaced (the \code{context} attribute); what \code{overwrite} discarded is
-the \code{discarded} attribute.
+A \code{hyperion_scm_plan} object, with the config it was built from
+as its \code{config} attribute and the directory the SCM process runs in as
+\code{out_dir}. Run it with \code{\link[=scm_run]{scm_run()}}. When the out_dir already holds an
+SCM process, printing the plan also says where that process got to and
+what this plan changes about the plan it runs under (the \code{context}
+attribute), and whether it resumes under this plan (\code{resumable}). Why
+\code{\link[=scm_run]{scm_run()}} would be refused right now, if it would be, is the
+\code{refusals} attribute (a character vector, empty otherwise); what
+\code{overwrite} would discard is \code{discards}; NM-TRAN's verdict on the
+initial model is \code{nmtran}.
 }
 \description{
-Reads the SCM process setup from an SCM config file (TOML) — the one
-\code{\link[=scm_init]{scm_init()}} wrote — validates the covariate candidates against the
-user-authored initial model it names, returns the plan as a
-\code{hyperion_scm_plan} object, and writes it to \verb{<out_dir>/pharos_scm_plan.json} —
-\code{\link[=scm_run]{scm_run()}} and \verb{pharos nonmem scm submit} execute. Nothing is fitted. The initial model
+The dry run. Reads the SCM config file (TOML) — the one \code{\link[=scm_init]{scm_init()}}
+wrote — resolves it to the plan \code{\link[=scm_run]{scm_run()}} would run: validates the
+covariate candidates against the user-authored initial model it names,
+reads where the SCM process already in the out_dir stands and whether it
+resumes under this plan, and asks NM-TRAN about the initial model. Writes
+nothing, runs nothing, and is never a required step: \code{\link[=scm_run]{scm_run()}} does all
+of this screening itself. The initial model
 names a theta for each candidate effect in its \verb{$THETA} records; the
 \verb{[covariates]} section names the ones to test, and every model generated
 holds the rest out by fixing their thetas at their \code{fixed} value.
 }
 \details{
 The config file defines the SCM process; the \code{scm_plan()} call carries only
-per-invocation control (\code{num_rounds}, and \code{overwrite} to start over):
+the run control \code{\link[=scm_run]{scm_run()}} takes (\code{num_rounds} and \code{overwrite}), so it
+reports what that run would do:
 
 \if{html}{\out{<div class="sourceCode toml">}}\preformatted{model = "../../scm-demo.mod"
 direction = ["forward", "backward"]
@@ -45,6 +54,7 @@ direction = ["forward", "backward"]
 forward_alpha = 0.05
 backward_alpha = 0.001
 max_retries = 3
+num_rounds = 0          # 0 runs all rounds; N pauses after N rounds per run
 cov_step = false
 forward_final_cov_step = true
 final_cov_step = true
@@ -69,9 +79,12 @@ phase's model the moment forward selection ends; it only applies when both
 phases run, and when \code{cov_step} is on the forward model has already run
 the step and is used as it is. Backward elimination that drops nothing
 leaves the forward model as the final model, and that fit of it
-is copied into \verb{final/} rather than fitted again. Neither \code{num_rounds} nor
-\code{forward_final_cov_step} is SCM-defining: an SCM process resumes across a
-change to either.
+is copied into \verb{final/} rather than fitted again. \code{num_rounds} is the one
+run-control setting the config holds: \code{0} (the default) runs all rounds,
+\code{N} pauses the SCM process after N rounds per run; the \code{num_rounds}
+argument of \code{\link[=scm_run]{scm_run()}} (and of this function) overrides it for one run.
+Neither \code{num_rounds} nor \code{forward_final_cov_step} is SCM-defining: an SCM
+process resumes across a change to either.
 
 Relative paths in the config resolve against the config file's own
 directory. The config lives in the SCM process's own directory,
@@ -115,35 +128,38 @@ leaves every candidate exactly as the initial model authored it. A held-out
 effect is written \verb{(fixed FIX)} and needs no bounds; \code{initial} must sit
 strictly inside them, which the plan checks.
 
-Re-planning without a candidate that has never won a round is not a new
-SCM process: \code{\link[=scm_run]{scm_run()}} carries on without it, keeping every round already
-fitted. Neither is a new \code{initial} or new bounds on a candidate — the
-usual fix when a candidate fails on either. Re-plan with the edited config
-and \code{\link[=scm_run]{scm_run()}} picks up where it left off: the new values apply to every
-model written from then on, and a candidate still in the open round is
-refitted under them (its earlier attempts kept on record and on disk, but
-never scored). Rounds already concluded keep the results they ran under.
-Removing a candidate that has won a round, adding one, or changing any
-other SCM-defining setting is a different SCM process: the plan is not
-written and \code{scm_plan()} errors, saying why, until re-planned with
-\code{overwrite = TRUE} — which discards the SCM process in the out_dir (its
-fits, state and summaries; the config, \code{pharos_scm_plan.json} and anything else in
-the directory stay) once the new plan has validated. It is refused while
-that process's driver is still running (see \code{\link[=scm_status]{scm_status()}}), so a running
-SCM process is never pulled out from under its fits.
+An SCM process that has started runs under the plan its config resolved
+to when it was last run, recorded in \code{scm_state.json}; readers take the
+process from there, never from the config, which may have been edited
+since. Running an edited config without a candidate that has never won a
+round is not a new SCM process: \code{\link[=scm_run]{scm_run()}} carries on without it, keeping
+every round already fitted. Neither is a new \code{initial} or new bounds on a
+candidate — the usual fix when a candidate fails on either. Run the edited
+config and the SCM process picks up where it left off: the new values
+apply to every model written from then on, and a candidate still in the
+open round is refitted under them (its earlier attempts kept on record
+and on disk, but never scored). Rounds already concluded keep the results
+they ran under. Removing a candidate that has won a round, adding one, or
+changing any other SCM-defining setting is a different SCM process: a run
+is refused, saying why — which \code{scm_plan()} reports ahead of time in the
+plan's \code{refusals} — until run with \code{overwrite = TRUE}, which discards the
+SCM process in the out_dir (its fits, state and summaries; the config and
+anything else in the directory stay) as the driver starts. That is
+refused while the process's driver is still running (see \code{\link[=scm_status]{scm_status()}}
+and \code{\link[=scm_stop]{scm_stop()}}), so a running SCM process is never pulled out from
+under its fits.
 }
 \examples{
 \dontrun{
 plan <- scm_plan("model/nonmem/PK/scm/scm-demo/scm-demoscm.toml")
-
-# pause after 2 rounds, so the SCM process can be looked at as it goes
-plan <- scm_plan("model/nonmem/PK/scm/scm-demo/scm-demoscm.toml",
-                 num_rounds = 2)
 plan
-scm_run(plan)
 
-# start over under a changed config, discarding the fits so far
-plan <- scm_plan("model/nonmem/PK/scm/scm-demo/scm-demoscm.toml",
-                 overwrite = TRUE)
+# what pausing after 2 rounds would look like, so the SCM process can be
+# looked at as it goes
+scm_plan("model/nonmem/PK/scm/scm-demo/scm-demoscm.toml", num_rounds = 2)
+scm_run("model/nonmem/PK/scm/scm-demo/scm-demoscm.toml", num_rounds = 2)
+
+# what starting over under a changed config would discard
+scm_plan("model/nonmem/PK/scm/scm-demo/scm-demoscm.toml", overwrite = TRUE)
 }
 }

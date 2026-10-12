@@ -7,8 +7,8 @@
 scm_status(x)
 }
 \arguments{
-\item{x}{a \code{hyperion_scm_plan}, an SCM output directory, or a pharos_scm_plan.json
-path}
+\item{x}{a \code{hyperion_scm_plan}, an SCM output directory, or its
+\verb{<stem>scm.toml}}
 }
 \value{
 a \code{hyperion_scm_status} object: the summary record (see
@@ -23,15 +23,17 @@ candidate per round
 Where the SCM process stands, as its driver's terminal would show it now:
 the process facts (status, phase, what is running, the forward and final
 models once fitted), the driver — running, exited, or gone while the
-process still says it is running, in which case re-running the plan
-resumes it — then each decided round's decision line and the round at a
-glance (every candidate best first, with its OFV, ΔOFV, p and what became
-of it), and the open round fit by fit: fitted, unusable, running (its
-Slurm job, for how long, and the latest iteration and OFV read off its
-\code{.ext} file), queued or pending. Read off disk now, wherever the process
-stands (planned, running, paused, completed, or failed): fits that
-finished since the driver last wrote its state are picked up and scored
-the same way the driver will.
+process still says it is running, in which case running the config
+again resumes it — then each decided round's decision line and the round
+at a glance (every candidate best first, with its OFV, ΔOFV, p and what
+became of it), and the open round fit by fit: fitted, unusable, running
+(its Slurm job, for how long, and the latest iteration and OFV read off
+its \code{.ext} file), queued or pending. Read off disk now, wherever the
+process stands (planned, running, paused, completed, or failed): fits
+that finished since the driver last wrote its state are picked up and
+scored the same way the driver will. A process that has started is read
+under the plan its \code{scm_state.json} records; one that has not yet is
+read under what the config in the out_dir resolves to now.
 }
 \examples{
 \dontrun{

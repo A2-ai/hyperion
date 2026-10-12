@@ -18,11 +18,13 @@ invisible copy of x
 The canonical, complete display of a plan — candidates, alphas, retry
 policy, and the worst-case size. A plan built over an out_dir that
 already holds an SCM process says so too: how far it got, which
-covariates it has selected, and what this plan changed about the plan it
-replaced — a sketch, where \code{\link[=scm_status]{scm_status()}} and \code{\link[=scm_summary]{scm_summary()}} are the
-detailed views. There is deliberately no
-\code{summary()} for a plan: a plan is a static declaration with nothing to
-compute beyond what printing shows. (\code{summary()} on a \emph{status} is
-different — it returns the record as a data.frame; see
+covariates it has selected, and what this plan changes about the plan
+that process runs under — a sketch, where \code{\link[=scm_status]{scm_status()}} and
+\code{\link[=scm_summary]{scm_summary()}} are the detailed views. Then what a run would do: what
+\code{overwrite} discards, NM-TRAN's verdict on the initial model, and why
+\code{\link[=scm_run]{scm_run()}} would be refused right now, if it would be. There is
+deliberately no \code{summary()} for a plan: a plan is a static declaration
+with nothing to compute beyond what printing shows. (\code{summary()} on a
+\emph{status} is different — it returns the record as a data.frame; see
 \code{\link[=summary.hyperion_scm_status]{summary.hyperion_scm_status()}}.)
 }

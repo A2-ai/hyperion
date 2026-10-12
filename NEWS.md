@@ -3,28 +3,54 @@
 ## New features
 
 - Stepwise covariate modeling (SCM), driven by pharos: `scm_init()` writes
-  the starter config beside a model, `scm_plan()` validates it and writes
-  `pharos_scm_plan.json`, `scm_run()` hands the plan to the pharos CLI (the driver as
-  its own Slurm job, or on the login node in the background; one Slurm job
-  per fit, or every fit on one shared node), `scm_status()` shows where the
-  process stands, and `scm_summary()` renders the record of every round.
-  `summary()` on a status and `as.data.frame()` on a summary give one row per
-  candidate per round; every object has `print()` and `knit_print()` methods.
+  the starter config into the SCM directory it creates beside a model,
+  `scm_run()` hands that config to the pharos CLI (the driver as its own
+  Slurm job, or on the login node in the background; one Slurm job per fit,
+  or every fit on one shared node), `scm_plan()` is the dry run — what a run
+  of the config would do, without doing it — `scm_stop()` stops the driver,
+  `scm_status()` shows where the process stands, and `scm_summary()` renders
+  the record of every round. `summary()` on a status and `as.data.frame()`
+  on a summary give one row per candidate per round; every object has
+  `print()` and `knit_print()` methods.
+- The plan is not a file: pharos records the plan an SCM process runs under
+  in its `scm_state.json` when the driver starts, and every reader
+  (`scm_status()`, `scm_summary()`, a re-plan's diff) takes the process from
+  there rather than from the config, which may have been edited since.
+  `scm_plan()` writes nothing and is never a required step; `scm_run()` does
+  the screening itself (validation, whether the process in the out_dir
+  resumes under this plan, NM-TRAN on the initial model, the `.gitignore`).
+  A `hyperion_scm_plan` carries the config it was built from as its
+  `config` attribute, the out_dir as `out_dir`, whether the process resumes
+  under it as `resumable`, why `scm_run()` would be refused right now as
+  `refusals`, what `overwrite = TRUE` would discard as `discards`, and
+  NM-TRAN's verdict as `nmtran`; printing shows all of it.
+- `scm_run()` takes the config — a plan, a status, the `<stem>scm.toml` or
+  its out_dir — and `num_rounds`, the one run-control setting the config
+  also holds (`num_rounds = 0`, the default, runs all rounds; `N` pauses
+  after N rounds per run, and the argument overrides the config for one
+  run). `scm_run(overwrite = TRUE)` discards the SCM process in the out_dir
+  as the driver starts, and is refused while that process's driver is alive.
+- `scm_stop()` stops the driver wherever it runs (`scancel` of its Slurm
+  job, SIGTERM of the login-node process): the process pauses, and running
+  its config again resumes it. `fits = TRUE` also cancels the fits still in
+  the Slurm queue; a shared-node allocation a gone driver left held is
+  released.
 - `scm_status()` shows the process as the driver's terminal does: the driver
   (from `scm_driver.json`: running, exited, or gone while the process still
   says it is running), each decided round's decision and table, and the
   open round fit by fit with its Slurm job and latest iteration. The driver
   record is the status's `driver` attribute.
-- `scm_plan()` refuses, with the reasons, a plan the SCM process already in
-  the out_dir cannot resume under; `overwrite = TRUE` discards that process
-  once the new plan has validated, and is refused while its driver is alive.
+- `scm_plan()` reports, with the reasons, that a run would be refused when
+  the SCM process already in the out_dir cannot resume under the plan;
+  `overwrite = TRUE` previews a run that discards that process, saying what
+  goes.
 - `scm_run(driver = "login")` reports pharos refusing to start a second
   driver for the same SCM process instead of leaving it in the log.
 - The SCM config gains `forward_final_cov_step`: re-fit the forward phase's
   model with `$COVARIANCE` on. The plan says what becomes of the forward
   model.
-- `scm_init()` and `scm_plan()` write the out_dir's `.gitignore` from the
-  project's `[nonmem.scm] track_in_git`.
+- `scm_init()` and every `scm_run()` write the out_dir's `.gitignore` from
+  the project's `[nonmem.scm] track_in_git`.
 - `copy_model()` gains `allow_partial` to update from the last iteration of
   a run that never reached final estimates.
 

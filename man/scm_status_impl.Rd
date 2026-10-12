@@ -7,12 +7,13 @@
 scm_status_impl(path)
 }
 \arguments{
-\item{path}{the SCM out_dir, or its pharos_scm_plan.json}
+\item{path}{the SCM out_dir, or its \verb{<stem>scm.toml}}
 }
 \value{
 a \code{hyperion_scm_status} object: the summary record, with the
 text \verb{pharos nonmem scm status} prints as its \code{rendered} attribute, the
-out_dir it was read from as \code{out_dir}, whether the SCM process has
+out_dir it was read from as \code{out_dir}, the config in that out_dir as
+\code{config} (\code{NULL} when it holds none), whether the SCM process has
 started as \code{started}, and the driver record (\code{scm_driver.json}, with
 its liveness) as \code{driver} — \code{NULL} before a driver was ever started
 }

@@ -84,16 +84,20 @@ write_scm_fixture <- function(dir, template = scm_template,
 # The SCM config file (TOML) defines the SCM process; `covariates` is the
 # `effects` array of the [covariates] section and `direction` a TOML
 # fragment, so tests can exercise both spellings and bad input. `extra` goes
-# above the section (top-level keys); `section` inside it.
+# above the section (top-level keys); `section` inside it. It is written
+# where `scm_init()` puts it -- in the SCM out_dir, `scm/1001` beside the
+# model -- because that is where every reader looks for it.
 write_scm_config <- function(dir,
                              covariates = '["WT_CL", "CRCL_CL", "WT_V"]',
                              direction = '["forward", "backward"]',
                              extra = character(),
                              section = character()) {
-  config_path <- file.path(dir, "scm.toml")
+  out_dir <- file.path(dir, "scm", "1001")
+  dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
+  config_path <- file.path(out_dir, "1001scm.toml")
   writeLines(
     c(
-      'model = "1001.mod"',
+      'model = "../../1001.mod"',
       paste0("direction = ", direction),
       extra,
       "[covariates]",
@@ -117,9 +121,9 @@ no_cov_step_warning <- function(expr) {
   })
 }
 
-# A plan writes its paths relative to the pharos project root, so the
-# out_dir on disk is the directory its pharos_scm_plan.json landed in.
-scm_dir <- function(plan) dirname(attr(plan, "plan_path"))
+# A plan writes its paths relative to the pharos project root; where the
+# out_dir is on disk is the plan's `out_dir` attribute.
+scm_dir <- function(plan) attr(plan, "out_dir")
 
 make_plan <- function(dir, ...) {
   write_scm_fixture(dir)
@@ -151,7 +155,7 @@ test_that("scm_init writes the config into the SCM process dir it makes", {
   # every optional setting is present at its default
   # the per-type initial estimates are a table each, not one flat default
   for (default in c("forward_alpha = 0.05", "backward_alpha = 0.001",
-                    "max_retries = 3", "cov_step = false",
+                    "max_retries = 3", "num_rounds = 0", "cov_step = false",
                     "forward_final_cov_step = true", "final_cov_step = true",
                     "fixed = 0",
                     "continuous  = { initial = 0.1 }",
@@ -163,8 +167,10 @@ test_that("scm_init writes the config into the SCM process dir it makes", {
   # track_in_git`: milestones unless pharos.toml says otherwise
   gitignore <- readLines(file.path(setup$out_dir, ".gitignore"))
   expect_match(gitignore[1], 'track_in_git = "milestones"', fixed = TRUE)
-  expect_true(all(c("/*", "!/1001scm.toml", "!/pharos_scm_plan.json", "!/final/",
+  expect_true(all(c("/*", "!/1001scm.toml", "!/final/",
                     "!/base/", "!/forward_final/") %in% gitignore))
+  # the plan is not a file of its own any more, so nothing tracks one
+  expect_false("!/pharos_scm_plan.json" %in% gitignore)
   expect_false("!/forward_round1/" %in% gitignore)
 })
 
@@ -186,14 +192,14 @@ test_that("the config scm_init writes only needs its covariates filled in", {
     vapply(plan$candidates, function(c) c$name, character(1)),
     c("WT_CL", "CRCL_CL")
   )
-  # the plan lands in the directory scm_init already created; pharos_scm_plan.json
-  # writes its paths relative to the pharos project root, so the pharos_scm_plan.json
-  # on disk is what locates it
+  # the plan writes its paths relative to the pharos project root; the
+  # directory scm_init created is where it says the process runs
   expect_equal(plan$out_dir, "scm/1001")
-  expect_equal(
-    normalizePath(dirname(attr(plan, "plan_path"))),
-    normalizePath(setup$out_dir)
-  )
+  expect_equal(normalizePath(attr(plan, "out_dir")), normalizePath(setup$out_dir))
+  expect_equal(normalizePath(attr(plan, "config")), normalizePath(setup$config))
+  # the plan is a dry run: nothing lands in the out_dir
+  expect_equal(list.files(setup$out_dir, all.files = TRUE, no.. = TRUE),
+               c(".gitignore", "1001scm.toml"))
 })
 
 test_that("scm_init validates its inputs and never clobbers a filled-in config", {
@@ -246,9 +252,14 @@ test_that("scm_plan names candidates from their $THETA names and carries default
   expect_true(plan$options$final_cov_step)
   expect_true(plan$options$forward_final_cov_step)
   expect_equal(plan$out_dir, "scm/1001")
-  expect_match(attr(plan, "plan_path"), "scm/1001/pharos_scm_plan.json$")
-  # nothing was discarded: a fresh out_dir
-  expect_null(attr(plan, "discarded"))
+  expect_match(attr(plan, "config"), "scm/1001/1001scm.toml$")
+  expect_equal(normalizePath(attr(plan, "out_dir")), normalizePath(file.path(dir, "scm", "1001")))
+  # a fresh out_dir: nothing for overwrite to discard, nothing in the way of
+  # a run, and no NM-TRAN on this machine to check the model with
+  expect_null(attr(plan, "discards"))
+  expect_true(attr(plan, "resumable"))
+  expect_length(attr(plan, "refusals"), 0)
+  expect_match(attr(plan, "nmtran"), "not checked")
 })
 
 test_that("scm_plan validates its inputs", {
@@ -284,8 +295,9 @@ test_that("scm_plan validates its inputs", {
 
   # call-site run-control validation is R-side, before pharos is reached
   cfg <- write_scm_config(dir)
-  expect_error(scm_plan(cfg, num_rounds = 0), "num_rounds")
+  expect_error(scm_plan(cfg, num_rounds = -1), "num_rounds")
   expect_error(scm_plan(cfg, num_rounds = 1.5), "num_rounds")
+  expect_error(scm_plan(cfg, overwrite = NA), "overwrite")
   # an initial estimate equal to the held-out value tests nothing: pharos refuses
   cfg <- write_scm_config(
     dir,
@@ -631,26 +643,37 @@ test_that("the config sets the SCM process; the call-site knobs only pace it", {
   expect_false(plan$options$cov_step)
   expect_equal(plan$candidates[[1]]$initial, 0.2)
   expect_equal(plan$options$forward_alpha, 0.01)
+
+  # the config can pace the process itself; the argument wins over it, and 0
+  # means all rounds from either
+  paced <- write_scm_config(dir, extra = "num_rounds = 1")
+  expect_equal(as.integer(suppressWarnings(scm_plan(paced))$options$num_rounds), 1L)
+  expect_equal(as.integer(suppressWarnings(scm_plan(paced, num_rounds = 3))$options$num_rounds), 3L)
+  expect_null(suppressWarnings(scm_plan(paced, num_rounds = 0))$options$num_rounds)
+  expect_null(suppressWarnings(scm_plan(write_scm_config(dir, extra = "num_rounds = 0")))$options$num_rounds)
 })
 
-test_that("scm_plan writes pharos_scm_plan.json that scm_status reads back", {
+test_that("scm_plan writes nothing; scm_status reads an unstarted process from its config", {
   dir <- withr::local_tempdir()
-  plan <- make_plan(dir)
+  expect_message(plan <- make_plan(dir), "nothing written")
+  out_dir <- scm_dir(plan)
 
-  path <- attr(plan, "plan_path")
-  expect_true(file.exists(path))
-  expect_equal(basename(path), "pharos_scm_plan.json")
-  expect_equal(normalizePath(dirname(path)), normalizePath(scm_dir(plan)))
+  # the dry run leaves the out_dir as it found it: the config, nothing else
+  expect_equal(list.files(out_dir, all.files = TRUE, no.. = TRUE), "1001scm.toml")
 
+  # a process that has not started is read under what its config resolves
+  # to now
   st <- scm_status(plan)
   expect_s3_class(st, "hyperion_scm_status")
   expect_equal(st$status, "planned")
   expect_length(st$rounds, 0)
   expect_false(attr(st, "started"))
+  expect_equal(normalizePath(attr(st, "config")), normalizePath(attr(plan, "config")))
   # no driver was ever started for it
   expect_null(attr(st, "driver"))
   expect_match(paste(capture.output(print(st)), collapse = "\n"),
-               "note       : plan written; the SCM process has not started", fixed = TRUE)
+               "note       : the SCM process has not started; submit its config to start it",
+               fixed = TRUE)
 })
 
 test_that("plan and status display methods run", {
@@ -676,11 +699,47 @@ test_that("plan and status display methods run", {
   expect_s3_class(knit_st, "knit_asis")
 })
 
+# The plan as pharos records it in scm_state.json when the process starts:
+# a fabricated state carries the plan it ran under, which is what every
+# reader (and a re-plan's diff) takes the process from.
+plan_json <- function(plan) {
+  bool <- function(v) if (isTRUE(v)) "true" else "false"
+  num <- function(v) if (is.null(v)) "null" else format(as.numeric(v))
+  candidates <- vapply(plan$candidates, function(c) {
+    bounds <- c(
+      if (!is.null(c$lower)) sprintf(', "lower": %s', num(c$lower)),
+      if (!is.null(c$upper)) sprintf(', "upper": %s', num(c$upper))
+    )
+    sprintf(
+      '{"name": "%s", "theta": %d, "kind": "%s", "initial": %s, "fixed": %s%s}',
+      c$name, as.integer(c$theta), unlist(c$kind), num(c$initial), num(c$fixed),
+      paste(bounds, collapse = "")
+    )
+  }, character(1))
+  o <- plan$options
+  sprintf(
+    '{"created": "%s", "pharos_version": "%s", "model": "%s", "out_dir": "%s",
+     "candidates": [%s],
+     "options": {"direction": [%s], "forward_alpha": %s, "backward_alpha": %s,
+                 "num_rounds": %s, "max_retries": %d, "cov_step": %s,
+                 "final_cov_step": %s, "forward_final_cov_step": %s}}',
+    plan$created, plan$pharos_version, plan$model, plan$out_dir,
+    paste(candidates, collapse = ", "),
+    paste0('"', unlist(o$direction), '"', collapse = ", "),
+    num(o$forward_alpha), num(o$backward_alpha),
+    if (is.null(o$num_rounds)) "null" else as.integer(o$num_rounds),
+    as.integer(o$max_retries), bool(o$cov_step), bool(o$final_cov_step),
+    bool(o$forward_final_cov_step %||% TRUE)
+  )
+}
+
 # A fabricated completed SCM process (matching the pharos state schema) so the
-# status / decision-log paths can be tested without NONMEM.
-fabricate_completed_state <- function(out_dir, digest = "test-digest") {
+# status / decision-log paths can be tested without NONMEM. It ran under
+# `plan`.
+fabricate_completed_state <- function(out_dir, plan) {
   state <- sprintf(
     '{
+  "plan": %s,
   "plan_digest": "%s",
   "roster": [
     {"name": "WT_CL", "theta": 4, "kind": "continuous", "initial": 0.1, "fixed": 0.0},
@@ -788,17 +847,19 @@ fabricate_completed_state <- function(out_dir, digest = "test-digest") {
   "had_unusable": true,
   "updated": "2026-08-19T12:00:00+00:00"
 }',
-    digest
+    plan_json(plan),
+    attr(plan, "plan_digest")
   )
   writeLines(state, file.path(out_dir, "scm_state.json"))
 }
 
 # A fabricated SCM process stopped part way through its second forward
 # round, so a retune can be shown landing on a candidate the open round is
-# still testing.
-fabricate_mid_round_state <- function(out_dir, digest = "test-digest") {
+# still testing. It ran under `plan`.
+fabricate_mid_round_state <- function(out_dir, plan) {
   state <- sprintf(
     '{
+  "plan": %s,
   "plan_digest": "%s",
   "roster": [
     {"name": "WT_CL", "theta": 4, "kind": "continuous", "initial": 0.1, "fixed": 0.0},
@@ -942,7 +1003,8 @@ fabricate_mid_round_state <- function(out_dir, digest = "test-digest") {
   "had_unusable": false,
   "updated": "2026-08-19T12:00:00+00:00"
 }',
-    digest
+    plan_json(plan),
+    attr(plan, "plan_digest")
   )
   writeLines(state, file.path(out_dir, "scm_state.json"))
 }
@@ -973,104 +1035,126 @@ test_that("a plan over a fresh out_dir prints only the plan", {
 
   txt <- cli_text_of(print(plan))
   expect_no_match(txt, "Where the SCM process stands")
-  expect_no_match(txt, "Changes from the previous plan")
+  expect_no_match(txt, "Changes from the plan")
   expect_null(attr(plan, "context")$progress)
+  # ... and what a run of it does: nothing in the way, no NM-TRAN here
+  expect_match(txt, "What scm_run() does", fixed = TRUE)
+  expect_match(txt, "nmtran: not checked", fixed = TRUE)
+  expect_no_match(txt, "overwrite:", fixed = TRUE)
+  expect_no_match(txt, "refused right now", fixed = TRUE)
+  knit <- as.character(knitr::knit_print(plan))
+  expect_match(knit, "#### What scm_run() does", fixed = TRUE)
+  expect_match(knit, "- **nmtran:** not checked", fixed = TRUE)
 })
 
-test_that("a plan the SCM process cannot resume under is refused, not written", {
+test_that("a plan the SCM process cannot resume under says a run would be refused", {
   dir <- withr::local_tempdir()
   plan <- suppressWarnings(make_plan(dir))
-  fabricate_completed_state(scm_dir(plan), attr(plan, "plan_digest"))
-  before <- readLines(attr(plan, "plan_path"))
+  fabricate_completed_state(scm_dir(plan), plan)
 
   # tightening the forward alpha is a different SCM process, so the state
-  # left in the out_dir can no longer be resumed: the plan is not written,
-  # and the error says which setting moved and what to do
-  err <- expect_error(
-    suppressWarnings(scm_plan(write_scm_config(dir, extra = "forward_alpha = 0.01"))),
-    "cannot resume under this one"
+  # left in the out_dir can no longer be resumed: the dry run says so --
+  # which setting moved and what to do -- and scm_run() is what refuses
+  expect_message(
+    replan <- suppressWarnings(scm_plan(write_scm_config(dir, extra = "forward_alpha = 0.01"))),
+    "would be refused right now"
   )
-  msg <- conditionMessage(err)
-  expect_match(msg, "forward_alpha 0.05 -> 0.01: this SCM process ran under the previous value",
+  expect_false(attr(replan, "resumable"))
+  why <- attr(replan, "refusals")
+  expect_length(why, 1)
+  expect_match(why, "cannot resume under this one", fixed = TRUE)
+  expect_match(why, "forward_alpha 0.05 -> 0.01: this SCM process ran under the previous value",
                fixed = TRUE)
-  expect_match(msg, "re-plan with `overwrite = TRUE`", fixed = TRUE)
-  # pharos_scm_plan.json stays the one the process ran under, and the process is intact
-  expect_equal(readLines(attr(plan, "plan_path")), before)
+  expect_match(why, "run with `overwrite = TRUE`", fixed = TRUE)
+  ctx <- attr(replan, "context")
+  expect_true(unlist(ctx$state_is_stale))
+  txt <- cli_text_of(print(replan))
+  expect_match(txt, "forward_alpha: 0.05 -> 0.01 (SCM-defining)", fixed = TRUE)
+  expect_match(txt, "refused right now", fixed = TRUE)
+  expect_match(as.character(knitr::knit_print(replan)), "**refused right now:**", fixed = TRUE)
+  # the process is intact, and still reads under the plan it ran under
   expect_true(file.exists(file.path(scm_dir(plan), "scm_state.json")))
   expect_equal(scm_status(plan)$status, "completed")
 })
 
-test_that("overwrite discards the SCM process in the out_dir once the plan validates", {
+test_that("overwrite previews what scm_run(overwrite = TRUE) discards, discarding nothing", {
   dir <- withr::local_tempdir()
   plan <- suppressWarnings(make_plan(dir))
   out_dir <- scm_dir(plan)
-  fabricate_completed_state(out_dir, attr(plan, "plan_digest"))
-  # what a user leaves in the directory is not pharos's to remove
-  writeLines("mine", file.path(out_dir, "notes.txt"))
+  fabricate_completed_state(out_dir, plan)
 
-  # a plan that does not validate discards nothing
+  # a plan that does not validate previews nothing
   expect_error(
     scm_plan(write_scm_config(dir, covariates = '["AGE_CL"]'), overwrite = TRUE),
     "no theta named AGE_CL"
   )
-  expect_true(file.exists(file.path(out_dir, "scm_state.json")))
 
-  # a different SCM process, started fresh: the message says what went
+  # a different SCM process, started fresh: the message says what would go,
+  # and the plan is shown against the empty out_dir the driver will make
   expect_message(
     replan <- suppressWarnings(scm_plan(
       write_scm_config(dir, extra = "forward_alpha = 0.01"),
       overwrite = TRUE
     )),
-    "discarded the SCM process in .*completed, 1 round complete"
+    "discards the SCM process in .*completed, 1 round complete"
   )
-  expect_equal(attr(replan, "discarded"), "completed, 1 round complete")
+  expect_equal(attr(replan, "discards"), "completed, 1 round complete")
   expect_equal(replan$options$forward_alpha, 0.01)
-  expect_false(file.exists(file.path(out_dir, "scm_state.json")))
-  expect_equal(readLines(file.path(out_dir, "notes.txt")), "mine")
-  expect_true(file.exists(file.path(dir, "scm.toml")))
-  # the pharos_scm_plan.json it replaced is still the previous plan: the changes show,
-  # and there is no SCM process behind it any more
-  ctx <- attr(replan, "context")
-  expect_true(unlist(ctx$had_previous_plan))
-  expect_null(ctx$progress)
+  expect_true(attr(replan, "resumable"))
+  expect_length(attr(replan, "refusals"), 0)
+  expect_null(attr(replan, "context")$progress)
   txt <- cli_text_of(print(replan))
-  expect_match(txt, "forward_alpha: 0.05 -> 0.01", fixed = TRUE)
-  expect_match(txt, "not started")
-  expect_equal(scm_status(replan)$status, "planned")
+  expect_no_match(txt, "Where the SCM process stands")
+  expect_match(txt, "overwrite: scm_run(overwrite = TRUE) discards the SCM process in", fixed = TRUE)
+  expect_match(txt, "(completed, 1 round complete) and starts fresh", fixed = TRUE)
+  expect_match(as.character(knitr::knit_print(replan)), "- **overwrite:** scm_run(overwrite = TRUE) discards", fixed = TRUE)
+  # ... but the dry run discarded nothing: the process is still there,
+  # still under the plan it ran under
+  expect_true(file.exists(file.path(out_dir, "scm_state.json")))
+  expect_equal(scm_status(replan)$status, "completed")
 
-  # nothing to discard: re-planning a fresh out_dir with overwrite says nothing
+  # nothing to discard: previewing a fresh out_dir with overwrite says nothing
   fresh <- withr::local_tempdir()
   expect_no_message(
     suppressWarnings(make_plan(fresh, overwrite = TRUE)),
-    message = "discarded"
+    message = "discards"
   )
 })
 
-test_that("overwrite refuses while the SCM process's driver is alive", {
+test_that("overwrite is refused while the SCM process's driver is alive", {
   dir <- withr::local_tempdir()
   plan <- suppressWarnings(make_plan(dir))
-  fabricate_mid_round_state(scm_dir(plan), attr(plan, "plan_digest"))
+  fabricate_mid_round_state(scm_dir(plan), plan)
   # this R session stands in for the login-node driver: alive, on this host
   fabricate_driver_record(scm_dir(plan), pid = Sys.getpid())
 
-  expect_error(
-    suppressWarnings(scm_plan(write_scm_config(dir, extra = "forward_alpha = 0.01"), overwrite = TRUE)),
-    "still being driven by pid"
+  changed <- write_scm_config(dir, extra = "forward_alpha = 0.01")
+  expect_message(
+    replan <- suppressWarnings(scm_plan(changed, overwrite = TRUE)),
+    "would be refused right now"
   )
+  why <- attr(replan, "refusals")
+  expect_match(why, "still being driven by pid", all = FALSE)
+  expect_match(why, "scm_stop()", fixed = TRUE, all = FALSE)
   expect_true(file.exists(file.path(scm_dir(plan), "scm_state.json")))
+  # and without overwrite, a live driver already has the process: a second
+  # one is refused too
+  replan <- suppressWarnings(scm_plan(changed))
+  expect_match(attr(replan, "refusals"), "already being driven by pid", all = FALSE)
 
   # a driver that has gone is no obstacle
   fabricate_driver_record(scm_dir(plan), pid = dead_pid)
   expect_message(
-    suppressWarnings(scm_plan(write_scm_config(dir, extra = "forward_alpha = 0.01"), overwrite = TRUE)),
-    "discarded the SCM process"
+    replan <- suppressWarnings(scm_plan(changed, overwrite = TRUE)),
+    "discards the SCM process"
   )
+  expect_length(attr(replan, "refusals"), 0)
 })
 
 test_that("re-planning without a never-selected candidate keeps the SCM process", {
   dir <- withr::local_tempdir()
   plan <- suppressWarnings(make_plan(dir))
-  fabricate_completed_state(scm_dir(plan), attr(plan, "plan_digest"))
+  fabricate_completed_state(scm_dir(plan), plan)
 
   # WT_V lost round 1; dropping it alone is a compatible change
   replan <- suppressWarnings(scm_plan(write_scm_config(
@@ -1089,32 +1173,30 @@ test_that("re-planning without a never-selected candidate keeps the SCM process"
   expect_match(txt, "progress: completed -- 1 round complete", fixed = TRUE)
   expect_match(txt, "selected: WT_CL", fixed = TRUE)
   expect_match(txt, "final model: final/1001_scm_final.mod", fixed = TRUE)
-  expect_match(txt, "Changes from the previous plan")
+  expect_match(txt, "Changes from the plan the SCM process runs under")
   expect_match(txt, "candidates: WT_V removed THETA(6)", fixed = TRUE)
   expect_no_match(txt, "(SCM-defining)", fixed = TRUE)
+  expect_no_match(txt, "refused right now", fixed = TRUE)
   knit <- as.character(knitr::knit_print(replan))
   expect_match(knit, "Where the SCM process stands")
   expect_match(knit, "WT_V removed THETA(6)", fixed = TRUE)
 
   # WT_CL won round 1: dropping it is a different SCM process, refused
-  # without overwrite. (The fabricated state predates the roster, so pharos
-  # seeds its roster from the pharos_scm_plan.json beside it: put the full plan back
-  # first.)
-  suppressWarnings(scm_plan(write_scm_config(dir)))
-  err <- expect_error(
-    suppressWarnings(scm_plan(write_scm_config(
-      dir,
-      covariates = '["CRCL_CL", "WT_V"]'
-    ))),
-    "cannot resume"
-  )
-  expect_match(conditionMessage(err), "WT_CL was selected in forward_round1")
+  # without overwrite
+  replan <- suppressWarnings(scm_plan(write_scm_config(
+    dir,
+    covariates = '["CRCL_CL", "WT_V"]'
+  )))
+  expect_false(attr(replan, "resumable"))
+  why <- attr(replan, "refusals")
+  expect_match(why, "cannot resume", all = FALSE)
+  expect_match(why, "WT_CL was selected in forward_round1", all = FALSE)
 })
 
 test_that("re-planning with a retuned initial keeps the SCM process", {
   dir <- withr::local_tempdir()
   plan <- suppressWarnings(make_plan(dir))
-  fabricate_completed_state(scm_dir(plan), attr(plan, "plan_digest"))
+  fabricate_completed_state(scm_dir(plan), plan)
 
   # A new initial estimate on WT_CL -- the usual fix for a candidate that
   # failed on the old one -- is a retune, not a different SCM process.
@@ -1148,7 +1230,7 @@ test_that("re-planning with a retuned initial keeps the SCM process", {
 test_that("a retune on a candidate in the open round is reported as a refit", {
   dir <- withr::local_tempdir()
   plan <- suppressWarnings(make_plan(dir))
-  fabricate_mid_round_state(scm_dir(plan), attr(plan, "plan_digest"))
+  fabricate_mid_round_state(scm_dir(plan), plan)
 
   # WT_V is still being tested in forward_round2, so bounding it there means
   # that round refits it under the new bounds.
@@ -1169,23 +1251,32 @@ test_that("a retune on a candidate in the open round is reported as a refit", {
 
 test_that("re-planning the same SCM process reports no changes", {
   dir <- withr::local_tempdir()
-  suppressWarnings(make_plan(dir))
+  plan <- suppressWarnings(make_plan(dir))
+  fabricate_completed_state(scm_dir(plan), plan)
   replan <- suppressWarnings(scm_plan(write_scm_config(dir)))
 
   ctx <- attr(replan, "context")
-  expect_true(unlist(ctx$had_previous_plan))
   expect_length(ctx$changes, 0)
+  expect_true(attr(replan, "resumable"))
 
   txt <- cli_text_of(print(replan))
-  expect_match(txt, "none - identical to the previous plan", fixed = TRUE)
-  # a plan written but never run has no progress to report
-  expect_match(txt, "not started")
+  expect_match(txt, "none - identical to the plan the SCM process runs under", fixed = TRUE)
+  expect_match(as.character(knitr::knit_print(replan)),
+               "none - identical to the plan the SCM process runs under", fixed = TRUE)
+
+  # with no process started there is nothing to compare the plan with, so
+  # nothing is said about changes either way
+  fresh <- withr::local_tempdir()
+  first <- suppressWarnings(make_plan(fresh))
+  again <- suppressWarnings(scm_plan(write_scm_config(fresh)))
+  expect_null(attr(again, "context")$progress)
+  expect_no_match(cli_text_of(print(again)), "identical", fixed = TRUE)
 })
 
 test_that("scm_status and summary read a completed SCM process", {
   dir <- withr::local_tempdir()
   plan <- make_plan(dir)
-  fabricate_completed_state(scm_dir(plan), attr(plan, "plan_digest"))
+  fabricate_completed_state(scm_dir(plan), plan)
 
   st <- scm_status(plan)
   expect_equal(st$status, "completed")
@@ -1259,7 +1350,7 @@ test_that("scm_status reports the driver and the open round fit by fit", {
   out_dir <- scm_dir(plan)
 
   # a completed process whose login-node driver has exited
-  fabricate_completed_state(out_dir, attr(plan, "plan_digest"))
+  fabricate_completed_state(out_dir, plan)
   fabricate_driver_record(out_dir)
   st <- scm_status(plan)
   driver <- attr(st, "driver")
@@ -1271,13 +1362,13 @@ test_that("scm_status reports the driver and the open round fit by fit", {
   expect_match(st_text, "; see .*scm_driver.log")
 
   # a process still running whose driver has gone: it stopped before
-  # finishing, and running the plan again resumes it
-  fabricate_mid_round_state(out_dir, attr(plan, "plan_digest"))
+  # finishing, and running its config again resumes it
+  fabricate_mid_round_state(out_dir, plan)
   st <- scm_status(plan)
   st_text <- paste(capture.output(print(st)), collapse = "\n")
   expect_match(st_text, "driver     : NOT RUNNING (pid", fixed = TRUE)
   expect_match(st_text, "the SCM process stopped before finishing", fixed = TRUE)
-  expect_match(st_text, "resubmit the same plan to resume", fixed = TRUE)
+  expect_match(st_text, "submit its config again to resume", fixed = TRUE)
   # ... and the open round, fit by fit
   # the reference fit, three round-1 fits and one round-2 fit so far
   expect_match(st_text, "progress   : 5/13 fits · forward round 2", fixed = TRUE)
@@ -1309,7 +1400,7 @@ test_that("scm_status reports the driver and the open round fit by fit", {
 test_that("scm_summary renders every round by default and drills into one", {
   dir <- withr::local_tempdir()
   plan <- make_plan(dir)
-  fabricate_completed_state(scm_dir(plan), attr(plan, "plan_digest"))
+  fabricate_completed_state(scm_dir(plan), plan)
 
   # every round to date
   sm <- scm_summary(plan)
@@ -1331,11 +1422,12 @@ test_that("scm_summary renders every round by default and drills into one", {
   expect_match(txt, "unusable")
 
   # one round: number, "round N", full name, and "reference" all resolve;
-  # so do the plan / out_dir / pharos_scm_plan.json addressing forms
+  # so do the plan / out_dir / config addressing forms
   rd <- scm_summary(plan, 1)
   expect_length(rd$rounds, 1)
   expect_equal(rd$rounds[[1]]$round, "forward_round1")
   expect_equal(scm_summary(scm_dir(plan), "round 1")$rounds[[1]]$round, "forward_round1")
+  expect_equal(scm_summary(attr(plan, "config"), "round 1")$rounds[[1]]$round, "forward_round1")
   expect_equal(scm_summary(plan, "forward_round1")$rounds[[1]]$round, "forward_round1")
   expect_equal(scm_summary(plan, "reference")$rounds[[1]]$round, "reference")
   expect_error(scm_summary(plan, 7), "forward_round1")
@@ -1408,30 +1500,44 @@ test_that("scm_summary renders every round by default and drills into one", {
   expect_error(scm_summary(plan, long = "yes"), "TRUE or FALSE")
 })
 
-test_that("scm_status resolves plans, dirs, and pharos_scm_plan.json paths", {
+test_that("scm_status resolves plans, statuses, dirs, and config paths", {
   dir <- withr::local_tempdir()
   plan <- make_plan(dir)
-  path <- attr(plan, "plan_path")
 
   st1 <- scm_status(plan)
   st2 <- scm_status(scm_dir(plan))
-  st3 <- scm_status(path)
+  st3 <- scm_status(attr(plan, "config"))
+  st4 <- scm_status(st1)
   expect_equal(st1$status, st2$status)
   expect_equal(st2$status, st3$status)
+  expect_equal(st3$status, st4$status)
 
   expect_error(scm_status(file.path(dir, "nope")), "no SCM output")
-  expect_error(scm_status(dir), "pharos_scm_plan.json")
+  # the model's directory is not an SCM out_dir: it holds no config
+  expect_error(scm_status(dir), "no SCM config")
+  expect_error(scm_status(42), "hyperion_scm_plan")
 })
 
-test_that("scm_run rejects inputs that are not plans", {
-  expect_error(scm_run(42), "hyperion_scm_plan")
-})
-
-test_that("scm_run refuses a plan whose pharos_scm_plan.json is gone", {
+test_that("scm_run takes a plan, a status, a config path or an out_dir", {
   dir <- withr::local_tempdir()
   plan <- make_plan(dir)
-  unlink(attr(plan, "plan_path"))
-  expect_error(scm_run(plan), "scm_plan\\(\\)")
+  config <- attr(plan, "config")
+  expect_equal(scm_config_path(plan), config)
+  expect_equal(scm_config_path(config), config)
+  expect_equal(normalizePath(scm_config_path(scm_dir(plan))), normalizePath(config))
+  expect_equal(normalizePath(scm_config_path(scm_status(plan))), normalizePath(config))
+
+  expect_error(scm_run(42), "hyperion_scm_plan")
+  expect_error(scm_run(file.path(dir, "nope.toml")), "no SCM config")
+  # the model's directory holds no config
+  expect_error(scm_run(dir), "no SCM config")
+})
+
+test_that("scm_run refuses a plan whose config is gone", {
+  dir <- withr::local_tempdir()
+  plan <- make_plan(dir)
+  unlink(attr(plan, "config"))
+  expect_error(scm_run(plan), "config is missing")
 })
 
 test_that("scm_run validates max_concurrent", {
@@ -1444,6 +1550,10 @@ test_that("scm_run validates max_concurrent", {
   expect_error(scm_run(plan, max_concurrent = NA), "max_concurrent")
   expect_error(scm_run(plan, max_concurrent = c(1, 2)), "max_concurrent")
 
+  # num_rounds is run control: 0 (all rounds) up, whole numbers only
+  expect_error(scm_run(plan, num_rounds = -1), "num_rounds")
+  expect_error(scm_run(plan, num_rounds = 1.5), "num_rounds")
+  expect_error(scm_run(plan, num_rounds = NA), "num_rounds")
 })
 
 test_that("scm_run validates the driver and slurm arguments", {
@@ -1478,6 +1588,8 @@ fake_pharos <- function(output, status = 0L, delay = 0) {
   writeLines(c(
     "#!/bin/sh",
     if (delay > 0) paste("sleep", delay),
+    # what hyperion typed, so the test can see the config and flags it passed
+    'echo "args: $@"',
     paste0("echo ", shQuote(output)),
     paste("exit", status)
   ), script)
@@ -1499,7 +1611,20 @@ test_that("scm_run reports what pharos answered", {
     "submitted the SCM driver as slurm job 42"
   )
   expect_equal(res$out_dir, out_dir)
+  expect_equal(res$config, attr(plan, "config"))
   expect_equal(res$log, file.path(out_dir, "scm_run.log"))
+  # the config is what pharos gets, with the run control as flags
+  expect_match(readLines(res$log), paste("args: nonmem scm slurm submit", attr(plan, "config")),
+               fixed = TRUE, all = FALSE)
+  res <- scm_run(attr(plan, "config"), num_rounds = 2, partition = "big", max_concurrent = 4,
+                 overwrite = TRUE)
+  expect_match(readLines(res$log),
+               "--num-rounds 2 --partition big --max-concurrent 4 --overwrite",
+               fixed = TRUE, all = FALSE)
+  res <- scm_run(scm_dir(plan), driver = "login", num_rounds = 0, shared_node = TRUE)
+  Sys.sleep(0.5)
+  expect_match(readLines(res$log), "args: nonmem scm submit", fixed = TRUE, all = FALSE)
+  expect_match(readLines(res$log), "--num-rounds 0 --shared-node", fixed = TRUE, all = FALSE)
 
   # pharos refusing (a driver already queued for this process) is an error
   # here, not a line in the log -- for either driver
@@ -1534,21 +1659,76 @@ test_that("scm_run launches pharos subcommands that exist", {
       label = driver
     )
   }
+  # ... and the ones scm_plan() / scm_stop() stand in for
+  for (command in c("plan", "stop", "status", "summary")) {
+    expect_equal(
+      system2(found$path, c("nonmem", "scm", command, "--help"),
+              stdout = FALSE, stderr = FALSE),
+      0L,
+      label = command
+    )
+  }
 })
 
 test_that("scm_plan validates num_rounds", {
   dir <- withr::local_tempdir()
 
-  # invalid values error before anything is written
-  expect_error(make_plan(dir, num_rounds = 0), "num_rounds")
+  # invalid values error before pharos is reached
   expect_error(make_plan(dir, num_rounds = -1), "num_rounds")
   expect_error(make_plan(dir, num_rounds = 1.5), "num_rounds")
   expect_error(make_plan(dir, num_rounds = Inf), "num_rounds")
   expect_error(make_plan(dir, num_rounds = NA), "num_rounds")
   expect_error(make_plan(dir, num_rounds = c(1, 2)), "num_rounds")
 
-  # pacing lives in the plan, not in scm_run()
+  # pacing is run control: the plan previews it, scm_run() applies it
   plan <- make_plan(dir, num_rounds = 2)
   expect_equal(plan$options$num_rounds, 2)
-  expect_error(scm_run(plan, num_rounds = 1), "unused argument")
+  expect_match(cli_text_of(print(plan)), "num rounds: pause after 2 (resumable)", fixed = TRUE)
+  # 0 runs all rounds
+  expect_null(make_plan(dir, num_rounds = 0)$options$num_rounds)
+})
+
+test_that("scm_stop stops a login-node driver and says how to resume", {
+  dir <- withr::local_tempdir()
+  plan <- make_plan(dir)
+  out_dir <- scm_dir(plan)
+  fabricate_mid_round_state(out_dir, plan)
+
+  expect_error(scm_stop(plan, fits = NA), "TRUE or FALSE")
+  # no driver was ever started for it
+  expect_error(scm_stop(plan), "no driver has been started")
+
+  # a driver that has gone: nothing to stop, and the way back
+  fabricate_driver_record(out_dir, pid = dead_pid)
+  expect_message(res <- scm_stop(plan), "has already exited")
+  expect_false(res$was_alive)
+  expect_null(res$fits)
+  expect_null(res$allocation)
+  expect_equal(normalizePath(res$config), normalizePath(attr(plan, "config")))
+  expect_message(scm_stop(scm_dir(plan)), "resume it with")
+  expect_message(scm_stop(attr(plan, "config")), "scm_status")
+
+  # a live one: a sleeping shell process stands in for the login-node driver
+  # (its output detached from the pipe this call reads, so the shell's exit
+  # ends the call while the sleep lives on)
+  pid <- as.integer(system2(
+    "sh", c("-c", shQuote("sleep 60 >/dev/null 2>&1 & echo $!")),
+    stdout = TRUE
+  ))
+  withr::defer(suppressWarnings(system2("kill", pid, stdout = FALSE, stderr = FALSE)))
+  fabricate_driver_record(out_dir, pid = pid)
+  expect_equal(attr(scm_status(plan), "driver")$liveness, "alive")
+  expect_message(res <- scm_stop(scm_status(plan)), "told to stop")
+  expect_true(res$was_alive)
+  expect_match(res$driver, sprintf("pid %d on ", pid), fixed = TRUE)
+  Sys.sleep(0.5)
+  expect_equal(attr(scm_status(plan), "driver")$liveness, "gone")
+
+  # cancelling the fits still in the queue needs squeue
+  if (!nzchar(Sys.which("squeue"))) {
+    expect_error(scm_stop(plan, fits = TRUE), "squeue")
+  } else {
+    expect_message(res <- scm_stop(plan, fits = TRUE), "none in the slurm queue")
+    expect_length(res$fits, 0)
+  }
 })

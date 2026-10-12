@@ -1,21 +1,24 @@
 # Stepwise covariate modeling (SCM) --------------------------------------
 #
-# hyperion sets up, plans and inspects; pharos executes. `scm_init()` writes
-# the config file beside a model and creates the SCM output directory,
-# `scm_plan()` builds the plan
-# (an S3 object wrapping the pharos ScmPlan struct) and writes the pharos_scm_plan.json
-# to out_dir, `scm_run()` hands it to the pharos CLI in the
-# background, and `scm_status()` checks on the SCM process in its entirety while
-# it runs -- the driver (recorded in scm_driver.json), each decided round's
-# decision and table, and the open round fit by fit. pharos rewrites
+# hyperion sets up, previews and inspects; pharos executes. `scm_init()`
+# writes the config file into the SCM output directory it creates beside a
+# model; `scm_plan()` resolves that config to its plan (an S3 object wrapping
+# the pharos ScmPlan struct) and says what running it would do, without
+# doing it; `scm_run()` hands the config to the pharos CLI in the
+# background; `scm_stop()` stops the driver; and `scm_status()` checks on
+# the SCM process in its entirety while it runs -- the driver (recorded in
+# scm_driver.json), each decided round's decision and table, and the open
+# round fit by fit. The plan is never a file of its own: the driver records
+# the plan it runs under in scm_state.json when the process starts, and
+# every reader takes the process from there. pharos rewrites
 # scm_summary.json after every round (and leaves a round_summary.json/.md in
 # each round directory as it concludes); `scm_summary()` renders that record
 # for every round to date or a selection of it, and `summary()` on a status
 # reads it into R as a data.frame.
 #
 # Every rendering is pharos's own: the Rust side calls the same code
-# `pharos nonmem scm plan / status / summary` runs, so hyperion and the CLI
-# never disagree about an SCM process.
+# `pharos nonmem scm plan / status / summary / stop` runs, so hyperion and
+# the CLI never disagree about an SCM process.
 
 #' Set up an SCM process for a model
 #'
@@ -27,13 +30,14 @@
 #' in at its default and the `[covariates]` section's `effects` left empty:
 #' name the covariate effects to be tested — by the name the initial model's
 #' `$THETA` record gives each one, e.g. `effects = ["WT_CL", "CRCL_CL"]` —
-#' then [scm_plan()] the file. Nothing is planned and nothing is fitted —
+#' then [scm_run()] the file ([scm_plan()] shows what a run would do first).
+#' Nothing is planned and nothing is fitted —
 #' the candidates are yours to choose. The directory also gets a `.gitignore`
 #' that tracks what the project's `[nonmem.scm] track_in_git` setting asks
 #' for (`"milestones"` unless `pharos.toml` says otherwise: the final model,
 #' the reference fit and the forward model's fit; `"final"` or `"all"` for
-#' less or more), rewritten by every [scm_plan()] so a changed setting takes
-#' effect at the next plan.
+#' less or more), rewritten by every [scm_run()] so a changed setting takes
+#' effect at the next run.
 #'
 #' The model is the *initial model*: it carries a theta for each candidate
 #' effect, named either by a `$THETA` label (`$THETA WT_CL=(0, 0.4)`, or
@@ -57,8 +61,9 @@
 #'
 #' @examples \dontrun{
 #' setup <- scm_init("model/nonmem/PK/scm-demo.mod")
-#' # fill in `covariates` in setup$config, then:
-#' plan <- scm_plan(setup$config)
+#' # fill in `effects` in setup$config, then:
+#' scm_plan(setup$config)   # what a run would do
+#' scm_run(setup$config)    # do it
 #' }
 scm_init <- function(model, overwrite = FALSE) {
   if (!is.character(model) || length(model) != 1L || is.na(model)) {
@@ -77,25 +82,43 @@ scm_init <- function(model, overwrite = FALSE) {
     "v" = "SCM setup created for {.file {model}}",
     "i" = "config: {.file {setup$config}}",
     "i" = "output directory: {.file {setup$out_dir}}",
-    "*" = "fill in {.code effects} under {.code [covariates]}, then {.code scm_plan(\"{setup$config}\")}"
+    "*" = "fill in {.code effects} under {.code [covariates]}, then {.code scm_run(\"{setup$config}\")}",
+    "i" = "{.code scm_plan(\"{setup$config}\")} shows what a run would do first"
   ))
 
   invisible(setup)
 }
 
-#' Plan a stepwise covariate modeling (SCM) process
+#' A whole number >= `min`, or NULL
+#' @noRd
+scm_check_count <- function(value, name, min, what) {
+  if (is.null(value)) {
+    return(invisible(NULL))
+  }
+  ok <- is.numeric(value) && length(value) == 1L &&
+    !is.na(value) && is.finite(value) && value %% 1 == 0 && value >= min
+  if (!ok) {
+    rlang::abort(paste0("`", name, "` must be a whole number >= ", min, " ", what))
+  }
+  invisible(NULL)
+}
+
+#' What running a stepwise covariate modeling (SCM) config would do
 #'
-#' Reads the SCM process setup from an SCM config file (TOML) — the one
-#' [scm_init()] wrote — validates the covariate candidates against the
-#' user-authored initial model it names, returns the plan as a
-#' `hyperion_scm_plan` object, and writes it to `<out_dir>/pharos_scm_plan.json` —
-#' [scm_run()] and `pharos nonmem scm submit` execute. Nothing is fitted. The initial model
+#' The dry run. Reads the SCM config file (TOML) — the one [scm_init()]
+#' wrote — resolves it to the plan [scm_run()] would run: validates the
+#' covariate candidates against the user-authored initial model it names,
+#' reads where the SCM process already in the out_dir stands and whether it
+#' resumes under this plan, and asks NM-TRAN about the initial model. Writes
+#' nothing, runs nothing, and is never a required step: [scm_run()] does all
+#' of this screening itself. The initial model
 #' names a theta for each candidate effect in its `$THETA` records; the
 #' `[covariates]` section names the ones to test, and every model generated
 #' holds the rest out by fixing their thetas at their `fixed` value.
 #'
 #' The config file defines the SCM process; the `scm_plan()` call carries only
-#' per-invocation control (`num_rounds`, and `overwrite` to start over):
+#' the run control [scm_run()] takes (`num_rounds` and `overwrite`), so it
+#' reports what that run would do:
 #'
 #' ```toml
 #' model = "../../scm-demo.mod"
@@ -105,6 +128,7 @@ scm_init <- function(model, overwrite = FALSE) {
 #' forward_alpha = 0.05
 #' backward_alpha = 0.001
 #' max_retries = 3
+#' num_rounds = 0          # 0 runs all rounds; N pauses after N rounds per run
 #' cov_step = false
 #' forward_final_cov_step = true
 #' final_cov_step = true
@@ -129,9 +153,12 @@ scm_init <- function(model, overwrite = FALSE) {
 #' phases run, and when `cov_step` is on the forward model has already run
 #' the step and is used as it is. Backward elimination that drops nothing
 #' leaves the forward model as the final model, and that fit of it
-#' is copied into `final/` rather than fitted again. Neither `num_rounds` nor
-#' `forward_final_cov_step` is SCM-defining: an SCM process resumes across a
-#' change to either.
+#' is copied into `final/` rather than fitted again. `num_rounds` is the one
+#' run-control setting the config holds: `0` (the default) runs all rounds,
+#' `N` pauses the SCM process after N rounds per run; the `num_rounds`
+#' argument of [scm_run()] (and of this function) overrides it for one run.
+#' Neither `num_rounds` nor `forward_final_cov_step` is SCM-defining: an SCM
+#' process resumes across a change to either.
 #'
 #' Relative paths in the config resolve against the config file's own
 #' directory. The config lives in the SCM process's own directory,
@@ -175,50 +202,59 @@ scm_init <- function(model, overwrite = FALSE) {
 #' effect is written `(fixed FIX)` and needs no bounds; `initial` must sit
 #' strictly inside them, which the plan checks.
 #'
-#' Re-planning without a candidate that has never won a round is not a new
-#' SCM process: [scm_run()] carries on without it, keeping every round already
-#' fitted. Neither is a new `initial` or new bounds on a candidate — the
-#' usual fix when a candidate fails on either. Re-plan with the edited config
-#' and [scm_run()] picks up where it left off: the new values apply to every
-#' model written from then on, and a candidate still in the open round is
-#' refitted under them (its earlier attempts kept on record and on disk, but
-#' never scored). Rounds already concluded keep the results they ran under.
-#' Removing a candidate that has won a round, adding one, or changing any
-#' other SCM-defining setting is a different SCM process: the plan is not
-#' written and `scm_plan()` errors, saying why, until re-planned with
-#' `overwrite = TRUE` — which discards the SCM process in the out_dir (its
-#' fits, state and summaries; the config, `pharos_scm_plan.json` and anything else in
-#' the directory stay) once the new plan has validated. It is refused while
-#' that process's driver is still running (see [scm_status()]), so a running
-#' SCM process is never pulled out from under its fits.
+#' An SCM process that has started runs under the plan its config resolved
+#' to when it was last run, recorded in `scm_state.json`; readers take the
+#' process from there, never from the config, which may have been edited
+#' since. Running an edited config without a candidate that has never won a
+#' round is not a new SCM process: [scm_run()] carries on without it, keeping
+#' every round already fitted. Neither is a new `initial` or new bounds on a
+#' candidate — the usual fix when a candidate fails on either. Run the edited
+#' config and the SCM process picks up where it left off: the new values
+#' apply to every model written from then on, and a candidate still in the
+#' open round is refitted under them (its earlier attempts kept on record
+#' and on disk, but never scored). Rounds already concluded keep the results
+#' they ran under. Removing a candidate that has won a round, adding one, or
+#' changing any other SCM-defining setting is a different SCM process: a run
+#' is refused, saying why — which `scm_plan()` reports ahead of time in the
+#' plan's `refusals` — until run with `overwrite = TRUE`, which discards the
+#' SCM process in the out_dir (its fits, state and summaries; the config and
+#' anything else in the directory stay) as the driver starts. That is
+#' refused while the process's driver is still running (see [scm_status()]
+#' and [scm_stop()]), so a running SCM process is never pulled out from
+#' under its fits.
 #'
 #' @param config path to the SCM config file (TOML), as above
 #' @param num_rounds pause the SCM process after this many rounds per
-#'   [scm_run()] invocation; the SCM process is resumable. `NULL` = no cap.
-#' @param overwrite discard the SCM process already in `out_dir` and start
-#'   fresh under this plan. Re-running the same plan, or one the process can
-#'   resume under, needs no overwrite.
+#'   [scm_run()], over the config's `num_rounds`; `0` runs all rounds.
+#'   `NULL` = as the config says.
+#' @param overwrite preview a run with `overwrite = TRUE`: the SCM process
+#'   already in `out_dir` is discarded when the driver starts, so the plan
+#'   is shown against an empty out_dir and the `discards` attribute says
+#'   what goes. Nothing is discarded here.
 #'
-#' @return A `hyperion_scm_plan` object; `pharos_scm_plan.json` is already on disk in
-#'   the output directory (its path is the `plan_path` attribute). Run it with
-#'   [scm_run()]. When the out_dir already holds an SCM process, printing the plan
-#'   also says where that SCM process got to and what this plan changed about the
-#'   plan it replaced (the `context` attribute); what `overwrite` discarded is
-#'   the `discarded` attribute.
+#' @return A `hyperion_scm_plan` object, with the config it was built from
+#'   as its `config` attribute and the directory the SCM process runs in as
+#'   `out_dir`. Run it with [scm_run()]. When the out_dir already holds an
+#'   SCM process, printing the plan also says where that process got to and
+#'   what this plan changes about the plan it runs under (the `context`
+#'   attribute), and whether it resumes under this plan (`resumable`). Why
+#'   [scm_run()] would be refused right now, if it would be, is the
+#'   `refusals` attribute (a character vector, empty otherwise); what
+#'   `overwrite` would discard is `discards`; NM-TRAN's verdict on the
+#'   initial model is `nmtran`.
 #' @export
 #'
 #' @examples \dontrun{
 #' plan <- scm_plan("model/nonmem/PK/scm/scm-demo/scm-demoscm.toml")
-#'
-#' # pause after 2 rounds, so the SCM process can be looked at as it goes
-#' plan <- scm_plan("model/nonmem/PK/scm/scm-demo/scm-demoscm.toml",
-#'                  num_rounds = 2)
 #' plan
-#' scm_run(plan)
 #'
-#' # start over under a changed config, discarding the fits so far
-#' plan <- scm_plan("model/nonmem/PK/scm/scm-demo/scm-demoscm.toml",
-#'                  overwrite = TRUE)
+#' # what pausing after 2 rounds would look like, so the SCM process can be
+#' # looked at as it goes
+#' scm_plan("model/nonmem/PK/scm/scm-demo/scm-demoscm.toml", num_rounds = 2)
+#' scm_run("model/nonmem/PK/scm/scm-demo/scm-demoscm.toml", num_rounds = 2)
+#'
+#' # what starting over under a changed config would discard
+#' scm_plan("model/nonmem/PK/scm/scm-demo/scm-demoscm.toml", overwrite = TRUE)
 #' }
 scm_plan <- function(config,
                      num_rounds = NULL,
@@ -229,13 +265,9 @@ scm_plan <- function(config,
   if (!file.exists(config)) {
     rlang::abort(paste0("SCM config file not found: ", config))
   }
-  if (!is.null(num_rounds)) {
-    ok <- is.numeric(num_rounds) && length(num_rounds) == 1L &&
-      !is.na(num_rounds) && is.finite(num_rounds) &&
-      num_rounds %% 1 == 0 && num_rounds >= 1
-    if (!ok) {
-      rlang::abort("`num_rounds` must be a whole number >= 1, or NULL for no cap")
-    }
+  scm_check_count(num_rounds, "num_rounds", 0, "(0 = all rounds), or NULL for the config's")
+  if (!(isTRUE(overwrite) || isFALSE(overwrite))) {
+    rlang::abort("`overwrite` must be TRUE or FALSE")
   }
 
   plan <- scm_plan_impl(
@@ -244,33 +276,33 @@ scm_plan <- function(config,
     overwrite = isTRUE(overwrite)
   )
 
-  # `overwrite` acted on the out_dir once the plan had validated: say what
-  # it threw away, as `pharos nonmem scm plan --overwrite` does.
-  discarded <- attr(plan, "discarded")
-  if (!is.null(discarded)) {
-    cli::cli_inform(c(
-      "i" = "discarded the SCM process in {.file {dirname(attr(plan, 'plan_path'))}} ({discarded})"
-    ))
-  }
-
   for (w in attr(plan, "warnings")) {
     rlang::warn(w)
   }
 
-  # The plan is on disk the moment it exists --
-  # <out_dir>/pharos_scm_plan.json, ready for scm_run() or `pharos nonmem scm submit`.
-  cli::cli_inform("plan written to {.file {attr(plan, 'plan_path')}}")
+  # What a run of this config does, as `pharos nonmem scm plan` says it:
+  # what `overwrite` would discard, and whether a run would be refused.
+  discards <- attr(plan, "discards")
+  if (isTRUE(overwrite) && !is.null(discards)) {
+    cli::cli_inform(c(
+      "i" = "overwrite = TRUE: {.code scm_run()} discards the SCM process in {.file {attr(plan, 'out_dir')}} ({discards}) and starts fresh"
+    ))
+  }
+  for (why in attr(plan, "refusals")) {
+    cli::cli_inform(c("!" = "{.code scm_run()} would be refused right now: {why}"))
+  }
+  cli::cli_inform(c(
+    "i" = "nothing written; run it with {.code scm_run(\"{attr(plan, 'config')}\")}"
+  ))
 
   plan
 }
 
-#' Resolve a plan object / out_dir / pharos_scm_plan.json path to the SCM out_dir
+#' Resolve a plan object / status / out_dir / config path to the SCM out_dir
 #' @noRd
 scm_out_dir <- function(x) {
   if (inherits(x, "hyperion_scm_plan")) {
-    # a plan writes its paths relative to the pharos project root, so the
-    # pharos_scm_plan.json it was just saved to is what locates the out_dir on disk
-    return(dirname(attr(x, "plan_path")))
+    return(attr(x, "out_dir"))
   }
   if (inherits(x, "hyperion_scm_status")) {
     return(attr(x, "out_dir"))
@@ -285,17 +317,77 @@ scm_out_dir <- function(x) {
     rlang::abort(paste0("no SCM output found at ", x))
   }
   rlang::abort(
-    "expected a hyperion_scm_plan, an SCM out_dir, or a pharos_scm_plan.json path"
+    "expected a hyperion_scm_plan, a hyperion_scm_status, an SCM out_dir, or its <stem>scm.toml"
   )
+}
+
+#' Resolve a plan object / status / out_dir / config path to the SCM config
+#' a run takes: the plan's own, the status's, the path itself, or the one
+#' `<stem>scm.toml` in the out_dir (pharos's rule for finding it).
+#' @noRd
+scm_config_path <- function(x) {
+  if (inherits(x, "hyperion_scm_plan")) {
+    config <- attr(x, "config")
+    if (is.null(config) || !file.exists(config)) {
+      rlang::abort(c(
+        "this plan's SCM config is missing on disk",
+        "i" = paste0("expected it at ", config %||% "<unknown>")
+      ))
+    }
+    return(config)
+  }
+  if (inherits(x, "hyperion_scm_status")) {
+    return(attr(x, "config") %||% scm_config_impl(attr(x, "out_dir")))
+  }
+  if (is.character(x) && length(x) == 1L && !is.na(x)) {
+    if (dir.exists(x)) {
+      return(scm_config_impl(x))
+    }
+    if (file.exists(x)) {
+      return(x)
+    }
+    rlang::abort(paste0("no SCM config found at ", x))
+  }
+  rlang::abort(
+    "expected a hyperion_scm_plan, a hyperion_scm_status, an SCM out_dir, or its <stem>scm.toml"
+  )
+}
+
+#' The pharos executable `scm_run()` and friends launch: the one
+#' `options(hyperion.pharos_exe)` names, else the one on the PATH.
+#' @noRd
+scm_pharos_exe <- function() {
+  pharos_exe <- getOption("hyperion.pharos_exe", NULL)
+  if (!is.null(pharos_exe)) {
+    if (!file.exists(pharos_exe)) {
+      rlang::abort(paste0(
+        "pharos executable not found at ", pharos_exe,
+        " (from options(hyperion.pharos_exe))"
+      ))
+    }
+    return(pharos_exe)
+  }
+  found <- detect_pharos()
+  if (is.na(found$path)) {
+    rlang::abort(
+      "pharos executable not found on PATH; install pharos to run an SCM process"
+    )
+  }
+  found$path
 }
 
 #' Run (or resume) an SCM process
 #'
-#' Hands the plan to the pharos CLI, which drives the whole SCM process —
-#' building each round from the initial model, submitting the fits, retrying
-#' failures from where they left off, scoring, and persisting resumable
-#' state. Fits always run on Slurm; `driver` picks where the process that
-#' submits and scores them runs:
+#' Hands the SCM config to the pharos CLI, which screens it — resolves it to
+#' its plan and validates it, refuses a plan the SCM process already in the
+#' out_dir cannot resume under (unless `overwrite`), runs the initial model
+#' through NM-TRAN, rewrites the out_dir's `.gitignore` — and then drives
+#' the whole SCM process: building each round from the initial model,
+#' submitting the fits, retrying failures from where they left off,
+#' scoring, and persisting resumable state. [scm_plan()] shows what this
+#' screening finds without running anything, but is never required first.
+#' Fits always run on Slurm; `driver` picks where the process that submits
+#' and scores them runs:
 #'
 #' * `"slurm"` (default) queues the driver as its own Slurm job
 #'   (`pharos nonmem scm slurm submit`) and returns once it is queued.
@@ -303,7 +395,8 @@ scm_out_dir <- function(x) {
 #'   (`pharos nonmem scm submit`), in the background until the SCM process
 #'   finishes or pauses. The R session stays free.
 #'
-#' Either way, check on the SCM process with [scm_status()]. Whatever the
+#' Either way, check on the SCM process with [scm_status()] and stop it with
+#' [scm_stop()]. Whatever the
 #' mode, the driver records where it runs in `scm_driver.json` in the out_dir
 #' (its Slurm job, or its pid and host) and writes a timestamped record of
 #' what happens — each fit as it is submitted and as it ends, each round's
@@ -316,15 +409,16 @@ scm_out_dir <- function(x) {
 #' ends or is stopped.
 #'
 #' Fits submitted as Slurm jobs are independent of the driver: a driver that
-#' stops (Ctrl-C, `scancel`, a time limit) leaves them running, and running
-#' the same plan again resumes — a fit whose job is still in the queue is
-#' waited for, not resubmitted. Fits on a shared node die with it and are
-#' refitted on resume.
+#' stops ([scm_stop()], `scancel`, a time limit) leaves them running, and
+#' running the same config again resumes — a fit whose job is still in the
+#' queue is waited for, not resubmitted. Fits on a shared node die with it
+#' and are refitted on resume.
 #'
-#' Everything that defines the SCM process lives in the plan (see [scm_plan()]),
-#' including `num_rounds`, which paces how many rounds run before the SCM process
-#' pauses. `scm_run()` takes only run control: where the driver and the fits
-#' run and how many fits run at once.
+#' Everything that defines the SCM process lives in the config (see
+#' [scm_plan()]). `scm_run()` takes only run control: `num_rounds`, how many
+#' rounds run before the SCM process pauses (over the config's own
+#' `num_rounds`; the process is resumable), where the driver and the fits
+#' run, how many fits run at once, and `overwrite`.
 #' Everything else (NONMEM version) comes from
 #' pharos.toml — where `[nonmem.scm]` also holds this project's own defaults
 #' for `max_concurrent`, `partition`, `driver_partition` and `account`,
@@ -334,10 +428,13 @@ scm_out_dir <- function(x) {
 #' found on the PATH, or set
 #' `options(hyperion.pharos_exe = "/path/to/pharos")` to use another build.
 #'
-#' @param plan a `hyperion_scm_plan` from [scm_plan()], or a path to a
-#'   pharos_scm_plan.json
+#' @param x the SCM config to run: a `hyperion_scm_plan` from [scm_plan()],
+#'   a `hyperion_scm_status`, the path to the `<stem>scm.toml`, or the SCM
+#'   out_dir holding it
 #' @param driver where the SCM driver runs: `"slurm"` (its own Slurm job) or
 #'   `"login"` (this machine, in the background)
+#' @param num_rounds pause the SCM process after this many rounds, over the
+#'   config's `num_rounds`; `0` runs all rounds. `NULL` = as the config says
 #' @param partition Slurm partition for the fits (with `shared_node`, the
 #'   partition of the one node they all run on); `NULL` uses the project's
 #'   `[nonmem.scm] partition`, else the cluster default
@@ -354,45 +451,46 @@ scm_out_dir <- function(x) {
 #' @param shared_node run every fit on one whole node instead of one Slurm
 #'   job per fit
 #' @param overwrite discard the SCM process already in the out_dir and run
-#'   this plan from scratch (resuming needs no overwrite)
+#'   this config from scratch (resuming needs no overwrite). Refused while
+#'   that process's driver may still be running
 #'
-#' @return invisibly, a list with `out_dir`, `plan_path`, and `log` (the
+#' @return invisibly, a list with `out_dir`, `config`, and `log` (the
 #'   file the pharos output went to; with `driver = "login"` the driver's own
 #'   record is `scm_driver.log` in the out_dir)
 #' @export
 #'
 #' @examples \dontrun{
 #' scm_run(plan)
+#' scm_run(plan, num_rounds = 2)   # pause after 2 rounds; scm_run(plan) again resumes
 #' scm_run(plan, max_concurrent = 12)
 #' scm_run(plan, shared_node = TRUE, partition = "big")
-#' scm_run("model/nonmem/scm/1001/pharos_scm_plan.json", driver = "login")
+#' scm_run("model/nonmem/scm/1001/1001scm.toml", driver = "login")
 #' }
-scm_run <- function(plan,
+scm_run <- function(x,
                     driver = c("slurm", "login"),
+                    num_rounds = NULL,
                     partition = NULL,
                     driver_partition = NULL,
                     account = NULL,
                     max_concurrent = NULL,
                     shared_node = FALSE,
                     overwrite = FALSE) {
-  if (inherits(plan, "hyperion_scm_plan")) {
-    plan_path <- attr(plan, "plan_path")
-    if (is.null(plan_path) || !file.exists(plan_path)) {
-      rlang::abort(c(
-        "this plan's pharos_scm_plan.json is missing on disk",
-        "i" = "rebuild it with `scm_plan()` before running"
-      ))
-    }
-    out_dir <- dirname(plan_path)
-  } else if (is.character(plan) && length(plan) == 1L && file.exists(plan)) {
-    plan_path <- plan
-    out_dir <- dirname(plan)
+  if (!(inherits(x, "hyperion_scm_plan") || inherits(x, "hyperion_scm_status") ||
+        (is.character(x) && length(x) == 1L && !is.na(x)))) {
+    rlang::abort(
+      "`x` must be a hyperion_scm_plan, a hyperion_scm_status, a path to a <stem>scm.toml, or an SCM out_dir"
+    )
+  }
+  config <- scm_config_path(x)
+  out_dir <- if (inherits(x, "hyperion_scm_plan") || inherits(x, "hyperion_scm_status")) {
+    attr(x, "out_dir")
   } else {
-    rlang::abort("`plan` must be a hyperion_scm_plan or a path to pharos_scm_plan.json")
+    dirname(config)
   }
 
   driver <- rlang::arg_match(driver)
 
+  scm_check_count(num_rounds, "num_rounds", 0, "(0 = all rounds), or NULL for the config's")
   for (arg in c("partition", "driver_partition", "account")) {
     value <- get(arg)
     if (!is.null(value) &&
@@ -411,38 +509,16 @@ scm_run <- function(plan,
       "`driver_partition` only applies to `driver = \"slurm\"` without `shared_node`"
     )
   }
+  scm_check_count(
+    max_concurrent, "max_concurrent", 0, "(0 = no cap), or NULL for the pharos default"
+  )
 
-  if (!is.null(max_concurrent)) {
-    ok <- is.numeric(max_concurrent) && length(max_concurrent) == 1L &&
-      !is.na(max_concurrent) && is.finite(max_concurrent) &&
-      max_concurrent %% 1 == 0 && max_concurrent >= 0
-    if (!ok) {
-      rlang::abort(
-        "`max_concurrent` must be a whole number >= 0 (0 = no cap), or NULL for the pharos default"
-      )
-    }
+  pharos_path <- scm_pharos_exe()
+
+  args <- c(scm_run_subcommand(driver), config)
+  if (!is.null(num_rounds)) {
+    args <- c(args, "--num-rounds", format(as.integer(num_rounds)))
   }
-
-  pharos_exe <- getOption("hyperion.pharos_exe", NULL)
-  pharos_path <- if (!is.null(pharos_exe)) {
-    if (!file.exists(pharos_exe)) {
-      rlang::abort(paste0(
-        "pharos executable not found at ", pharos_exe,
-        " (from options(hyperion.pharos_exe))"
-      ))
-    }
-    pharos_exe
-  } else {
-    found <- detect_pharos()
-    if (is.na(found$path)) {
-      rlang::abort(
-        "pharos executable not found on PATH; install pharos to run an SCM process"
-      )
-    }
-    found$path
-  }
-
-  args <- c(scm_run_subcommand(driver), plan_path)
   if (!is.null(driver_partition)) {
     args <- c(args, "--driver-partition", driver_partition)
   }
@@ -522,7 +598,7 @@ scm_run <- function(plan,
     ))
   }
 
-  invisible(list(out_dir = out_dir, plan_path = plan_path, log = log_file))
+  invisible(list(out_dir = out_dir, config = config, log = log_file))
 }
 
 #' The pharos subcommand that runs an SCM driver of the given kind
@@ -534,23 +610,90 @@ scm_run_subcommand <- function(driver) {
   )
 }
 
+#' Stop the driver of an SCM process
+#'
+#' What `pharos nonmem scm stop` does, wherever the driver runs: `scancel`
+#' of its Slurm job, or SIGTERM of its login-node process (which has to be
+#' on this host). The driver catches it, records the SCM process as paused
+#' and exits once its executor has handed the running fits back; running
+#' the same config again ([scm_run()]) resumes the process. Fits that are
+#' Slurm jobs of their own keep running and are used on resume, unless
+#' `fits` cancels the ones still in the queue. A node allocation a gone
+#' driver left held (`shared_node` with `driver = "login"`) is released.
+#'
+#' @param x a `hyperion_scm_plan`, a `hyperion_scm_status`, an SCM output
+#'   directory, or its `<stem>scm.toml`
+#' @param fits also cancel the fits still in the Slurm queue
+#'
+#' @return invisibly, a list: `out_dir`; `driver`, what was done to it;
+#'   `was_alive`, whether it was running when told to stop; `fits`, the
+#'   Slurm jobs cancelled (`NULL` unless `fits`); `allocation`, what became
+#'   of a shared-node allocation (`NULL` when there is none); `config`, the
+#'   process's config, to resume it with
+#' @export
+#'
+#' @examples \dontrun{
+#' scm_stop(plan)
+#' scm_stop("model/nonmem/PK/scm/scm-demo", fits = TRUE)
+#' scm_run(plan)   # resumes
+#' }
+scm_stop <- function(x, fits = FALSE) {
+  if (!(isTRUE(fits) || isFALSE(fits))) {
+    rlang::abort("`fits` must be TRUE or FALSE")
+  }
+  out_dir <- scm_out_dir(x)
+  stopped <- scm_stop_impl(path = out_dir, fits = isTRUE(fits))
+
+  lines <- c("driver" = stopped$driver)
+  if (isTRUE(fits)) {
+    jobs <- stopped$fits
+    lines["fits"] <- if (!length(jobs)) {
+      "none in the slurm queue"
+    } else {
+      paste0("cancelled slurm job(s) ", paste(jobs, collapse = ", "))
+    }
+  }
+  if (!is.null(stopped$allocation)) {
+    lines["allocation"] <- stopped$allocation
+  }
+  cli::cli_inform(c(
+    "v" = "SCM stop: {.file {stopped$out_dir}}",
+    stats::setNames(paste0("{.strong ", names(lines), ":} ", lines), rep(" ", length(lines)))
+  ))
+  # Where to go from here: the process resumes from its config.
+  resume <- stopped$config %||% paste0("<", stopped$out_dir, "'s scm config>")
+  cli::cli_inform(c(
+    "i" = paste0(
+      if (isTRUE(stopped$was_alive)) {
+        "the process pauses once the driver has handed its running fits back; "
+      },
+      "follow it with {.code scm_status(\"{stopped$out_dir}\")}"
+    ),
+    "i" = "resume it with {.code scm_run(\"{resume}\")}"
+  ))
+
+  invisible(stopped)
+}
+
 #' Check on an SCM process in its entirety
 #'
 #' Where the SCM process stands, as its driver's terminal would show it now:
 #' the process facts (status, phase, what is running, the forward and final
 #' models once fitted), the driver — running, exited, or gone while the
-#' process still says it is running, in which case re-running the plan
-#' resumes it — then each decided round's decision line and the round at a
-#' glance (every candidate best first, with its OFV, ΔOFV, p and what became
-#' of it), and the open round fit by fit: fitted, unusable, running (its
-#' Slurm job, for how long, and the latest iteration and OFV read off its
-#' `.ext` file), queued or pending. Read off disk now, wherever the process
-#' stands (planned, running, paused, completed, or failed): fits that
-#' finished since the driver last wrote its state are picked up and scored
-#' the same way the driver will.
+#' process still says it is running, in which case running the config
+#' again resumes it — then each decided round's decision line and the round
+#' at a glance (every candidate best first, with its OFV, ΔOFV, p and what
+#' became of it), and the open round fit by fit: fitted, unusable, running
+#' (its Slurm job, for how long, and the latest iteration and OFV read off
+#' its `.ext` file), queued or pending. Read off disk now, wherever the
+#' process stands (planned, running, paused, completed, or failed): fits
+#' that finished since the driver last wrote its state are picked up and
+#' scored the same way the driver will. A process that has started is read
+#' under the plan its `scm_state.json` records; one that has not yet is
+#' read under what the config in the out_dir resolves to now.
 #'
-#' @param x a `hyperion_scm_plan`, an SCM output directory, or a pharos_scm_plan.json
-#'   path
+#' @param x a `hyperion_scm_plan`, an SCM output directory, or its
+#'   `<stem>scm.toml`
 #'
 #' @return a `hyperion_scm_status` object: the summary record (see
 #'   [scm_summary()]), with the text `pharos nonmem scm status` prints as its
@@ -643,52 +786,80 @@ scm_plan_display_parts <- function(x) {
     candidates = candidates,
     n_candidates = nrow(candidates),
     max_models = as.integer(attr(x, "max_models")),
-    context = scm_plan_context_parts(x)
+    context = scm_plan_context_parts(x),
+    run = scm_plan_run_parts(x)
   )
 }
 
+#' What a run of the plan would do, as the lines `pharos nonmem scm plan`
+#' prints under `submit`: what `overwrite` discards, NM-TRAN's verdict, and
+#' why a run would be refused right now. `NULL` for a plan object from an
+#' older hyperion.
+#' @noRd
+scm_plan_run_parts <- function(x) {
+  nmtran <- attr(x, "nmtran")
+  if (is.null(nmtran)) {
+    return(NULL)
+  }
+  list(
+    discards = attr(x, "discards"),
+    nmtran = nmtran,
+    refusals = as.character(attr(x, "refusals") %||% character())
+  )
+}
+
+#' The run half of a plan as display lines: one per fact, in the order both
+#' the print and the knit_print method show them.
+#' @noRd
+scm_plan_run_lines <- function(run, out_dir) {
+  lines <- character()
+  if (!is.null(run$discards)) {
+    lines["overwrite"] <- paste0(
+      "scm_run(overwrite = TRUE) discards the SCM process in ", out_dir,
+      " (", run$discards, ") and starts fresh"
+    )
+  }
+  lines["nmtran"] <- run$nmtran
+  lines
+}
+
 #' Tidy the `context` attribute a freshly built plan carries: where the
-#' SCM process in its out_dir already stands, and what the plan changed about the
-#' pharos_scm_plan.json it replaced. `NULL` for a plan with nothing behind it -- a fresh
-#' out_dir, or a plan object from an older hyperion.
+#' SCM process in its out_dir already stands, and what the plan changes about
+#' the plan that process runs under. `NULL` for a plan with nothing behind
+#' it -- no SCM process started in the out_dir (or one previewed with
+#' `overwrite = TRUE`), or a plan object from an older hyperion.
 #' @noRd
 scm_plan_context_parts <- function(x) {
   ctx <- attr(x, "context")
-  if (is.null(ctx)) {
-    return(NULL)
-  }
-  had_previous <- isTRUE(unlist(ctx$had_previous_plan))
-  progress <- ctx$progress
-  if (!had_previous && is.null(progress)) {
+  if (is.null(ctx) || is.null(ctx$progress)) {
     # A fresh out_dir: the plan is the whole story.
     return(NULL)
   }
 
-  if (!is.null(progress)) {
-    current <- progress$current_round
-    progress <- list(
-      status = unlist(progress$status),
-      phase = unlist(progress$phase),
-      rounds_complete = as.integer(unlist(progress$rounds_complete)),
-      current_round = if (is.null(current)) {
-        NULL
-      } else {
-        list(
-          name = unlist(current$name),
-          concluded = as.integer(unlist(current$concluded)),
-          total = as.integer(unlist(current$total)),
-          # the candidates the open round holds, so a retune can say which
-          # of them that round refits
-          candidates = unlist(current$candidates) %||% character()
-        )
-      },
-      retained = unlist(progress$retained) %||% character(),
-      removed = unlist(progress$removed) %||% character(),
-      final_model = unlist(progress$final_model),
-      models_running = as.integer(unlist(progress$models_running)),
-      updated = unlist(progress$updated)
-    )
-  }
+  progress <- ctx$progress
+  current <- progress$current_round
+  progress <- list(
+    status = unlist(progress$status),
+    phase = unlist(progress$phase),
+    rounds_complete = as.integer(unlist(progress$rounds_complete)),
+    current_round = if (is.null(current)) {
+      NULL
+    } else {
+      list(
+        name = unlist(current$name),
+        concluded = as.integer(unlist(current$concluded)),
+        total = as.integer(unlist(current$total)),
+        # the candidates the open round holds, so a retune can say which
+        # of them that round refits
+        candidates = unlist(current$candidates) %||% character()
+      )
+    },
+    retained = unlist(progress$retained) %||% character(),
+    removed = unlist(progress$removed) %||% character(),
+    final_model = unlist(progress$final_model),
+    models_running = as.integer(unlist(progress$models_running)),
+    updated = unlist(progress$updated)
+  )
 
   changes <- lapply(ctx$changes, function(c) {
     list(
@@ -711,7 +882,6 @@ scm_plan_context_parts <- function(x) {
   })
 
   list(
-    had_previous_plan = had_previous,
     progress = progress,
     changes = changes,
     removals = unlist(ctx$removals) %||% character(),
@@ -726,11 +896,6 @@ scm_plan_context_parts <- function(x) {
 #' @noRd
 scm_context_progress_lines <- function(ctx) {
   p <- ctx$progress
-  if (is.null(p)) {
-    return(c(progress = paste(
-      "not started -- the out_dir holds a plan but no SCM state"
-    )))
-  }
 
   rounds <- switch(as.character(min(p$rounds_complete, 2L)),
     "0" = "no rounds complete yet",
@@ -822,12 +987,14 @@ scm_context_retune_notes <- function(ctx) {
 #' The canonical, complete display of a plan — candidates, alphas, retry
 #' policy, and the worst-case size. A plan built over an out_dir that
 #' already holds an SCM process says so too: how far it got, which
-#' covariates it has selected, and what this plan changed about the plan it
-#' replaced — a sketch, where [scm_status()] and [scm_summary()] are the
-#' detailed views. There is deliberately no
-#' `summary()` for a plan: a plan is a static declaration with nothing to
-#' compute beyond what printing shows. (`summary()` on a *status* is
-#' different — it returns the record as a data.frame; see
+#' covariates it has selected, and what this plan changes about the plan
+#' that process runs under — a sketch, where [scm_status()] and
+#' [scm_summary()] are the detailed views. Then what a run would do: what
+#' `overwrite` discards, NM-TRAN's verdict on the initial model, and why
+#' [scm_run()] would be refused right now, if it would be. There is
+#' deliberately no `summary()` for a plan: a plan is a static declaration
+#' with nothing to compute beyond what printing shows. (`summary()` on a
+#' *status* is different — it returns the record as a data.frame; see
 #' [summary.hyperion_scm_status()].)
 #'
 #' @param x a `hyperion_scm_plan`
@@ -885,13 +1052,11 @@ print.hyperion_scm_plan <- function(x, ...) {
       cli::cli_text("{.strong {label}:} {lines[[label]]}")
     }
 
-    if (isTRUE(ctx$had_previous_plan)) {
-      cli::cli_h2("Changes from the previous plan")
-      if (!length(ctx$changes)) {
-        cli::cli_text("none - identical to the previous plan")
-      } else {
-        cli::cli_ul(vapply(ctx$changes, scm_change_line, character(1)))
-      }
+    cli::cli_h2("Changes from the plan the SCM process runs under")
+    if (!length(ctx$changes)) {
+      cli::cli_text("none - identical to the plan the SCM process runs under")
+    } else {
+      cli::cli_ul(vapply(ctx$changes, scm_change_line, character(1)))
     }
     removal <- scm_context_removal_note(ctx)
     if (!is.null(removal)) {
@@ -899,6 +1064,18 @@ print.hyperion_scm_plan <- function(x, ...) {
     }
     for (note in scm_context_retune_notes(ctx)) {
       cli::cli_alert_info(note)
+    }
+  }
+
+  run <- parts$run
+  if (!is.null(run)) {
+    cli::cli_h2("What scm_run() does")
+    lines <- scm_plan_run_lines(run, parts$out_dir)
+    for (label in names(lines)) {
+      cli::cli_text("{.strong {label}:} {lines[[label]]}")
+    }
+    for (why in run$refusals) {
+      cli::cli_alert_warning("refused right now: {why}")
     }
   }
   invisible(x)
@@ -1002,21 +1179,16 @@ knit_print.hyperion_scm_plan <- function(x, ...) {
       "#### Where the SCM process stands",
       "",
       paste0("- **", names(lines), ":** ", unname(lines)),
+      "",
+      "#### Changes from the plan the SCM process runs under",
+      "",
+      if (!length(ctx$changes)) {
+        "none - identical to the plan the SCM process runs under"
+      } else {
+        paste0("- ", vapply(ctx$changes, scm_change_line, character(1)))
+      },
       ""
     )
-    if (isTRUE(ctx$had_previous_plan)) {
-      output <- c(
-        output,
-        "#### Changes from the previous plan",
-        "",
-        if (!length(ctx$changes)) {
-          "none - identical to the previous plan"
-        } else {
-          paste0("- ", vapply(ctx$changes, scm_change_line, character(1)))
-        },
-        ""
-      )
-    }
     removal <- scm_context_removal_note(ctx)
     if (!is.null(removal)) {
       output <- c(output, removal, "")
@@ -1024,6 +1196,21 @@ knit_print.hyperion_scm_plan <- function(x, ...) {
     for (note in scm_context_retune_notes(ctx)) {
       output <- c(output, note, "")
     }
+  }
+
+  run <- parts$run
+  if (!is.null(run)) {
+    lines <- scm_plan_run_lines(run, parts$out_dir)
+    output <- c(
+      output,
+      "#### What scm_run() does",
+      "",
+      paste0("- **", names(lines), ":** ", unname(lines)),
+      if (length(run$refusals)) {
+        paste0("- **refused right now:** ", run$refusals)
+      },
+      ""
+    )
   }
   knitr::asis_output(paste(output, collapse = "\n"))
 }
@@ -1082,7 +1269,7 @@ knit_print.hyperion_scm_status <- function(x, ...) {
 #' - `files`: run directory, `.lst`, `.ext` and summary JSON per candidate
 #'
 #' @param x a `hyperion_scm_plan`, a `hyperion_scm_status`, an SCM output
-#'   directory, or a pharos_scm_plan.json path
+#'   directory, or its `<stem>scm.toml`
 #' @param round only this round: the Nth SCM round (`2` or `"round 2"` — the
 #'   reference fit is not a round), a round name (`"forward_round1"`,
 #'   `"backward_round1"`), or `"reference"`. A single round always lists

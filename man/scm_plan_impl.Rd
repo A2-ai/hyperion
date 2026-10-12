@@ -2,34 +2,38 @@
 % Please edit documentation in R/extendr-wrappers.R
 \name{scm_plan_impl}
 \alias{scm_plan_impl}
-\title{Build and validate an SCM plan (runs nothing) and write its pharos_scm_plan.json}
+\title{Resolve an SCM config to its plan and say what running it would do}
 \usage{
 scm_plan_impl(config, num_rounds = NULL, overwrite = FALSE)
 }
 \arguments{
 \item{config}{path to the SCM config file (TOML) written by
 \code{\link[=scm_init]{scm_init()}} into the SCM out_dir: model, direction, forward_alpha,
-backward_alpha, max_retries, cov_step, forward_final_cov_step,
-final_cov_step, and the \verb{[covariates]} section (fixed, the
-per-type \code{continuous} / \code{categorical} tables, effects). Relative paths
-resolve against the config file}
+backward_alpha, max_retries, num_rounds, cov_step,
+forward_final_cov_step, final_cov_step, and the \verb{[covariates]} section
+(fixed, the per-type \code{continuous} / \code{categorical} tables, effects).
+Relative paths resolve against the config file}
 
-\item{num_rounds}{pause after this many rounds per run (NULL = no cap)}
+\item{num_rounds}{pause after this many rounds per run, over the
+config's \code{num_rounds}; \code{0} runs all rounds (NULL = as the config says)}
 
-\item{overwrite}{discard the SCM process already in the out_dir (its
-fits, state and summaries) once the plan has validated, so this plan
-starts fresh. Refused while that process's driver may still be running}
+\item{overwrite}{preview a run with \code{overwrite = TRUE}: the SCM process
+already in the out_dir is discarded when the driver starts, so the
+plan is reported against an empty out_dir and the \code{discards}
+attribute says what goes}
 }
 \value{
-a \code{hyperion_scm_plan} object; its \code{plan_path} attribute is the
-\code{pharos_scm_plan.json} just written, its \code{context} attribute is where the SCM
-process in the out_dir already stands plus what this plan changed about
-the pharos_scm_plan.json it replaced, and its \code{discarded} attribute says what
-\code{overwrite} threw away (\code{NULL} when nothing was). A plan the SCM
-process already in the out_dir cannot resume under is an error, and is
-not written
+a \code{hyperion_scm_plan} object; its \code{config} attribute is the
+config it was built from, \code{out_dir} where the SCM process runs,
+\code{context} where the SCM process in the out_dir already stands plus what
+this plan changes about the plan that process runs under, \code{resumable}
+whether that process resumes under this plan, \code{discards} what
+\code{overwrite} would throw away (\code{NULL} when nothing), \code{refusals} why
+\code{\link[=scm_run]{scm_run()}} would be refused right now (empty when it would not be),
+and \code{nmtran} NM-TRAN's verdict on the initial model
 }
 \description{
-Internal engine behind \code{\link[=scm_plan]{scm_plan()}}; use that instead.
+Internal engine behind \code{\link[=scm_plan]{scm_plan()}}; use that instead. A dry run: the
+out_dir is only read, nothing is written and nothing runs.
 }
 \keyword{internal}

@@ -1,13 +1,15 @@
 //! Stepwise covariate modeling (SCM) wrappers.
 //!
 //! `scm_init_wrap` writes the starter config beside a model, `scm_plan_wrap`
-//! builds the validated plan and writes `pharos_scm_plan.json` through the same Rust
-//! code the pharos CLI runs (`pharos nonmem scm plan`), and `scm_status_wrap`
-//! / `scm_summary_wrap` read an SCM process wherever it stands, exactly as
-//! `scm status` and `scm summary` do. Running happens through the pharos CLI
-//! in the background (see `scm_run()` on the R side), never in-process.
+//! resolves a config to its validated plan and reports what a submit of it
+//! would do, through the same Rust code the pharos CLI runs (`pharos nonmem
+//! scm plan`), and `scm_status_wrap` / `scm_summary_wrap` read an SCM process
+//! wherever it stands, exactly as `scm status` and `scm summary` do.
+//! `scm_stop_wrap` stops a process's driver as `scm stop` does. Running
+//! happens through the pharos CLI in the background (see `scm_run()` on the
+//! R side), never in-process.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use extendr_api::Result;
 use extendr_api::prelude::*;
@@ -16,10 +18,13 @@ use extendr_api::serializer::to_robj;
 use nonmem::scm::{
     self as pharos_scm, Compatibility, PlanChange, PlanContext, Retuning, ScmStatus,
     SummaryOptions,
+    plan::BuiltPlan,
     state::ScmProcess,
     summary::{CandidateSummary, Fits, RoundSummary},
 };
-use scheduler::{DriverRecord, Liveness, fit_place_lookup};
+use scheduler::{
+    DriverRecord, Liveness, cancel_recorded_fits, driver_job_name, fit_place_lookup, running_driver,
+};
 
 use hyperion_core::{ResultExt, extendr_err};
 
@@ -46,28 +51,32 @@ pub fn scm_init_wrap(model: &str, #[extendr(default = "FALSE")] overwrite: bool)
     .into_robj())
 }
 
-/// Build and validate an SCM plan (runs nothing) and write its pharos_scm_plan.json
+/// Resolve an SCM config to its plan and say what running it would do
 ///
-/// Internal engine behind [scm_plan()]; use that instead.
+/// Internal engine behind [scm_plan()]; use that instead. A dry run: the
+/// out_dir is only read, nothing is written and nothing runs.
 ///
 /// @param config path to the SCM config file (TOML) written by
 ///   [scm_init()] into the SCM out_dir: model, direction, forward_alpha,
-///   backward_alpha, max_retries, cov_step, forward_final_cov_step,
-///   final_cov_step, and the `[covariates]` section (fixed, the
-///   per-type `continuous` / `categorical` tables, effects). Relative paths
-///   resolve against the config file
-/// @param num_rounds pause after this many rounds per run (NULL = no cap)
-/// @param overwrite discard the SCM process already in the out_dir (its
-///   fits, state and summaries) once the plan has validated, so this plan
-///   starts fresh. Refused while that process's driver may still be running
+///   backward_alpha, max_retries, num_rounds, cov_step,
+///   forward_final_cov_step, final_cov_step, and the `[covariates]` section
+///   (fixed, the per-type `continuous` / `categorical` tables, effects).
+///   Relative paths resolve against the config file
+/// @param num_rounds pause after this many rounds per run, over the
+///   config's `num_rounds`; `0` runs all rounds (NULL = as the config says)
+/// @param overwrite preview a run with `overwrite = TRUE`: the SCM process
+///   already in the out_dir is discarded when the driver starts, so the
+///   plan is reported against an empty out_dir and the `discards`
+///   attribute says what goes
 ///
-/// @return a `hyperion_scm_plan` object; its `plan_path` attribute is the
-///   `pharos_scm_plan.json` just written, its `context` attribute is where the SCM
-///   process in the out_dir already stands plus what this plan changed about
-///   the pharos_scm_plan.json it replaced, and its `discarded` attribute says what
-///   `overwrite` threw away (`NULL` when nothing was). A plan the SCM
-///   process already in the out_dir cannot resume under is an error, and is
-///   not written
+/// @return a `hyperion_scm_plan` object; its `config` attribute is the
+///   config it was built from, `out_dir` where the SCM process runs,
+///   `context` where the SCM process in the out_dir already stands plus what
+///   this plan changes about the plan that process runs under, `resumable`
+///   whether that process resumes under this plan, `discards` what
+///   `overwrite` would throw away (`NULL` when nothing), `refusals` why
+///   [scm_run()] would be refused right now (empty when it would not be),
+///   and `nmtran` NM-TRAN's verdict on the initial model
 /// @keywords internal
 #[extendr(r_name = "scm_plan_impl")]
 pub fn scm_plan_wrap(
@@ -78,70 +87,67 @@ pub fn scm_plan_wrap(
     // Guard before the i32 -> usize cast: a negative would wrap to a huge
     // cap, silently meaning "never pause".
     if let Some(n) = num_rounds
-        && n < 1
+        && n < 0
     {
-        return Err(extendr_err!("num_rounds must be at least 1, got {n}"));
+        return Err(extendr_err!(
+            "num_rounds must be 0 (run all rounds) or more, got {n}"
+        ));
     }
 
-    let overrides = pharos_scm::ScmPlanOverrides {
+    let overrides = pharos_scm::ScmOverrides {
         num_rounds: num_rounds.map(|n| n as usize),
     };
 
-    // Built, and so validated, before anything in the out_dir is touched —
-    // the same order as `pharos nonmem scm plan`.
-    let mut built = pharos_scm::build_plan_from_config(
-        Path::new(config),
-        &overrides,
-        env!("CARGO_PKG_VERSION"),
-    )
-    .map_to_extendr_err("Failed to build SCM plan")?;
+    // The config as submitted: absolute, so `scm_run()` can hand it to
+    // pharos from any working directory.
+    let config_path =
+        std::fs::canonicalize(config).map_to_extendr_err(format!("no SCM config at {config}"))?;
 
-    // `overwrite` acts on the out_dir once the plan is built: it discards the
-    // SCM process there, unless its driver may still be running.
-    let mut discarded: Option<String> = None;
+    // Built, and so validated, before anything else is looked at — the
+    // same order as `pharos nonmem scm plan`.
+    let built =
+        pharos_scm::build_plan_from_config(&config_path, &overrides, env!("CARGO_PKG_VERSION"))
+            .map_to_extendr_err("Failed to build SCM plan")?;
+    let out_dir = built.plan.out_dir_path();
+
+    // What a submit of this config would meet in the out_dir.
+    let discards = discardable(&built);
+    // With `overwrite` the process is discarded, so there is nothing to
+    // resume under: the plan starts fresh.
+    let resumable = overwrite || built.is_resumable();
+    let mut refusals: Vec<String> = Vec::new();
     if overwrite {
-        let out_dir = built.plan.out_dir_path();
-        if let Some(record) = DriverRecord::read(&out_dir) {
-            record
-                .refuse_if_alive(&out_dir.display().to_string(), "overwrite = TRUE")
-                .map_err(|e| extendr_err!("{e:#}"))?;
+        // `overwrite` discards the process, so it is refused while its
+        // last driver may still be running.
+        if let Some(record) = DriverRecord::read(&out_dir)
+            && let Err(e) =
+                record.refuse_if_alive(&out_dir.display().to_string(), "overwrite = TRUE")
+        {
+            refusals.push(format!("{e:#}"));
         }
-        discarded = built.context.progress.as_ref().map(|p| {
-            let n = p.state.completed_rounds();
-            let s = if n == 1 { "" } else { "s" };
-            format!("{}, {n} round{s} complete", p.state.status)
-        });
-        built
-            .clear_previous_output()
-            .map_to_extendr_err("Failed to discard the SCM process in the out_dir")?;
-    }
-
-    // A plan the SCM process already in the out_dir cannot resume under is
-    // not written: `scm status` reads that process under whatever pharos_scm_plan.json
-    // says, so the file stays the one it ran under. pharos says the same in
-    // CLI terms; this spells out what to do in R.
-    if let Some(verdict) = built
+    } else if let Some(verdict) = built
         .context
         .compatibility
         .as_ref()
         .filter(|c| c.is_incompatible())
     {
+        // pharos says the same in CLI terms; this spells out what to do in R.
         let reasons: String = verdict
             .reasons
             .iter()
             .map(|r| format!("\n  - {r}"))
             .collect();
-        return Err(extendr_err!(
-            "plan not written: the SCM process in {} belongs to the previous plan and cannot \
-             resume under this one:{reasons}\nre-plan with `overwrite = TRUE` to discard that \
+        refusals.push(format!(
+            "the SCM process in {} belongs to the plan it was submitted under and cannot \
+             resume under this one:{reasons}\nrun with `overwrite = TRUE` to discard that \
              process and start fresh",
             built.plan.out_dir
         ));
     }
-
-    let written = built
-        .write()
-        .map_to_extendr_err("Failed to write pharos_scm_plan.json")?;
+    if let Some(why) = second_driver(&built, &out_dir) {
+        refusals.push(why);
+    }
+    let nmtran = nmtran_verdict(&built, &out_dir);
 
     let mut robj = to_robj(&built.plan).map_to_extendr_err("Failed to convert plan to Robj")?;
     robj.set_attrib("warnings", built.warnings.iter().collect_robj())?;
@@ -159,16 +165,98 @@ pub fn scm_plan_wrap(
     // this much; pharos owns the figure, so the display asks it rather than
     // quoting one of its own.
     robj.set_attrib("retry_jitter", nonmem::scm::round::RETRY_JITTER.into_robj())?;
-    robj.set_attrib("plan_path", written.to_string_lossy().into_robj())?;
-    // Read while the plan was built (and again after `overwrite` cleared the
-    // out_dir), i.e. before the write above replaced the pharos_scm_plan.json it
-    // compares against: how far the SCM process in the out_dir got, and what
-    // this plan changed. Printing leans on it; a fresh out_dir has nothing
-    // to say and renders exactly as it always did.
-    robj.set_attrib("context", context_robj(&built.context)?)?;
-    robj.set_attrib("discarded", or_null(discarded))?;
+    robj.set_attrib("config", config_path.to_string_lossy().into_robj())?;
+    robj.set_attrib("out_dir", out_dir.to_string_lossy().into_robj())?;
+    // Where the SCM process in the out_dir stands and what this plan changes
+    // about the plan it runs under. With `overwrite` that process is gone
+    // before the plan meets it, so the plan is the whole story — as
+    // `pharos nonmem scm plan --overwrite` shows it.
+    let context = if overwrite {
+        PlanContext::default()
+    } else {
+        built.context.clone()
+    };
+    robj.set_attrib("context", context_robj(&context)?)?;
+    robj.set_attrib("resumable", resumable.into_robj())?;
+    robj.set_attrib("discards", or_null(discards))?;
+    robj.set_attrib("refusals", refusals.into_robj())?;
+    robj.set_attrib("nmtran", nmtran.into_robj())?;
     let robj = robj.set_class(["hyperion_scm_plan"])?.to_owned();
     Ok(robj)
+}
+
+/// The SCM process in the out_dir that `overwrite` discards, as
+/// `<status>, N rounds complete`; `None` when none has started.
+fn discardable(built: &BuiltPlan) -> Option<String> {
+    built.context.progress.as_ref().map(|p| {
+        let n = p.state.completed_rounds();
+        let s = if n == 1 { "" } else { "s" };
+        format!("{}, {n} round{s} complete", p.state.status)
+    })
+}
+
+/// Why a run would be refused right now: another driver for this SCM
+/// process is queued or running. The same check every submit makes.
+fn second_driver(built: &BuiltPlan, out_dir: &Path) -> Option<String> {
+    let stem = built
+        .plan
+        .model_path()
+        .file_stem()
+        .map(|s| s.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "scm".to_string());
+    let shown = out_dir.display();
+    if let Some(job_id) = running_driver(&driver_job_name(&stem), &built.plan.root) {
+        return Some(format!(
+            "the SCM process in {shown} already has a driver in the queue: slurm job {job_id} \
+             ({}); follow it with `scm_status()`, or `scm_stop()` it before running again",
+            driver_job_name(&stem)
+        ));
+    }
+    if let Some(record) = DriverRecord::read(out_dir)
+        && record.job_id.is_none()
+        && record.liveness() == Liveness::Alive
+    {
+        return Some(format!(
+            "the SCM process in {shown} is already being driven by {} on the login node; \
+             follow it with `scm_status()`, or `scm_stop()` it before running again",
+            record.describe()
+        ));
+    }
+    None
+}
+
+/// The initial model through NM-TRAN, as every fit's script runs it before
+/// `sbatch`: what `pharos nonmem scm plan` reports under `nmtran`.
+fn nmtran_verdict(built: &BuiltPlan, out_dir: &Path) -> String {
+    let Ok(settings) = pharos_scm::project_config(out_dir) else {
+        return "not checked: this out_dir is not inside a pharos project".to_string();
+    };
+    if settings.get_nmtrans_executable_path(None).is_err() {
+        return "not checked: this project has no NM-TRAN executable to check with".to_string();
+    }
+    let model = built.plan.model_path();
+    match nonmem::check_model(&settings, &model) {
+        Ok(result) if result.success => "the initial model passes NM-TRAN".to_string(),
+        Ok(result) => format!(
+            "a run would be refused: NM-TRAN rejects the initial model {}:\n{}",
+            model.display(),
+            result.stdout.trim()
+        ),
+        Err(e) => format!("a run would be refused: NM-TRAN could not be run: {e:#}"),
+    }
+}
+
+/// The SCM config in an out_dir, where [scm_init()] puts it
+///
+/// Internal helper behind [scm_run()] and [scm_stop()].
+///
+/// @param out_dir the SCM out_dir
+/// @return the path of the one `<stem>scm.toml` in it
+/// @keywords internal
+#[extendr(r_name = "scm_config_impl")]
+pub fn scm_config_wrap(out_dir: &str) -> Result<String> {
+    let config = pharos_scm::config_in(Path::new(out_dir)).map_err(|e| extendr_err!("{e:#}"))?;
+    Ok(config.to_string_lossy().into_owned())
 }
 
 /// The SCM-defining plan fields — the ones the plan digest covers, so moving
@@ -228,8 +316,9 @@ fn progress_robj(p: &ScmProcess) -> Robj {
 }
 
 /// The `context` attribute a freshly built plan carries: where the SCM
-/// process in its out_dir already stands, and what this plan changed about
-/// the pharos_scm_plan.json it replaced.
+/// process in its out_dir already stands, and what this plan changes about
+/// the plan that process runs under (the one its `scm_state.json` records).
+/// Empty — no progress, no changes — when no SCM process has started there.
 ///
 /// pharos renders its `PlanContext` straight to text for the CLI and never
 /// serializes it, so hyperion takes it apart here and hands R the pieces its
@@ -287,9 +376,11 @@ fn context_robj(ctx: &PlanContext) -> Result<Robj> {
         .collect();
 
     Ok(list!(
-        had_previous_plan = ctx.had_previous_plan,
         changes = List::from_values(changes),
-        progress = ctx.progress.as_ref().map_or_else(|| r!(NULL), progress_robj),
+        progress = ctx
+            .progress
+            .as_ref()
+            .map_or_else(|| r!(NULL), progress_robj),
         removals = removals.to_vec(),
         retunes = List::from_values(retunes),
         state_is_stale = verdict.is_incompatible(),
@@ -322,15 +413,77 @@ fn driver_robj(record: &DriverRecord) -> Robj {
     .into_robj()
 }
 
+/// The config of the SCM process in `out_dir`, when it holds exactly one.
+fn config_of(out_dir: &Path) -> Option<PathBuf> {
+    pharos_scm::config_in(out_dir).ok()
+}
+
+/// Stop the driver of an SCM process
+///
+/// Internal engine behind [scm_stop()]; use that instead. What
+/// `pharos nonmem scm stop` does: `scancel` the driver's Slurm job, or
+/// SIGTERM its login-node process (which has to be on this host); the
+/// driver records the SCM process as paused and exits once its executor
+/// hands the running fits back. Fits that are Slurm jobs of their own keep
+/// running unless `fits`.
+///
+/// @param path the SCM out_dir, or its `<stem>scm.toml`
+/// @param fits also cancel the fits still in the Slurm queue
+///
+/// @return a list: `out_dir`; `driver`, what was done to it; `was_alive`,
+///   whether it was running when told to stop; `fits`, the Slurm jobs
+///   cancelled (`NULL` unless `fits`); `allocation`, what became of a
+///   shared-node allocation (`NULL` when there is none); `config`, the
+///   process's config, to resume it with (`NULL` when the out_dir holds
+///   none)
+/// @keywords internal
+#[extendr(r_name = "scm_stop_impl")]
+pub fn scm_stop_wrap(path: &str, #[extendr(default = "FALSE")] fits: bool) -> Result<Robj> {
+    let out_dir = pharos_scm::out_dir_named(Path::new(path));
+    let Some(record) = DriverRecord::read(&out_dir) else {
+        return Err(extendr_err!(
+            "no driver has been started for the SCM process in {}",
+            out_dir.display()
+        ));
+    };
+    let was_alive = record.liveness() == Liveness::Alive;
+    let driver = record.stop().map_err(|e| extendr_err!("{e:#}"))?;
+    let cancelled = if fits {
+        Some(
+            cancel_recorded_fits(&out_dir)
+                .map_err(|e| extendr_err!("Failed to cancel the fits in the slurm queue: {e:#}"))?
+                .into_iter()
+                .map(|j| j as i32)
+                .collect::<Vec<_>>(),
+        )
+    } else {
+        None
+    };
+    let allocation = record
+        .release_allocation()
+        .map_err(|e| extendr_err!("{e:#}"))?;
+
+    Ok(list!(
+        out_dir = out_dir.to_string_lossy().to_string(),
+        driver = driver,
+        was_alive = was_alive,
+        fits = or_null(cancelled),
+        allocation = or_null(allocation),
+        config = or_null(config_of(&out_dir).map(|c| c.to_string_lossy().to_string()))
+    )
+    .into_robj())
+}
+
 /// Read the status of an SCM process
 ///
 /// Internal engine behind [scm_status()]; use that instead.
 ///
-/// @param path the SCM out_dir, or its pharos_scm_plan.json
+/// @param path the SCM out_dir, or its `<stem>scm.toml`
 ///
 /// @return a `hyperion_scm_status` object: the summary record, with the
 ///   text `pharos nonmem scm status` prints as its `rendered` attribute, the
-///   out_dir it was read from as `out_dir`, whether the SCM process has
+///   out_dir it was read from as `out_dir`, the config in that out_dir as
+///   `config` (`NULL` when it holds none), whether the SCM process has
 ///   started as `started`, and the driver record (`scm_driver.json`, with
 ///   its liveness) as `driver` — `NULL` before a driver was ever started
 /// @keywords internal
@@ -340,7 +493,9 @@ pub fn scm_status_wrap(path: &str) -> Result<Robj> {
     // The process as its driver's terminal shows it, read off disk now: the
     // state reconciled with what the fits have left behind, then summarized
     // — the same reader `scm_summary()` uses, so the two never describe
-    // different SCM processes.
+    // different SCM processes. A process that has not started is read under
+    // what its config resolves to now; a started one under the plan its
+    // state records.
     let status = ScmStatus::read(&out_dir).map_to_extendr_err("Failed to read SCM status")?;
     let record = DriverRecord::read(&out_dir);
     let driver_lines = record
@@ -356,6 +511,10 @@ pub fn scm_status_wrap(path: &str) -> Result<Robj> {
     // The record's own `out_dir` is written relative to the pharos project
     // root, so the directory it was read from is the one to go back to.
     robj.set_attrib("out_dir", out_dir.to_string_lossy().into_robj())?;
+    robj.set_attrib(
+        "config",
+        or_null(config_of(&out_dir).map(|c| c.to_string_lossy().to_string())),
+    )?;
     robj.set_attrib("started", status.process.started.into_robj())?;
     robj.set_attrib("driver", or_null(record.as_ref().map(driver_robj)))?;
     let robj = robj.set_class(["hyperion_scm_status"])?.to_owned();
@@ -366,7 +525,7 @@ pub fn scm_status_wrap(path: &str) -> Result<Robj> {
 ///
 /// Internal engine behind [scm_summary()]; use that instead.
 ///
-/// @param path the SCM out_dir, or its pharos_scm_plan.json
+/// @param path the SCM out_dir, or its `<stem>scm.toml`
 /// @param round only this round: the Nth SCM round ("2" / "round 2"), a
 ///   round name (forward_round1, backward_round1), or "reference"; NULL for
 ///   every round
@@ -412,7 +571,8 @@ pub fn scm_summary_wrap(
     selected.rounds.retain(|r| names.contains(&r.round));
     if let Some(name) = &opts.candidate {
         for r in &mut selected.rounds {
-            r.candidates.retain(|c| c.candidate.eq_ignore_ascii_case(name));
+            r.candidates
+                .retain(|c| c.candidate.eq_ignore_ascii_case(name));
         }
     }
 
@@ -652,6 +812,8 @@ extendr_module! {
     mod scm;
     fn scm_init_wrap;
     fn scm_plan_wrap;
+    fn scm_config_wrap;
+    fn scm_stop_wrap;
     fn scm_status_wrap;
     fn scm_summary_wrap;
 }

@@ -26,13 +26,14 @@ config comes with \code{direction} and every optional setting already filled
 in at its default and the \verb{[covariates]} section's \code{effects} left empty:
 name the covariate effects to be tested — by the name the initial model's
 \verb{$THETA} record gives each one, e.g. \verb{effects = ["WT_CL", "CRCL_CL"]} —
-then \code{\link[=scm_plan]{scm_plan()}} the file. Nothing is planned and nothing is fitted —
+then \code{\link[=scm_run]{scm_run()}} the file (\code{\link[=scm_plan]{scm_plan()}} shows what a run would do first).
+Nothing is planned and nothing is fitted —
 the candidates are yours to choose. The directory also gets a \code{.gitignore}
 that tracks what the project's \verb{[nonmem.scm] track_in_git} setting asks
 for (\code{"milestones"} unless \code{pharos.toml} says otherwise: the final model,
 the reference fit and the forward model's fit; \code{"final"} or \code{"all"} for
-less or more), rewritten by every \code{\link[=scm_plan]{scm_plan()}} so a changed setting takes
-effect at the next plan.
+less or more), rewritten by every \code{\link[=scm_run]{scm_run()}} so a changed setting takes
+effect at the next run.
 }
 \details{
 The model is the \emph{initial model}: it carries a theta for each candidate
@@ -49,7 +50,8 @@ value (0 unless the config says otherwise) in the models it generates.
 \examples{
 \dontrun{
 setup <- scm_init("model/nonmem/PK/scm-demo.mod")
-# fill in `covariates` in setup$config, then:
-plan <- scm_plan(setup$config)
+# fill in `effects` in setup$config, then:
+scm_plan(setup$config)   # what a run would do
+scm_run(setup$config)    # do it
 }
 }

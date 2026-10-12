@@ -5,8 +5,9 @@
 \title{Run (or resume) an SCM process}
 \usage{
 scm_run(
-  plan,
+  x,
   driver = c("slurm", "login"),
+  num_rounds = NULL,
   partition = NULL,
   driver_partition = NULL,
   account = NULL,
@@ -16,11 +17,15 @@ scm_run(
 )
 }
 \arguments{
-\item{plan}{a \code{hyperion_scm_plan} from \code{\link[=scm_plan]{scm_plan()}}, or a path to a
-pharos_scm_plan.json}
+\item{x}{the SCM config to run: a \code{hyperion_scm_plan} from \code{\link[=scm_plan]{scm_plan()}},
+a \code{hyperion_scm_status}, the path to the \verb{<stem>scm.toml}, or the SCM
+out_dir holding it}
 
 \item{driver}{where the SCM driver runs: \code{"slurm"} (its own Slurm job) or
 \code{"login"} (this machine, in the background)}
+
+\item{num_rounds}{pause the SCM process after this many rounds, over the
+config's \code{num_rounds}; \code{0} runs all rounds. \code{NULL} = as the config says}
 
 \item{partition}{Slurm partition for the fits (with \code{shared_node}, the
 partition of the one node they all run on); \code{NULL} uses the project's
@@ -43,19 +48,25 @@ submitted at once (with \code{shared_node}, as many as the node's CPUs hold).}
 job per fit}
 
 \item{overwrite}{discard the SCM process already in the out_dir and run
-this plan from scratch (resuming needs no overwrite)}
+this config from scratch (resuming needs no overwrite). Refused while
+that process's driver may still be running}
 }
 \value{
-invisibly, a list with \code{out_dir}, \code{plan_path}, and \code{log} (the
+invisibly, a list with \code{out_dir}, \code{config}, and \code{log} (the
 file the pharos output went to; with \code{driver = "login"} the driver's own
 record is \code{scm_driver.log} in the out_dir)
 }
 \description{
-Hands the plan to the pharos CLI, which drives the whole SCM process —
-building each round from the initial model, submitting the fits, retrying
-failures from where they left off, scoring, and persisting resumable
-state. Fits always run on Slurm; \code{driver} picks where the process that
-submits and scores them runs:
+Hands the SCM config to the pharos CLI, which screens it — resolves it to
+its plan and validates it, refuses a plan the SCM process already in the
+out_dir cannot resume under (unless \code{overwrite}), runs the initial model
+through NM-TRAN, rewrites the out_dir's \code{.gitignore} — and then drives
+the whole SCM process: building each round from the initial model,
+submitting the fits, retrying failures from where they left off,
+scoring, and persisting resumable state. \code{\link[=scm_plan]{scm_plan()}} shows what this
+screening finds without running anything, but is never required first.
+Fits always run on Slurm; \code{driver} picks where the process that submits
+and scores them runs:
 }
 \details{
 \itemize{
@@ -66,7 +77,8 @@ submits and scores them runs:
 finishes or pauses. The R session stays free.
 }
 
-Either way, check on the SCM process with \code{\link[=scm_status]{scm_status()}}. Whatever the
+Either way, check on the SCM process with \code{\link[=scm_status]{scm_status()}} and stop it with
+\code{\link[=scm_stop]{scm_stop()}}. Whatever the
 mode, the driver records where it runs in \code{scm_driver.json} in the out_dir
 (its Slurm job, or its pid and host) and writes a timestamped record of
 what happens — each fit as it is submitted and as it ends, each round's
@@ -79,15 +91,16 @@ allocated for them with \code{driver = "login"} and released when the process
 ends or is stopped.
 
 Fits submitted as Slurm jobs are independent of the driver: a driver that
-stops (Ctrl-C, \code{scancel}, a time limit) leaves them running, and running
-the same plan again resumes — a fit whose job is still in the queue is
-waited for, not resubmitted. Fits on a shared node die with it and are
-refitted on resume.
+stops (\code{\link[=scm_stop]{scm_stop()}}, \code{scancel}, a time limit) leaves them running, and
+running the same config again resumes — a fit whose job is still in the
+queue is waited for, not resubmitted. Fits on a shared node die with it
+and are refitted on resume.
 
-Everything that defines the SCM process lives in the plan (see \code{\link[=scm_plan]{scm_plan()}}),
-including \code{num_rounds}, which paces how many rounds run before the SCM process
-pauses. \code{scm_run()} takes only run control: where the driver and the fits
-run and how many fits run at once.
+Everything that defines the SCM process lives in the config (see
+\code{\link[=scm_plan]{scm_plan()}}). \code{scm_run()} takes only run control: \code{num_rounds}, how many
+rounds run before the SCM process pauses (over the config's own
+\code{num_rounds}; the process is resumable), where the driver and the fits
+run, how many fits run at once, and \code{overwrite}.
 Everything else (NONMEM version) comes from
 pharos.toml — where \verb{[nonmem.scm]} also holds this project's own defaults
 for \code{max_concurrent}, \code{partition}, \code{driver_partition} and \code{account},
@@ -100,8 +113,9 @@ found on the PATH, or set
 \examples{
 \dontrun{
 scm_run(plan)
+scm_run(plan, num_rounds = 2)   # pause after 2 rounds; scm_run(plan) again resumes
 scm_run(plan, max_concurrent = 12)
 scm_run(plan, shared_node = TRUE, partition = "big")
-scm_run("model/nonmem/scm/1001/pharos_scm_plan.json", driver = "login")
+scm_run("model/nonmem/scm/1001/1001scm.toml", driver = "login")
 }
 }

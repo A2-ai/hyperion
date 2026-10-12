@@ -528,40 +528,75 @@ transform_value <- function(value, transform) .Call(wrap__transform_value, value
 #' @keywords internal
 scm_init_impl <- function(model, overwrite = FALSE) .Call(wrap__scm_init_wrap, model, overwrite)
 
-#' Build and validate an SCM plan (runs nothing) and write its pharos_scm_plan.json
+#' Resolve an SCM config to its plan and say what running it would do
 #'
-#' Internal engine behind [scm_plan()]; use that instead.
+#' Internal engine behind [scm_plan()]; use that instead. A dry run: the
+#' out_dir is only read, nothing is written and nothing runs.
 #'
 #' @param config path to the SCM config file (TOML) written by
 #'   [scm_init()] into the SCM out_dir: model, direction, forward_alpha,
-#'   backward_alpha, max_retries, cov_step, forward_final_cov_step,
-#'   final_cov_step, and the `[covariates]` section (fixed, the
-#'   per-type `continuous` / `categorical` tables, effects). Relative paths
-#'   resolve against the config file
-#' @param num_rounds pause after this many rounds per run (NULL = no cap)
-#' @param overwrite discard the SCM process already in the out_dir (its
-#'   fits, state and summaries) once the plan has validated, so this plan
-#'   starts fresh. Refused while that process's driver may still be running
+#'   backward_alpha, max_retries, num_rounds, cov_step,
+#'   forward_final_cov_step, final_cov_step, and the `[covariates]` section
+#'   (fixed, the per-type `continuous` / `categorical` tables, effects).
+#'   Relative paths resolve against the config file
+#' @param num_rounds pause after this many rounds per run, over the
+#'   config's `num_rounds`; `0` runs all rounds (NULL = as the config says)
+#' @param overwrite preview a run with `overwrite = TRUE`: the SCM process
+#'   already in the out_dir is discarded when the driver starts, so the
+#'   plan is reported against an empty out_dir and the `discards`
+#'   attribute says what goes
 #'
-#' @return a `hyperion_scm_plan` object; its `plan_path` attribute is the
-#'   `pharos_scm_plan.json` just written, its `context` attribute is where the SCM
-#'   process in the out_dir already stands plus what this plan changed about
-#'   the pharos_scm_plan.json it replaced, and its `discarded` attribute says what
-#'   `overwrite` threw away (`NULL` when nothing was). A plan the SCM
-#'   process already in the out_dir cannot resume under is an error, and is
-#'   not written
+#' @return a `hyperion_scm_plan` object; its `config` attribute is the
+#'   config it was built from, `out_dir` where the SCM process runs,
+#'   `context` where the SCM process in the out_dir already stands plus what
+#'   this plan changes about the plan that process runs under, `resumable`
+#'   whether that process resumes under this plan, `discards` what
+#'   `overwrite` would throw away (`NULL` when nothing), `refusals` why
+#'   [scm_run()] would be refused right now (empty when it would not be),
+#'   and `nmtran` NM-TRAN's verdict on the initial model
 #' @keywords internal
 scm_plan_impl <- function(config, num_rounds = NULL, overwrite = FALSE) .Call(wrap__scm_plan_wrap, config, num_rounds, overwrite)
+
+#' The SCM config in an out_dir, where [scm_init()] puts it
+#'
+#' Internal helper behind [scm_run()] and [scm_stop()].
+#'
+#' @param out_dir the SCM out_dir
+#' @return the path of the one `<stem>scm.toml` in it
+#' @keywords internal
+scm_config_impl <- function(out_dir) .Call(wrap__scm_config_wrap, out_dir)
+
+#' Stop the driver of an SCM process
+#'
+#' Internal engine behind [scm_stop()]; use that instead. What
+#' `pharos nonmem scm stop` does: `scancel` the driver's Slurm job, or
+#' SIGTERM its login-node process (which has to be on this host); the
+#' driver records the SCM process as paused and exits once its executor
+#' hands the running fits back. Fits that are Slurm jobs of their own keep
+#' running unless `fits`.
+#'
+#' @param path the SCM out_dir, or its `<stem>scm.toml`
+#' @param fits also cancel the fits still in the Slurm queue
+#'
+#' @return a list: `out_dir`; `driver`, what was done to it; `was_alive`,
+#'   whether it was running when told to stop; `fits`, the Slurm jobs
+#'   cancelled (`NULL` unless `fits`); `allocation`, what became of a
+#'   shared-node allocation (`NULL` when there is none); `config`, the
+#'   process's config, to resume it with (`NULL` when the out_dir holds
+#'   none)
+#' @keywords internal
+scm_stop_impl <- function(path, fits = FALSE) .Call(wrap__scm_stop_wrap, path, fits)
 
 #' Read the status of an SCM process
 #'
 #' Internal engine behind [scm_status()]; use that instead.
 #'
-#' @param path the SCM out_dir, or its pharos_scm_plan.json
+#' @param path the SCM out_dir, or its `<stem>scm.toml`
 #'
 #' @return a `hyperion_scm_status` object: the summary record, with the
 #'   text `pharos nonmem scm status` prints as its `rendered` attribute, the
-#'   out_dir it was read from as `out_dir`, whether the SCM process has
+#'   out_dir it was read from as `out_dir`, the config in that out_dir as
+#'   `config` (`NULL` when it holds none), whether the SCM process has
 #'   started as `started`, and the driver record (`scm_driver.json`, with
 #'   its liveness) as `driver` — `NULL` before a driver was ever started
 #' @keywords internal
@@ -571,7 +606,7 @@ scm_status_impl <- function(path) .Call(wrap__scm_status_wrap, path)
 #'
 #' Internal engine behind [scm_summary()]; use that instead.
 #'
-#' @param path the SCM out_dir, or its pharos_scm_plan.json
+#' @param path the SCM out_dir, or its `<stem>scm.toml`
 #' @param round only this round: the Nth SCM round ("2" / "round 2"), a
 #'   round name (forward_round1, backward_round1), or "reference"; NULL for
 #'   every round

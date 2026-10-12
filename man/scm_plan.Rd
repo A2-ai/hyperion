@@ -28,7 +28,11 @@ attribute), and whether it resumes under this plan (\code{resumable}). Why
 \code{\link[=scm_run]{scm_run()}} would be refused right now, if it would be, is the
 \code{refusals} attribute (a character vector, empty otherwise); what
 \code{overwrite} would discard is \code{discards}; NM-TRAN's verdict on the
-initial model is \code{nmtran}.
+initial model is \code{nmtran}; the project's \verb{[nonmem.scm]} settings a run
+gets (partition, driver partition, account, fits at once, poll
+interval) are \code{settings}; whether the plan previews \code{overwrite = TRUE}
+is \code{overwrite}. Printing shows all of it, the run's part in the words
+\verb{pharos nonmem scm plan} uses under \code{submit}.
 }
 \description{
 The dry run. Reads the SCM config file (TOML) — the one \code{\link[=scm_init]{scm_init()}}

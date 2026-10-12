@@ -30,7 +30,11 @@ this plan changes about the plan that process runs under, \code{resumable}
 whether that process resumes under this plan, \code{discards} what
 \code{overwrite} would throw away (\code{NULL} when nothing), \code{refusals} why
 \code{\link[=scm_run]{scm_run()}} would be refused right now (empty when it would not be),
-and \code{nmtran} NM-TRAN's verdict on the initial model
+\code{nmtran} NM-TRAN's verdict on the initial model, \code{settings} the
+project's \verb{[nonmem.scm]} settings a run gets (\code{partition},
+\code{driver_partition}, \code{account}, \code{max_concurrent}, \code{poll_interval};
+\code{NULL} outside a pharos project), and \code{overwrite} whether the plan
+previews a run with \code{overwrite = TRUE}
 }
 \description{
 Internal engine behind \code{\link[=scm_plan]{scm_plan()}}; use that instead. A dry run: the

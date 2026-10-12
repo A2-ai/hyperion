@@ -241,7 +241,11 @@ scm_check_count <- function(value, name, min, what) {
 #'   [scm_run()] would be refused right now, if it would be, is the
 #'   `refusals` attribute (a character vector, empty otherwise); what
 #'   `overwrite` would discard is `discards`; NM-TRAN's verdict on the
-#'   initial model is `nmtran`.
+#'   initial model is `nmtran`; the project's `[nonmem.scm]` settings a run
+#'   gets (partition, driver partition, account, fits at once, poll
+#'   interval) are `settings`; whether the plan previews `overwrite = TRUE`
+#'   is `overwrite`. Printing shows all of it, the run's part in the words
+#'   `pharos nonmem scm plan` uses under `submit`.
 #' @export
 #'
 #' @examples \dontrun{
@@ -802,24 +806,60 @@ scm_plan_run_parts <- function(x) {
     return(NULL)
   }
   list(
+    settings = attr(x, "settings"),
+    num_rounds = x$options$num_rounds,
+    overwrite = isTRUE(attr(x, "overwrite")),
     discards = attr(x, "discards"),
     nmtran = nmtran,
     refusals = as.character(attr(x, "refusals") %||% character())
   )
 }
-
-#' The run half of a plan as display lines: one per fact, in the order both
-#' the print and the knit_print method show them.
-#' @noRd
+# What a run of the plan does, line by line, as `pharos nonmem scm plan` says
+# it under `submit` (the same words, with scm_run()'s names for its choices):
+# the settings the fits and the driver get from the project's `[nonmem.scm]`
+# (scm_run()'s arguments override them), the pause cap, NM-TRAN's verdict,
+# and what becomes of the SCM process already in the out_dir.
 scm_plan_run_lines <- function(run, out_dir) {
   lines <- character()
-  if (!is.null(run$discards)) {
-    lines["overwrite"] <- paste0(
-      "scm_run(overwrite = TRUE) discards the SCM process in ", out_dir,
-      " (", run$discards, ") and starts fresh"
+  settings <- run$settings
+  if (!is.null(settings)) {
+    partition <- function(p) {
+      if (is.null(p)) "the cluster's default partition" else paste0("partition ", p)
+    }
+    account <- if (is.null(settings$account)) "" else paste0(", account ", settings$account)
+    at_once <- if (is.null(settings$max_concurrent)) {
+      ", every ready fit at once"
+    } else {
+      paste0(", ", settings$max_concurrent, " at once at most")
+    }
+    lines["fits"] <- paste0(
+      "one slurm job each on ", partition(settings$partition), account, at_once,
+      "; polled every ", settings$poll_interval, " s"
+    )
+    lines["driver"] <- paste0(
+      "`driver = \"slurm\"` \u2192 a 1-CPU job on ", partition(settings$driver_partition),
+      "; `driver = \"login\"` \u2192 this login node"
+    )
+  }
+  if (!is.null(run$num_rounds)) {
+    lines["rounds"] <- paste0(
+      "pauses after ", run$num_rounds, " (resumable; the next scm_run() carries on)"
     )
   }
   lines["nmtran"] <- run$nmtran
+  if (!is.null(run$discards)) {
+    lines["overwrite"] <- if (run$overwrite) {
+      paste0(
+        "scm_run(overwrite = TRUE) discards the SCM process in ", out_dir,
+        " (", run$discards, ") and starts fresh"
+      )
+    } else {
+      paste0(
+        "not given: the SCM process in ", out_dir, " (", run$discards,
+        ") is resumed; scm_run(overwrite = TRUE) discards it"
+      )
+    }
+  }
   lines
 }
 

@@ -134,6 +134,12 @@ cli_text_of <- function(expr) {
   paste(cli::cli_fmt(expr), collapse = "\n")
 }
 
+# The same with every run of whitespace a space: cli wraps long lines to the
+# console width, which is not what a test is about.
+cli_one_line <- function(expr) {
+  gsub("\\s+", " ", cli_text_of(expr))
+}
+
 test_that("scm_init writes the config into the SCM process dir it makes", {
   dir <- withr::local_tempdir()
   model <- write_scm_fixture(dir)
@@ -1037,14 +1043,63 @@ test_that("a plan over a fresh out_dir prints only the plan", {
   expect_no_match(txt, "Where the SCM process stands")
   expect_no_match(txt, "Changes from the plan")
   expect_null(attr(plan, "context")$progress)
-  # ... and what a run of it does: nothing in the way, no NM-TRAN here
+  # ... and what a run of it does, as `pharos nonmem scm plan` says it under
+  # `submit`: the project's defaults for the fits and the driver, nothing in
+  # the way, no NM-TRAN here
   expect_match(txt, "What scm_run() does", fixed = TRUE)
+  flat <- gsub("\\s+", " ", txt)
+  expect_match(
+    flat,
+    "fits: one slurm job each on the cluster's default partition, every ready fit at once; polled every 30 s",
+    fixed = TRUE
+  )
+  expect_match(
+    flat,
+    "driver: `driver = \"slurm\"` \u2192 a 1-CPU job on the cluster's default partition; `driver = \"login\"` \u2192 this login node",
+    fixed = TRUE
+  )
   expect_match(txt, "nmtran: not checked", fixed = TRUE)
+  expect_no_match(txt, "rounds:", fixed = TRUE)
   expect_no_match(txt, "overwrite:", fixed = TRUE)
   expect_no_match(txt, "refused right now", fixed = TRUE)
+  expect_false(attr(plan, "overwrite"))
   knit <- as.character(knitr::knit_print(plan))
   expect_match(knit, "#### What scm_run() does", fixed = TRUE)
+  expect_match(knit, "- **fits:** one slurm job each on", fixed = TRUE)
+  expect_match(knit, "- **driver:** `driver = \"slurm\"`", fixed = TRUE)
   expect_match(knit, "- **nmtran:** not checked", fixed = TRUE)
+
+  # a pause cap is a line of its own
+  capped <- suppressWarnings(scm_plan(attr(plan, "config"), num_rounds = 2))
+  expect_match(
+    cli_one_line(print(capped)),
+    "rounds: pauses after 2 (resumable; the next scm_run() carries on)",
+    fixed = TRUE
+  )
+})
+
+test_that("the run section carries the project's [nonmem.scm] settings", {
+  dir <- withr::local_tempdir()
+  write_scm_fixture(dir)
+  cat(
+    "\n[nonmem.scm]\npartition = \"fits\"\ndriver_partition = \"drv\"\naccount = \"acct\"\n",
+    "max_concurrent = 4\npoll_interval = 5\n",
+    file = file.path(dir, "pharos.toml"), append = TRUE, sep = ""
+  )
+  plan <- no_cov_step_warning(scm_plan(write_scm_config(dir)))
+  settings <- attr(plan, "settings")
+  expect_equal(settings$partition, "fits")
+  expect_equal(settings$driver_partition, "drv")
+  expect_equal(settings$account, "acct")
+  expect_equal(settings$max_concurrent, 4L)
+  expect_equal(settings$poll_interval, 5L)
+  txt <- cli_one_line(print(plan))
+  expect_match(
+    txt,
+    "fits: one slurm job each on partition fits, account acct, 4 at once at most; polled every 5 s",
+    fixed = TRUE
+  )
+  expect_match(txt, "driver: `driver = \"slurm\"` \u2192 a 1-CPU job on partition drv;", fixed = TRUE)
 })
 
 test_that("a plan the SCM process cannot resume under says a run would be refused", {
@@ -1105,9 +1160,19 @@ test_that("overwrite previews what scm_run(overwrite = TRUE) discards, discardin
   expect_null(attr(replan, "context")$progress)
   txt <- cli_text_of(print(replan))
   expect_no_match(txt, "Where the SCM process stands")
+  expect_true(attr(replan, "overwrite"))
   expect_match(txt, "overwrite: scm_run(overwrite = TRUE) discards the SCM process in", fixed = TRUE)
   expect_match(txt, "(completed, 1 round complete) and starts fresh", fixed = TRUE)
   expect_match(as.character(knitr::knit_print(replan)), "- **overwrite:** scm_run(overwrite = TRUE) discards", fixed = TRUE)
+  # without overwrite the same process is resumed, and the plan says what
+  # overwrite would do to it
+  kept <- suppressWarnings(scm_plan(attr(plan, "config")))
+  expect_false(attr(kept, "overwrite"))
+  expect_equal(attr(kept, "discards"), "completed, 1 round complete")
+  expect_match(
+    cli_one_line(print(kept)),
+    "overwrite: not given: the SCM process in .* \\(completed, 1 round complete\\) is resumed; scm_run\\(overwrite = TRUE\\) discards it"
+  )
   # ... but the dry run discarded nothing: the process is still there,
   # still under the plan it ran under
   expect_true(file.exists(file.path(out_dir, "scm_state.json")))

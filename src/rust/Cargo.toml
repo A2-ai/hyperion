@@ -38,11 +38,11 @@ serde = { workspace = true }
 extendr-api = { version = "0.9.0", features = ["serde"] }
 
 # Pharos components
-nonmem = { path = "/data/user-homes/brendan/projects/pharos/components/nonmem" }
-nmparser = { path = "/data/user-homes/brendan/projects/pharos/components/nonmem-parser", package = "nonmem-parser" }
-config = { path = "/data/user-homes/brendan/projects/pharos/components/config" }
-scheduler = { path = "/data/user-homes/brendan/projects/pharos/components/scheduler" }
-utils = { path = "/data/user-homes/brendan/projects/pharos/components/utils" }
+nonmem = { path = "../../../pharos/components/nonmem" }
+nmparser = { path = "../../../pharos/components/nonmem-parser", package = "nonmem-parser" }
+config = { path = "../../../pharos/components/config" }
+scheduler = { path = "../../../pharos/components/scheduler" }
+utils = { path = "../../../pharos/components/utils" }
 
 # Core utilities
 anyhow = "1.0.100"

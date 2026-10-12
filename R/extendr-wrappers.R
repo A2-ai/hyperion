@@ -553,7 +553,11 @@ scm_init_impl <- function(model, overwrite = FALSE) .Call(wrap__scm_init_wrap, m
 #'   whether that process resumes under this plan, `discards` what
 #'   `overwrite` would throw away (`NULL` when nothing), `refusals` why
 #'   [scm_run()] would be refused right now (empty when it would not be),
-#'   and `nmtran` NM-TRAN's verdict on the initial model
+#'   `nmtran` NM-TRAN's verdict on the initial model, `settings` the
+#'   project's `[nonmem.scm]` settings a run gets (`partition`,
+#'   `driver_partition`, `account`, `max_concurrent`, `poll_interval`;
+#'   `NULL` outside a pharos project), and `overwrite` whether the plan
+#'   previews a run with `overwrite = TRUE`
 #' @keywords internal
 scm_plan_impl <- function(config, num_rounds = NULL, overwrite = FALSE) .Call(wrap__scm_plan_wrap, config, num_rounds, overwrite)
 

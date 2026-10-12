@@ -76,7 +76,11 @@ pub fn scm_init_wrap(model: &str, #[extendr(default = "FALSE")] overwrite: bool)
 ///   whether that process resumes under this plan, `discards` what
 ///   `overwrite` would throw away (`NULL` when nothing), `refusals` why
 ///   [scm_run()] would be refused right now (empty when it would not be),
-///   and `nmtran` NM-TRAN's verdict on the initial model
+///   `nmtran` NM-TRAN's verdict on the initial model, `settings` the
+///   project's `[nonmem.scm]` settings a run gets (`partition`,
+///   `driver_partition`, `account`, `max_concurrent`, `poll_interval`;
+///   `NULL` outside a pharos project), and `overwrite` whether the plan
+///   previews a run with `overwrite = TRUE`
 /// @keywords internal
 #[extendr(r_name = "scm_plan_impl")]
 pub fn scm_plan_wrap(
@@ -148,6 +152,21 @@ pub fn scm_plan_wrap(
         refusals.push(why);
     }
     let nmtran = nmtran_verdict(&built, &out_dir);
+    // The settings a run gets from the project's `[nonmem.scm]` — what
+    // `pharos nonmem scm plan` shows under `submit`. There are no flags over
+    // them at plan time; scm_run()'s arguments override them at run time.
+    // `None` when the out_dir is not inside a pharos project.
+    let settings = pharos_scm::project_config(&out_dir).ok().map(|config| {
+        let scm = &config.scm;
+        list!(
+            partition = or_null(scm.partition.clone()),
+            driver_partition = or_null(scm.driver_partition.clone()),
+            account = or_null(scm.account.clone()),
+            max_concurrent = or_null(scm.max_concurrent().map(|n| n as i32)),
+            poll_interval = scm.poll_interval() as i32
+        )
+        .into_robj()
+    });
 
     let mut robj = to_robj(&built.plan).map_to_extendr_err("Failed to convert plan to Robj")?;
     robj.set_attrib("warnings", built.warnings.iter().collect_robj())?;
@@ -181,6 +200,8 @@ pub fn scm_plan_wrap(
     robj.set_attrib("discards", or_null(discards))?;
     robj.set_attrib("refusals", refusals.into_robj())?;
     robj.set_attrib("nmtran", nmtran.into_robj())?;
+    robj.set_attrib("settings", or_null(settings))?;
+    robj.set_attrib("overwrite", overwrite.into_robj())?;
     let robj = robj.set_class(["hyperion_scm_plan"])?.to_owned();
     Ok(robj)
 }

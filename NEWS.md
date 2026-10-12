@@ -23,7 +23,13 @@
   `config` attribute, the out_dir as `out_dir`, whether the process resumes
   under it as `resumable`, why `scm_run()` would be refused right now as
   `refusals`, what `overwrite = TRUE` would discard as `discards`, and
-  NM-TRAN's verdict as `nmtran`; printing shows all of it.
+  NM-TRAN's verdict as `nmtran`, the project's `[nonmem.scm]` settings a
+  run gets as `settings`, and whether it previews `overwrite = TRUE` as
+  `overwrite`; printing shows all of it. The *What scm_run() does* section
+  reads as `pharos nonmem scm plan`'s `submit` block: where the fits and
+  the driver run, how many fits at once and how often they are polled, the
+  pause cap, NM-TRAN's verdict, and what becomes of the SCM process already
+  in the out_dir.
 - `scm_run()` takes the config — a plan, a status, the `<stem>scm.toml` or
   its out_dir — and `num_rounds`, the one run-control setting the config
   also holds (`num_rounds = 0`, the default, runs all rounds; `N` pauses

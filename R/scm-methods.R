@@ -790,77 +790,8 @@ scm_plan_display_parts <- function(x) {
     candidates = candidates,
     n_candidates = nrow(candidates),
     max_models = as.integer(attr(x, "max_models")),
-    context = scm_plan_context_parts(x),
-    run = scm_plan_run_parts(x)
+    context = scm_plan_context_parts(x)
   )
-}
-
-#' What a run of the plan would do, as the lines `pharos nonmem scm plan`
-#' prints under `submit`: what `overwrite` discards, NM-TRAN's verdict, and
-#' why a run would be refused right now. `NULL` for a plan object from an
-#' older hyperion.
-#' @noRd
-scm_plan_run_parts <- function(x) {
-  nmtran <- attr(x, "nmtran")
-  if (is.null(nmtran)) {
-    return(NULL)
-  }
-  list(
-    settings = attr(x, "settings"),
-    num_rounds = x$options$num_rounds,
-    overwrite = isTRUE(attr(x, "overwrite")),
-    discards = attr(x, "discards"),
-    nmtran = nmtran,
-    refusals = as.character(attr(x, "refusals") %||% character())
-  )
-}
-# What a run of the plan does, line by line, as `pharos nonmem scm plan` says
-# it under `submit` (the same words, with scm_run()'s names for its choices):
-# the settings the fits and the driver get from the project's `[nonmem.scm]`
-# (scm_run()'s arguments override them), the pause cap, NM-TRAN's verdict,
-# and what becomes of the SCM process already in the out_dir.
-scm_plan_run_lines <- function(run, out_dir) {
-  lines <- character()
-  settings <- run$settings
-  if (!is.null(settings)) {
-    partition <- function(p) {
-      if (is.null(p)) "the cluster's default partition" else paste0("partition ", p)
-    }
-    account <- if (is.null(settings$account)) "" else paste0(", account ", settings$account)
-    at_once <- if (is.null(settings$max_concurrent)) {
-      ", every ready fit at once"
-    } else {
-      paste0(", ", settings$max_concurrent, " at once at most")
-    }
-    lines["fits"] <- paste0(
-      "one slurm job each on ", partition(settings$partition), account, at_once,
-      "; polled every ", settings$poll_interval, " s"
-    )
-    lines["driver"] <- paste0(
-      "`driver = \"slurm\"` \u2192 a 1-CPU job on ", partition(settings$driver_partition),
-      "; `driver = \"login\"` \u2192 this login node"
-    )
-  }
-  if (!is.null(run$num_rounds)) {
-    lines["rounds"] <- paste0(
-      "pauses after ", run$num_rounds, " (resumable; the next scm_run() carries on)"
-    )
-  }
-  lines["nmtran"] <- run$nmtran
-  if (!is.null(run$discards)) {
-    lines["overwrite"] <- if (run$overwrite) {
-      paste0(
-        "scm_run(overwrite = TRUE) discards the SCM process in ", out_dir,
-        " (", run$discards, ") and starts fresh"
-      )
-    } else {
-      paste0(
-        "not given: the SCM process in ", out_dir, " (", run$discards,
-        ") is resumed; scm_run(overwrite = TRUE) discards it"
-      )
-    }
-  }
-  lines
 }
 
 #' Tidy the `context` attribute a freshly built plan carries: where the
@@ -1029,9 +960,11 @@ scm_context_retune_notes <- function(ctx) {
 #' already holds an SCM process says so too: how far it got, which
 #' covariates it has selected, and what this plan changes about the plan
 #' that process runs under — a sketch, where [scm_status()] and
-#' [scm_summary()] are the detailed views. Then what a run would do: what
-#' `overwrite` discards, NM-TRAN's verdict on the initial model, and why
-#' [scm_run()] would be refused right now, if it would be. There is
+#' [scm_summary()] are the detailed views. What a run would do beyond
+#' that — what `overwrite` discards, NM-TRAN's verdict on the initial model,
+#' why [scm_run()] would be refused right now — is not printed: [scm_plan()]
+#' reports it as it builds the plan, and the `discards`, `nmtran` and
+#' `refusals` attributes carry it. There is
 #' deliberately no `summary()` for a plan: a plan is a static declaration
 #' with nothing to compute beyond what printing shows. (`summary()` on a
 #' *status* is different — it returns the record as a data.frame; see
@@ -1107,17 +1040,6 @@ print.hyperion_scm_plan <- function(x, ...) {
     }
   }
 
-  run <- parts$run
-  if (!is.null(run)) {
-    cli::cli_h2("What scm_run() does")
-    lines <- scm_plan_run_lines(run, parts$out_dir)
-    for (label in names(lines)) {
-      cli::cli_text("{.strong {label}:} {lines[[label]]}")
-    }
-    for (why in run$refusals) {
-      cli::cli_alert_warning("refused right now: {why}")
-    }
-  }
   invisible(x)
 }
 
@@ -1238,20 +1160,6 @@ knit_print.hyperion_scm_plan <- function(x, ...) {
     }
   }
 
-  run <- parts$run
-  if (!is.null(run)) {
-    lines <- scm_plan_run_lines(run, parts$out_dir)
-    output <- c(
-      output,
-      "#### What scm_run() does",
-      "",
-      paste0("- **", names(lines), ":** ", unname(lines)),
-      if (length(run$refusals)) {
-        paste0("- **refused right now:** ", run$refusals)
-      },
-      ""
-    )
-  }
   knitr::asis_output(paste(output, collapse = "\n"))
 }
 

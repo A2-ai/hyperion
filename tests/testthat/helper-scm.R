@@ -7,8 +7,6 @@ scm_complete_fixture <- function(...) {
 }
 
 # A temp pharos project holding the SCM fixture model, for tests that write.
-# pharos finds the project by walking up from the model, so the project's
-# pharos.toml has to be copied in; hyperion.config_dir points at the same dir.
 local_scm_project <- function(effects = NULL, .local_envir = parent.frame()) {
   root <- withr::local_tempdir(.local_envir = .local_envir)
   file.copy(system.file("pharos.toml", package = "hyperion"), root)
@@ -30,23 +28,9 @@ local_scm_project <- function(effects = NULL, .local_envir = parent.frame()) {
 }
 
 scrub_scm <- function(x) {
-  x <- gsub(
+  gsub(
     "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})?",
     "[TIMESTAMP]",
     x
   )
-  x <- gsub("\\b[0-9a-f]{64}\\b", "[DIGEST]", x)
-  gsub(
-    "(running|after|finished) (\\d+h \\d+m|\\d+m \\d+s|\\d+\\.\\d+s)",
-    "\\1 [AGE]",
-    x
-  )
-}
-
-# Absolute paths in an SCM record's attributes depend on where the package is
-# installed; snapshots show them relative to the package root.
-scrub_scm_paths <- function(x) {
-  root <- normalizePath(system.file(package = "hyperion"), mustWork = FALSE)
-  x <- gsub(root, "[PKG]", x, fixed = TRUE)
-  scrub_scm(x)
 }

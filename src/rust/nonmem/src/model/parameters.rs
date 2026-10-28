@@ -1,5 +1,4 @@
 use extendr_api::Result;
-use extendr_api::deserializer::from_robj;
 use extendr_api::prelude::*;
 
 use std::cmp::Ordering;
@@ -13,7 +12,8 @@ use crate::{
     output_files::ext::create_ext_reader,
     output_files::{OMEGA, ParameterRow, ParameterRowBuilder, SIGMA, THETA, build_parameters_df},
     utils::{
-        get_comment_type, parse_run_model, path_from_robj, resolve_ext_path, resolve_model_run,
+        get_comment_type, model_from_robj, parse_run_model, path_from_robj, resolve_ext_path,
+        resolve_model_run,
     },
 };
 use hyperion_core::{ResultExt, extendr_err};
@@ -218,7 +218,7 @@ pub fn get_parameters(
 /// @keywords internal
 #[extendr]
 pub fn get_model_parameter_names(model: Robj) -> Result<Robj> {
-    let model: Model = from_robj(&model)?;
+    let model: Model = model_from_robj(&model)?;
 
     let comment_type = get_comment_type();
     let parameter_names = model
@@ -271,7 +271,7 @@ pub fn get_fixed_parameters(
     model: Robj,
     #[extendr(default = "NULL")] kind: Option<&str>,
 ) -> Result<Robj> {
-    let model: Model = from_robj(&model)?;
+    let model: Model = model_from_robj(&model)?;
 
     let kind = match kind {
         Some(k) => match k.to_uppercase().as_str() {

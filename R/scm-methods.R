@@ -1,7 +1,3 @@
-# Print, knit and helper methods for the SCM objects.
-
-# ---- the config object -------------------------------------------------------
-
 #' @noRd
 build_scm_display_parts <- function(x) {
   effects <- normalize_effects(x$covariates$effects)
@@ -11,10 +7,7 @@ build_scm_display_parts <- function(x) {
       vapply(effects, function(e) as.character(S7::prop(e, field) %||% default), character(1))
     }
     number <- function(field) {
-      values <- vapply(effects, function(e) as.numeric(S7::prop(e, field) %||% NA), numeric(1))
-      out <- format_hyperion_sigfig_string(values)
-      out[is.na(out)] <- ""
-      out
+      vapply(effects, function(e) as.numeric(S7::prop(e, field) %||% NA), numeric(1))
     }
     effects_df <- data.frame(
       Effect = pick("name", ""),
@@ -77,20 +70,14 @@ print.hyperion_nonmem_scm <- function(x, ...) {
   cli::cli_text("{.strong Covariance step:} {parts$cov}")
   cli::cli_text("{.strong Rounds:} {parts$rounds}")
   if (is.null(parts$effects)) {
-    cli::cli_alert_warning(
-      "No effects yet: pass {.arg effects} to {.fn init_scm} or add them with {.fn add_scm_effect}"
-    )
+    cli::cli_alert_warning(SCM_NO_EFFECTS)
   } else {
     print_data_table_console(parts$effects, "Effects")
   }
   invisible(x)
 }
 
-#' Knit print method for hyperion_nonmem_scm objects
-#'
-#' @param x A hyperion_nonmem_scm object
-#' @param ... Additional arguments (ignored)
-#' @return HTML output for rendered documents
+#' @rdname print.hyperion_nonmem_scm
 #' @exportS3Method knitr::knit_print
 knit_print.hyperion_nonmem_scm <- function(x, ...) {
   parts <- build_scm_display_parts(x)
@@ -121,10 +108,7 @@ knit_print.hyperion_nonmem_scm <- function(x, ...) {
   knitr::asis_output(paste(output, collapse = "\n"))
 }
 
-# ---- the records: plan, status, summary ---------------------------------------
-
-# pharos' rendering without its own `<scm ...>` headline, which the cli title
-# replaces.
+# pharos' text without its own headline; the cli title replaces it.
 scm_text_lines <- function(x) {
   lines <- strsplit(attr(x, "text") %||% "", "\n", fixed = TRUE)[[1]]
   if (length(lines) && startsWith(lines[1], "<scm ")) {
@@ -133,14 +117,10 @@ scm_text_lines <- function(x) {
   lines
 }
 
-scm_title <- function(x, what) {
-  paste0("SCM ", what, ": ", x$out_dir %||% "")
-}
-
-print_scm_text <- function(x, what) {
-  cli::cli_text("")
-  cli::cli_h1(scm_title(x, what))
-  cat(scm_text_lines(x), sep = "\n")
+# The record's kind, from its class: "Plan", "Status" or "Summary".
+scm_title <- function(x) {
+  what <- sub("^hyperion_nonmem_scm_", "", class(x)[1])
+  paste0("SCM ", tools::toTitleCase(what), ": ", x$out_dir %||% "")
 }
 
 html_escape <- function(s) {
@@ -149,28 +129,20 @@ html_escape <- function(s) {
   gsub(">", "&gt;", s, fixed = TRUE)
 }
 
-knit_scm_text <- function(x, what, extra = character()) {
-  output <- c(
-    "",
-    paste0("<strong>", scm_title(x, what), "</strong>"),
-    "",
-    '<pre class="hyperion-scm" style="white-space: pre; overflow-x: auto;">',
-    html_escape(scm_text_lines(x)),
-    "</pre>",
-    extra,
-    ""
-  )
-  knitr::asis_output(paste(output, collapse = "\n"))
-}
-
-#' Print method for hyperion_nonmem_scm_plan objects
+#' Print method for SCM records
 #'
-#' @param x A hyperion_nonmem_scm_plan object
+#' Prints pharos' rendering of a plan, status or summary under a title, then
+#' a plan's warnings and whether the process can resume under it, or a
+#' summary's count of unusable fits.
+#'
+#' @param x A hyperion_nonmem_scm_plan, _status or _summary object
 #' @param ... Additional arguments (ignored)
 #' @return Invisible copy of x
-#' @exportS3Method base::print hyperion_nonmem_scm_plan
-print.hyperion_nonmem_scm_plan <- function(x, ...) {
-  print_scm_text(x, "Plan")
+#' @exportS3Method base::print hyperion_nonmem_scm_record
+print.hyperion_nonmem_scm_record <- function(x, ...) {
+  cli::cli_text("")
+  cli::cli_h1(scm_title(x))
+  cat(scm_text_lines(x), sep = "\n")
   for (w in attr(x, "warnings") %||% character()) {
     cli::cli_alert_warning(w)
   }
@@ -179,28 +151,6 @@ print.hyperion_nonmem_scm_plan <- function(x, ...) {
       "The SCM process in {.path {x$out_dir}} cannot resume under this plan; submit with {.code overwrite = TRUE} to discard it."
     )
   }
-  invisible(x)
-}
-
-#' Print method for hyperion_nonmem_scm_status objects
-#'
-#' @param x A hyperion_nonmem_scm_status object
-#' @param ... Additional arguments (ignored)
-#' @return Invisible copy of x
-#' @exportS3Method base::print hyperion_nonmem_scm_status
-print.hyperion_nonmem_scm_status <- function(x, ...) {
-  print_scm_text(x, "Status")
-  invisible(x)
-}
-
-#' Print method for hyperion_nonmem_scm_summary objects
-#'
-#' @param x A hyperion_nonmem_scm_summary object
-#' @param ... Additional arguments (ignored)
-#' @return Invisible copy of x
-#' @exportS3Method base::print hyperion_nonmem_scm_summary
-print.hyperion_nonmem_scm_summary <- function(x, ...) {
-  print_scm_text(x, "Summary")
   n <- x$totals$unusable %||% 0
   if (n > 0) {
     cli::cli_alert_warning(
@@ -210,41 +160,26 @@ print.hyperion_nonmem_scm_summary <- function(x, ...) {
   invisible(x)
 }
 
-#' Knit print methods for SCM records
-#'
-#' @param x A hyperion_nonmem_scm_plan, _status or _summary object
-#' @param ... Additional arguments (ignored)
-#' @return HTML output for rendered documents
+#' @rdname print.hyperion_nonmem_scm_record
 #' @exportS3Method knitr::knit_print
-knit_print.hyperion_nonmem_scm_plan <- function(x, ...) {
+knit_print.hyperion_nonmem_scm_record <- function(x, ...) {
   w <- attr(x, "warnings") %||% character()
-  extra <- if (length(w)) {
-    c("<ul>", paste0("<li>&#x26A0; ", html_escape(w), "</li>"), "</ul>")
-  } else {
-    character()
-  }
-  knit_scm_text(x, "Plan", extra)
+  output <- c(
+    "",
+    paste0("<strong>", scm_title(x), "</strong>"),
+    "",
+    '<pre class="hyperion-scm" style="white-space: pre; overflow-x: auto;">',
+    html_escape(scm_text_lines(x)),
+    "</pre>",
+    if (length(w)) c("<ul>", paste0("<li>&#x26A0; ", html_escape(w), "</li>"), "</ul>"),
+    ""
+  )
+  knitr::asis_output(paste(output, collapse = "\n"))
 }
 
-#' @rdname knit_print.hyperion_nonmem_scm_plan
-#' @exportS3Method knitr::knit_print
-knit_print.hyperion_nonmem_scm_status <- function(x, ...) {
-  knit_scm_text(x, "Status")
-}
-
-#' @rdname knit_print.hyperion_nonmem_scm_plan
-#' @exportS3Method knitr::knit_print
-knit_print.hyperion_nonmem_scm_summary <- function(x, ...) {
-  knit_scm_text(x, "Summary")
-}
-
-#' Structure method for SCM records
-#'
-#' Displays the record without the rendered text attribute.
-#'
-#' @param object A hyperion_nonmem_scm_record object
-#' @param ... Additional arguments passed to str
-#' @return Invisible NULL (called for side effects)
+#' @rdname print.hyperion_nonmem_scm_record
+#' @param object A hyperion_nonmem_scm_record object; `str()` shows it
+#'   without the rendered `text` attribute.
 #' @exportS3Method utils::str hyperion_nonmem_scm_record
 str.hyperion_nonmem_scm_record <- function(object, ...) {
   attr(object, "text") <- NULL
@@ -252,23 +187,45 @@ str.hyperion_nonmem_scm_record <- function(object, ...) {
   utils::str(object, ...)
 }
 
-# ---- helpers over the record ---------------------------------------------------
+#' Summarize an SCM process
+#'
+#' @param object A `hyperion_nonmem_scm` object.
+#' @param round Show one round only.
+#' @param candidate Show one candidate only.
+#' @param long,timing,files Add the corresponding detail to the printed text.
+#' @param ... Unused.
+#' @return A `hyperion_nonmem_scm_summary` S3 object (also of class
+#'   `hyperion_nonmem_scm_record`) with attributes `text`, `out_dir` and
+#'   `project_root`.
+#' @exportS3Method base::summary hyperion_nonmem_scm
+#'
+#' @examples \dontrun{
+#' scm <- read_scm("model/nonmem/scm/run001scm.toml")
+#' summary(scm)
+#' summary(scm, round = "forward_round1", long = TRUE)
+#' }
+summary.hyperion_nonmem_scm <- function(
+  object,
+  round = NULL,
+  candidate = NULL,
+  long = FALSE,
+  timing = FALSE,
+  files = FALSE,
+  ...
+) {
+  get_scm_summary(object, round, candidate, long, timing, files)
+}
 
-as_scm_record <- function(x, arg = "x") {
+as_scm_record <- function(x) {
   if (inherits(x, "hyperion_nonmem_scm_record")) {
     return(x)
   }
-  if (inherits(x, "hyperion_nonmem_scm")) {
-    return(summary(x))
-  }
-  if (is.character(x) && length(x) == 1) {
+  if (inherits(x, "hyperion_nonmem_scm") || (is.character(x) && length(x) == 1)) {
     return(get_scm_summary(x))
   }
-  rlang::abort(paste0(
-    "`",
-    arg,
-    "` must be an SCM summary or status, a hyperion_nonmem_scm object, or the SCM config or output directory"
-  ))
+  rlang::abort(
+    "`x` must be an SCM summary or status, a hyperion_nonmem_scm object, or the SCM config or output directory"
+  )
 }
 
 #' Get the candidates of an SCM process as a data frame
@@ -305,8 +262,7 @@ get_scm_candidates <- function(x, timing = FALSE) {
   out
 }
 
-# One candidate of one round as a one-row data frame; empty `round` and
-# `cand` give the column template.
+# One candidate as a one-row data frame; empty inputs give the column template.
 scm_candidate_row <- function(round, cand, timing) {
   row <- data.frame(
     round = round$round %||% NA_character_,
@@ -411,8 +367,8 @@ read_scm_model <- function(
     }
     cands <- r$candidates %||% list()
     cand_names <- vapply(cands, function(c) c$candidate %||% "", character(1))
-    hit <- which(tolower(cand_names) == tolower(name))
-    if (length(hit) == 0) {
+    hit <- match(tolower(name), tolower(cand_names))
+    if (is.na(hit)) {
       rlang::abort(paste0(
         "no candidate named ",
         name,
@@ -422,8 +378,7 @@ read_scm_model <- function(
         paste(cand_names, collapse = ", ")
       ))
     }
-    rel <- cands[[hit[1]]]$model
-    return(read_model(file.path(out_dir, rel)))
+    return(read_model(file.path(out_dir, cands[[hit]]$model)))
   }
   if (which == "initial") {
     root <- attr(x, "project_root")

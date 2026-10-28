@@ -1,6 +1,3 @@
-//! Stepwise covariate modeling on slurm: plan (`check_scm`), submit, status
-//! and stop.
-
 use extendr_api::Result;
 use extendr_api::prelude::*;
 use std::path::{Path, PathBuf};
@@ -8,9 +5,11 @@ use which::which;
 
 use config::{CONFIG_FILENAME, NonmemConfig};
 use nonmem::check_model;
-use nonmem::scm::{self, BuiltPlan, PlanContext, ScmOverrides, ScmPlan, ScmRunStatus};
+use nonmem::scm::{self, BuiltPlan, PlanContext, ScmOverrides, ScmRunStatus};
 use scheduler::slurm::resolve_partition;
-use scheduler::{DriverRecord, Liveness, ScmDriver, cancel_recorded_fits, fit_place_lookup};
+use scheduler::{
+    DriverRecord, Liveness, ScmDriver, SubmittedDriver, cancel_recorded_fits, fit_place_lookup,
+};
 
 use crate::slurm::PartitionTable;
 use hyperion_core::{OptionExt, ResultExt, extendr_err};
@@ -50,18 +49,6 @@ pub struct ScmJob {
     max_concurrent: Option<usize>,
 }
 
-/// What `screen` has to say, for the caller to show.
-pub struct Screened {
-    pub warnings: Vec<String>,
-    pub discard_note: Option<String>,
-}
-
-pub struct SubmittedScm {
-    pub job_id: usize,
-    pub job_name: String,
-    pub log_path: PathBuf,
-}
-
 impl ScmJob {
     /// Resolve the config to its plan (so validate it, and read where the
     /// SCM process in its out_dir stands) before anything is touched.
@@ -78,11 +65,8 @@ impl ScmJob {
         let built = scm::build_plan_from_config(&scm_config, &overrides, &pharos_version()?)
             .map_scm_err(&near)?;
         let (config_path, nonmem_config) = load_nonmem_config(None)?;
-        // The plan resolved the comment dialect, `output_dir` and
-        // `[nonmem.scm]` from the project the model sits in; the fits run
-        // under the pharos.toml hyperion found. They have to be the same
-        // file, or the process is planned under one project and run under
-        // another.
+        // The plan was built under the model's project; the fits run under
+        // the pharos.toml hyperion found. They have to be the same file.
         let project_root = config_path
             .parent()
             .map(Path::to_path_buf)
@@ -121,32 +105,9 @@ impl ScmJob {
         })
     }
 
-    pub fn plan(&self) -> &ScmPlan {
-        &self.built.plan
-    }
-
-    pub fn built(&self) -> &BuiltPlan {
-        &self.built
-    }
-
-    pub fn out_dir(&self) -> &Path {
-        &self.out_dir
-    }
-
-    pub fn partition(&self) -> Option<&str> {
-        self.partition.as_deref()
-    }
-
-    pub fn nonmem_config(&self) -> &NonmemConfig {
-        &self.nonmem_config
-    }
-
-    pub fn config_path(&self) -> &Path {
-        &self.config_path
-    }
-
     fn model_stem(&self) -> String {
-        self.plan()
+        self.built
+            .plan
             .model_path()
             .file_stem()
             .map(|s| s.to_string_lossy().into_owned())
@@ -163,13 +124,17 @@ impl ScmJob {
             .is_some_and(|p| p.state.status == ScmRunStatus::Completed)
     }
 
-    /// The SCM process in the out_dir that `overwrite` discards, as
-    /// `<status>, N rounds complete`; `None` when none has started.
-    pub fn discardable(&self) -> Option<String> {
+    /// The note `overwrite` earns: the SCM process in the out_dir `who`
+    /// discards, as `<status>, N rounds complete`; `None` when none has started.
+    pub fn discard_note(&self, who: &str) -> Option<String> {
         self.built.context.progress.as_ref().map(|p| {
             let n = p.state.completed_rounds();
             let s = if n == 1 { "" } else { "s" };
-            format!("{}, {n} round{s} complete", p.state.status)
+            format!(
+                "overwrite = TRUE: {who} discards the SCM process in {} ({}, {n} round{s} complete) and starts fresh",
+                scm::shown(&self.out_dir),
+                p.state.status
+            )
         })
     }
 
@@ -184,7 +149,7 @@ impl ScmJob {
         {
             return Ok(());
         }
-        let model = self.plan().model_path();
+        let model = self.built.plan.model_path();
         let result =
             check_model(&self.nonmem_config, &model).map_to_extendr_err("Failed to run NM-TRAN")?;
         if !result.success {
@@ -197,26 +162,15 @@ impl ScmJob {
         Ok(())
     }
 
-    /// The screening every submit does before it drives: refuse a completed
-    /// process without `overwrite`, refuse a plan the process in the out_dir
-    /// cannot resume under (unless `overwrite`), NM-TRAN's view of the
-    /// initial model, then the out_dir's `.gitignore`.
-    pub fn screen(&self, overwrite: bool) -> Result<Screened> {
+    /// The screening every submit does before it drives; returns the discard
+    /// note an `overwrite` earns.
+    pub fn screen(&self, overwrite: bool) -> Result<Option<String>> {
         let out_dir = scm::shown(&self.out_dir);
         if !overwrite && self.completed() {
             return Err(extendr_err!(
                 "the SCM process in {out_dir} is already complete; submit with overwrite = TRUE to start it over"
             ));
         }
-        let discard_note = if overwrite {
-            self.discardable().map(|what| {
-                format!(
-                    "overwrite = TRUE: the driver discards the SCM process in {out_dir} ({what}) and starts fresh"
-                )
-            })
-        } else {
-            None
-        };
         if !overwrite && !self.built.is_resumable() {
             return Err(extendr_err!(
                 "the SCM process in {out_dir} cannot resume under this plan; submit with overwrite = TRUE to discard that process and start fresh\n{}",
@@ -225,10 +179,7 @@ impl ScmJob {
         }
         self.nmtran_check()?;
         self.built.write_gitignore().map_scm_err(&self.out_dir)?;
-        Ok(Screened {
-            warnings: self.built.warnings.clone(),
-            discard_note,
-        })
+        Ok(overwrite.then(|| self.discard_note("the driver")).flatten())
     }
 
     /// The driver job's `scm run` flags: the settings already resolved
@@ -302,7 +253,7 @@ impl ScmJob {
         driver_partition: Option<String>,
         pharos_exe: PathBuf,
         verbose: bool,
-    ) -> Result<SubmittedScm> {
+    ) -> Result<SubmittedDriver> {
         // A driver alone gets the cluster default partition: it only waits.
         // On a shared node it is where the fits run.
         let driver_partition = if args.shared_node {
@@ -338,11 +289,7 @@ impl ScmJob {
                 submitted.job_id
             ));
         }
-        Ok(SubmittedScm {
-            job_id: submitted.job_id,
-            job_name: submitted.job_name,
-            log_path: submitted.log_path,
-        })
+        Ok(submitted)
     }
 }
 
@@ -350,13 +297,6 @@ impl ScmJob {
 /// `None` into `NA`, which `is.null()` on the R side does not catch.)
 fn opt_robj<T: Into<Robj>>(value: Option<T>) -> Robj {
     value.map(Into::into).unwrap_or_else(|| Robj::from(()))
-}
-
-fn require_tools(tools: &[&str], what: &str) -> Result<()> {
-    for tool in tools {
-        which(tool).map_err(|_| extendr_err!("{tool} was not found on PATH; {what} needs slurm"))?;
-    }
-    Ok(())
 }
 
 /// Check an SCM config (internal implementation)
@@ -380,23 +320,20 @@ pub fn check_scm_wrap(
     let mut text = String::new();
     if overwrite {
         // The process in the out_dir is gone before the plan meets it.
-        if let Some(what) = job.discardable() {
-            text.push_str(&format!(
-                "overwrite = TRUE: submit discards the SCM process in {} ({what}) and starts fresh\n\n",
-                scm::shown(job.out_dir())
-            ));
+        if let Some(note) = job.discard_note("submit") {
+            text.push_str(&format!("{note}\n\n"));
         }
-        text.push_str(&job.plan().render_text(&PlanContext::default()));
+        text.push_str(&job.built.plan.render_text(&PlanContext::default()));
     } else {
-        text.push_str(&job.built().render_text());
+        text.push_str(&job.built.render_text());
     }
-    let mut robj = scm_obj(job.plan(), text, job.out_dir(), &[PLAN_CLASS])?;
-    robj.set_attrib("warnings", job.built().warnings.clone())
+    let mut robj = scm_obj(&job.built.plan, text, &job.out_dir, &[PLAN_CLASS, RECORD_CLASS])?;
+    robj.set_attrib("warnings", job.built.warnings.clone())
         .map_to_extendr_err("Failed to set warnings attribute")?;
-    robj.set_attrib("resumable", job.built().is_resumable())
+    robj.set_attrib("resumable", job.built.is_resumable())
         .map_to_extendr_err("Failed to set resumable attribute")?;
     let changes: Vec<Robj> = job
-        .built()
+        .built
         .context
         .changes
         .iter()
@@ -514,7 +451,6 @@ pub fn submit_scm_to_slurm_wrap(
 ) -> Result<Robj> {
     // Everything that can refuse the submit, before anything is written.
     let pharos_exe = which("pharos").map_to_extendr_err("Failed to locate pharos executable")?;
-    require_tools(&["sbatch", "scontrol", "squeue"], "submit_scm_to_slurm()")?;
     let config = scm_config_path(&scm)?;
     let args = ScmSubmitArgs {
         config,
@@ -527,46 +463,41 @@ pub fn submit_scm_to_slurm_wrap(
     };
     let job = ScmJob::load(&args)?;
     let fits_partition = resolve_partition(
-        job.partition(),
-        job.nonmem_config().slurm.partition.as_deref(),
+        job.partition.as_deref(),
+        job.nonmem_config.slurm.partition.as_deref(),
     )
     .map_to_extendr_err("Failed to resolve the fits' partition")?;
-    if !shared_node {
-        resolve_partition(
-            driver_partition
-                .as_deref()
-                .or(job.nonmem_config().scm.driver_partition.as_deref()),
-            None,
-        )
-        .map_to_extendr_err("Failed to resolve the driver partition")?;
-    }
     let config_dir = job
-        .config_path()
+        .config_path
         .parent()
         .ok_or_extendr_err("pharos.toml has no parent directory")?;
-    let cpus_per_fit = i32::from(job.nonmem_config().parallel.resolve_num_cpus(config_dir));
+    let cpus_per_fit = i32::from(job.nonmem_config.parallel.resolve_num_cpus(config_dir));
     let table = PartitionTable::from_slurm()?;
     if let Some(active) = table.find_partition(&fits_partition)
         && cpus_per_fit > active.cpus as i32
     {
-        return Err(extendr_err!(
-            "each fit needs {cpus_per_fit} CPUs ([nonmem.parallel] in pharos.toml) but partition `{fits_partition}` has {} per node",
-            active.cpus
-        ));
+        let advice = table.partition_advice(cpus_per_fit, &fits_partition, 1, false);
+        call!(
+            "stop",
+            format!(
+                "each fit needs {cpus_per_fit} CPUs ([nonmem.parallel] in pharos.toml) but partition `{fits_partition}` has {} per node. {advice}",
+                active.cpus
+            )
+        )?;
     }
     job.refuse_second_driver()?;
     if overwrite {
         job.refuse_overwrite_under_driver()?;
     }
-    let screened = job.screen(overwrite)?;
+    let discard_note = job.screen(overwrite)?;
     let submitted = job.submit_to_slurm(&args, driver_partition, pharos_exe, verbose)?;
     Ok(list!(
         job_id = submitted.job_id as f64,
         job_name = submitted.job_name,
         log = scm::shown(&submitted.log_path),
-        out_dir = scm::shown(job.out_dir()),
-        warnings = screened.warnings,
-        discard_note = opt_robj(screened.discard_note)
+        out_dir = scm::shown(&job.out_dir),
+        warnings = job.built.warnings.clone(),
+        discard_note = opt_robj(discard_note)
     )
     .into_robj())
 }
@@ -578,7 +509,6 @@ pub fn submit_scm_to_slurm_wrap(
 #[extendr(r_name = "stop_scm_impl")]
 pub fn stop_scm_wrap(scm: Robj) -> Result<Robj> {
     let out_dir = scm_out_dir(&scm)?;
-    require_tools(&["squeue", "scancel"], "stop_scm()")?;
     let shown = scm::shown(&out_dir);
     let Some(record) = DriverRecord::read(&out_dir) else {
         return Err(extendr_err!(

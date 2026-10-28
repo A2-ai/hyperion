@@ -21,39 +21,10 @@
       
     Output
        
-      Effect   Type      
-      ───────  ──────────
-      WT_CL    continuous
-      CRCL_CL  continuous
-      WT_V     continuous
-
----
-
-    Code
-      print(scm)
-    Message
-      
-      
-      -- SCM: 1001 -------------------------------------------------------------------
-      Model: extdata/models/scm/1001.mod
-      Config: extdata/models/scm/scm/1001scm.toml
-      Direction: forward -> backward
-      Alphas: forward = 0.05, backward = 0.001
-      Retries: 3 per failed fit, jittered 5%
-      Covariance step: rounds off, forward model on, final model on
-      Rounds: all
-    Output
-       
-    Message
-      
-      -- Effects --
-      
-    Output
-       
       Effect   Type         Initial  Lower  Upper
       ───────  ───────────  ───────  ─────  ─────
-      WT_CL    continuous                        
-      CRCL_CL  continuous                        
+      WT_CL    continuous   NA       NA     NA   
+      CRCL_CL  continuous   NA       NA     NA   
       WT_V     categorical  1        0      5    
 
 ---
@@ -71,12 +42,12 @@
       Retries: 3 per failed fit, jittered 5%
       Covariance step: rounds off, forward model on, final model on
       Rounds: all
-      ! No effects yet: pass `effects` to `init_scm()` or add them with `add_scm_effect()`
+      ! No effects yet: pass `effects` to `init_scm()` or add them with `add_scm_effect()`.
 
 # print methods for the SCM records show pharos' text under a title
 
     Code
-      print(summary(comp))
+      print(s)
     Message
       
       
@@ -122,6 +93,8 @@
         candidate             OFV       dOFV         p
         reference         980.000                          backward_round1/1001_crcl_cl.mod
         WT_CL            1000.000    +20.000    7.7e-6 *   kept
+    Message
+      ! 2 candidate fits were unusable; see the round tables above.
 
 ---
 
@@ -199,85 +172,4 @@
     Message
       ! cov_step is off: the initial model's $COVARIANCE record will be removed from the round models
       x The SCM process in 'extdata/models/scm-complete/scm/1001' cannot resume under this plan; submit with `overwrite = TRUE` to discard it.
-
----
-
-    Code
-      print(s)
-    Message
-      
-      
-      -- SCM Summary: extdata/models/scm-complete/scm/1001 ---------------------------
-    Output
-      model        : extdata/models/scm-complete/1001.mod
-      status       : completed · 5 rounds complete
-      direction    : forward -> backward
-      alphas       : forward = 0.05, backward = 0.001
-      cov step     : off
-      candidates   : WT_CL, CRCL_CL, WT_V
-      path         : +WT_CL (forward 1) -> +CRCL_CL (forward 2) -> -CRCL_CL (backward 1) => WT_CL
-      forward model: forward_final/1001_scm_forward_final.mod (OFV 973.800)  covariates retained: WT_CL, CRCL_CL
-      final model  : final/1001_scm_final.mod (OFV 979.500)  covariates retained: WT_CL
-      
-      reference        base/1001_base.mod succeeded (OFV: 1000.000)
-      
-      forward_round1   added WT_CL (p = 7.744e-6, dOFV = -20.000)
-        candidate             OFV       dOFV         p
-        reference        1000.000                          base/1001_base.mod
-        WT_CL             980.000    -20.000    7.7e-6 *   <- added
-        CRCL_CL           996.000     -4.000     0.046 *
-        WT_V              999.000     -1.000     0.317
-      
-      forward_round2   added CRCL_CL (p = 1.431e-2, dOFV = -6.000) [1 retry]
-        candidate             OFV       dOFV         p
-        reference         980.000                          forward_round1/1001_wt_cl.mod
-        CRCL_CL           974.000     -6.000     0.014 *   <- added
-        WT_V              978.500     -1.500     0.221     [2 attempts]
-      
-      forward_round3   no candidate significant at alpha = 0.05; forward selection stopped
-        candidate             OFV       dOFV         p
-        reference         974.000                          forward_round2/1001_crcl_cl.mod
-        WT_V              973.000     -1.000     0.317
-      
-      backward_round1  dropped CRCL_CL (p = 1.431e-2, dOFV = +6.000)
-        candidate             OFV       dOFV         p
-        reference         974.000                          forward_round2/1001_crcl_cl.mod
-        CRCL_CL           980.000     +6.000     0.014     <- dropped
-        WT_CL             995.000    +21.000    4.6e-6 *   kept
-      
-      backward_round2  every covariate significant at alpha = 0.001; backward elimination stopped
-        candidate             OFV       dOFV         p
-        reference         980.000                          backward_round1/1001_crcl_cl.mod
-        WT_CL            1000.000    +20.000    7.7e-6 *   kept
-    Message
-      ! 2 candidate fits were unusable; see the round tables above.
-
----
-
-    Code
-      str(s, max.level = 1)
-    Output
-      List of 20
-       $ generated     : chr "[TIMESTAMP]"
-       $ pharos_version: chr "test"
-       $ plan_digest   : chr "[DIGEST]"
-       $ initial_model : chr "extdata/models/scm-complete/1001.mod"
-       $ out_dir       : chr "extdata/models/scm-complete/scm/1001"
-       $ options       :List of 9
-       $ status        : chr "completed"
-       $ message       : NULL
-       $ phase         : NULL
-       $ updated       : chr "[TIMESTAMP]"
-       $ models_running: list()
-       $ models_queued : list()
-       $ candidates    :List of 3
-       $ roster        :List of 3
-       $ retained      :List of 1
-       $ forward_final :List of 7
-       $ final_model   : chr "final/1001_scm_final.mod"
-       $ final_ofv     : num 980
-       $ totals        :List of 6
-       $ rounds        :List of 6
-       - attr(*, "out_dir")= chr "[PKG]/extdata/models/scm-complete/scm/1001"
-       - attr(*, "project_root")= chr "[PKG]"
 

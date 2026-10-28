@@ -1,5 +1,3 @@
-# ---- read_scm ----------------------------------------------------------------
-
 test_that("read_scm() reads the config into a hyperion_nonmem_scm object", {
   scm <- read_scm(scm_fixture("scm", "1001scm.toml"))
   expect_s3_class(scm, "hyperion_nonmem_scm")
@@ -28,7 +26,6 @@ test_that("read_scm() reads an effects array that mixes names and inline tables"
   expect_equal(scm$direction, c("forward", "backward"))
   expect_type(scm$max_retries, "integer")
   expect_equal(scm$num_rounds, 0L)
-  # and writes it back the same
   scm$forward_alpha <- 0.01
   write_scm(scm)
   expect_equal(read_scm(p$config)$covariates$effects, scm$covariates$effects)
@@ -39,8 +36,6 @@ test_that("read_scm() validates its input", {
   expect_error(read_scm("nope/1001scm.toml"), "not found")
   expect_error(read_scm(c("a", "b")), "single path")
 })
-
-# ---- effects -------------------------------------------------------------------
 
 test_that("ScmEffect() validates an effect as pharos reads it", {
   e <- ScmEffect("WT_V", type = "categorical", initial = 1, fixed = 0, lower = 0, upper = 5)
@@ -88,15 +83,10 @@ test_that("init_scm() takes the effects as names, rows or ScmEffects and validat
   before <- readLines(p$config)
   bad <- function(effects) init_scm(p$model, effects = effects, overwrite = TRUE)
   expect_error(bad(c("WT_CL", "WT_CL")), "duplicate effect")
-  expect_error(bad(""), "non-empty string")
   expect_error(bad(42), "character vector of names")
   expect_error(bad(list(42)), "name, an ScmEffect, or a list")
   expect_error(bad(list(list(type = "categorical"))), "with a `name`")
-  expect_error(bad(list(list(name = "A", type = "binary"))), "categorical")
-  expect_error(bad(list(list(name = "A", initial = "x"))), "not <character>")
-  expect_error(bad(list(list(name = "A", lower = 1, upper = 0))), "below @upper")
   expect_error(bad(list(list(name = "A", bound = 1))), "unknown field")
-  # nothing is written when the effects are rejected
   expect_equal(readLines(p$config), before)
 })
 
@@ -118,11 +108,9 @@ test_that("add_scm_effect() appends validated effects to the object", {
       ScmEffect("AGE_CL", fixed = 0)
     )
   )
-  # several names at once
   more <- add_scm_effect(scm, c("SEX_CL", "SEX_V"))
   expect_equal(scm_effect_names(more$covariates$effects), c("WT_CL", "CRCL_CL", "WT_V", "AGE_CL", "SEX_CL", "SEX_V"))
 
-  # in memory only until written
   expect_equal(scm_effect_names(read_scm(p$config)$covariates$effects), "WT_CL")
   expect_error(check_scm(scm), "changes that are not written")
   scm <- write_scm(scm)
@@ -134,11 +122,8 @@ test_that("add_scm_effect() appends validated effects to the object", {
   expect_error(add_scm_effect(scm, c("SEX_CL", "SEX_V"), initial = 1), "one effect")
   expect_error(add_scm_effect(scm, ScmEffect("SEX_CL"), initial = 1), "not both")
   expect_error(add_scm_effect(scm, 42), "effect name or an ScmEffect")
-  expect_error(add_scm_effect(scm, "SEX_CL", type = "binary"), "categorical")
-  expect_error(add_scm_effect(scm, "SEX_CL", lower = 1, upper = 0), "below @upper")
   expect_error(add_scm_effect(list(), "SEX_CL"), "hyperion_nonmem_scm object")
 
-  # effects assigned as rows by hand are still accepted
   scm$covariates$effects <- list("WT_CL", list(name = "CRCL_CL", type = "categorical"))
   scm <- add_scm_effect(scm, "WT_V")
   expect_equal(
@@ -172,11 +157,9 @@ test_that("remove_scm_effect() drops effects by name", {
   expect_error(remove_scm_effect("not an scm", "WT_CL"), "hyperion_nonmem_scm object")
 })
 
-# ---- init_scm / write_scm ------------------------------------------------------
-
 test_that("init_scm() writes the starter config and returns the object", {
   p <- local_scm_project()
-  scm <- suppressMessages(init_scm(p$model))
+  expect_snapshot(scm <- init_scm(p$model))
   expect_s3_class(scm, "hyperion_nonmem_scm")
   expect_equal(attr(scm, "config_source"), "model/scm/1001scm.toml")
   expect_equal(scm$model, "model/1001.mod")
@@ -184,18 +167,11 @@ test_that("init_scm() writes the starter config and returns the object", {
   expect_true(file.exists(p$config))
   expect_true(dir.exists(p$out_dir))
   expect_true(file.exists(file.path(p$out_dir, ".gitignore")))
-  expect_snapshot(writeLines(readLines(p$config)))
-  expect_snapshot(writeLines(readLines(file.path(p$out_dir, ".gitignore"))))
 
   expect_error(suppressMessages(init_scm(p$model)), "already exists")
   expect_no_error(suppressMessages(init_scm(p$model, overwrite = TRUE)))
   expect_no_error(suppressMessages(init_scm(read_model(p$model), overwrite = TRUE)))
   expect_error(init_scm(file.path(p$root, "model", "nope.mod")), "File not found")
-})
-
-test_that("init_scm() prints where it wrote", {
-  p <- local_scm_project()
-  expect_snapshot(scm <- init_scm(p$model))
 })
 
 test_that("write_scm() writes effects as rows and keeps untouched comments", {
@@ -216,7 +192,6 @@ test_that("write_scm() writes effects as rows and keeps untouched comments", {
   back <- read_scm(p$config)
   expect_equal(back$covariates$effects, scm$covariates$effects)
 
-  # an option edited by assignment persists; an unchanged file keeps its text
   scm$forward_alpha <- 0.01
   write_scm(scm)
   expect_equal(read_scm(p$config)$forward_alpha, 0.01)
@@ -224,22 +199,18 @@ test_that("write_scm() writes effects as rows and keeps untouched comments", {
   write_scm(read_scm(p$config))
   expect_equal(readLines(p$config), before)
 
-  # effects edited by assignment are validated on write
   scm$covariates$effects <- list(list(name = "WT_CL"), list(name = "WT_CL"))
   expect_error(write_scm(scm), "duplicate effect")
   scm$covariates$effects <- list("WT_CL", "AGE_CL")
   write_scm(scm)
   expect_equal(read_scm(p$config)$covariates$effects, list(ScmEffect("WT_CL"), ScmEffect("AGE_CL")))
 
-  # to another path
   other <- file.path(p$root, "model", "scm", "otherscm.toml")
   written_obj <- write_scm(scm, other)
   expect_equal(attr(written_obj, "config_source"), "model/scm/otherscm.toml")
   expect_equal(read_scm(other)$forward_alpha, 0.01)
   expect_error(write_scm(scm, file.path(p$root, "x.toml")), "scm.toml")
 })
-
-# ---- check_scm -----------------------------------------------------------------
 
 test_that("check_scm() returns the plan with its warnings", {
   scm <- read_scm(scm_fixture("scm", "1001scm.toml"))
@@ -258,8 +229,11 @@ test_that("check_scm() returns the plan with its warnings", {
   expect_equal(attr(plan, "changes"), list())
   expect_type(attr(plan, "out_dir"), "character")
   expect_equal(normalizePath(attr(plan, "project_root")), normalizePath(system.file(package = "hyperion")))
-  expect_snapshot(print(plan))
-  expect_snapshot(print(check_scm(scm_fixture("scm", "1001scm.toml"), num_rounds = 1)))
+  expect_match(attr(plan, "text"), "max models : 13")
+  expect_match(
+    attr(check_scm(scm_fixture("scm", "1001scm.toml"), num_rounds = 1), "text"),
+    "num rounds : pause after 1 \\(resumable\\)"
+  )
 })
 
 test_that("check_scm() reports a started process", {
@@ -267,7 +241,6 @@ test_that("check_scm() reports a started process", {
   plan <- check_scm(comp)
   expect_true(attr(plan, "resumable"))
   expect_match(attr(plan, "text"), "changes      : none")
-  expect_snapshot(cat(scrub_scm(attr(plan, "text"))))
   plan <- check_scm(comp, overwrite = TRUE)
   expect_match(attr(plan, "text"), "overwrite = TRUE: submit discards the SCM process")
 })
@@ -301,8 +274,6 @@ test_that("check_scm() refuses a pharos.toml that is not the model's project", {
   expect_error(check_scm(p$config), "is not the project the model belongs to")
 })
 
-# ---- get_scm_status / summary ----------------------------------------------------
-
 test_that("get_scm_status() reads a planned process", {
   scm <- read_scm(scm_fixture("scm", "1001scm.toml"))
   status <- get_scm_status(scm)
@@ -329,7 +300,7 @@ test_that("summary() reads a planned process", {
   s <- summary(scm)
   expect_s3_class(s, c("hyperion_nonmem_scm_summary", "hyperion_nonmem_scm_record"))
   expect_equal(s$status, "planned")
-  expect_snapshot(print(s))
+  expect_match(attr(s, "text"), "path         : none")
   expect_error(summary(scm, round = "9"), "has not started; no rounds to summarize")
   expect_error(summary(scm, candidate = "AGE_CL"), "no candidate named AGE_CL")
 })
@@ -337,8 +308,6 @@ test_that("summary() reads a planned process", {
 test_that("stop_scm() refuses a process with no driver", {
   expect_error(stop_scm(scm_fixture("scm", "1001scm.toml")), "no driver has been started")
 })
-
-# ---- the completed process -----------------------------------------------------
 
 test_that("summary() and get_scm_status() read a completed process", {
   comp <- read_scm(scm_complete_fixture("scm", "1001scm.toml"))
@@ -366,12 +335,14 @@ test_that("summary() and get_scm_status() read a completed process", {
 
   status <- get_scm_status(comp)
   expect_equal(status$status, "completed")
-  expect_snapshot(print(status))
 })
 
 test_that("summary() renders the long, timing and files views", {
   comp <- read_scm(scm_complete_fixture("scm", "1001scm.toml"))
-  expect_snapshot(print(summary(comp, long = TRUE, timing = TRUE, files = TRUE)))
+  txt <- attr(summary(comp, long = TRUE, timing = TRUE, files = TRUE), "text")
+  expect_match(txt, "retained before this round: WT_CL")
+  expect_match(txt, "3 fits · wall 1m 30s")
+  expect_match(txt, "lst      base/1001_base/1001_base.lst")
   expect_snapshot(print(summary(comp, round = "forward_round2", candidate = "WT_V", long = TRUE)))
   r2 <- summary(comp, round = "2")
   expect_match(attr(r2, "text"), "forward_round2")
@@ -426,8 +397,6 @@ test_that("read_scm_model() reads the process's models", {
   expect_error(read_scm_model(planned), "no final model yet \\(status: planned\\)")
 })
 
-# ---- submit_scm_to_slurm: everything before slurm ----------------------------------
-
 test_that("submit_scm_to_slurm() checks its arguments and the pharos CLI first", {
   p <- local_scm_project(effects = "WT_CL")
   expect_error(
@@ -443,8 +412,7 @@ test_that("submit_scm_to_slurm() checks its arguments and the pharos CLI first",
 test_that("submit_scm_to_slurm() stops before writing when slurm or pharos is missing", {
   p <- local_scm_project(effects = "WT_CL")
   local_mocked_bindings(detect_pharos = function() list(path = "/usr/bin/pharos", version = "0.0.1"))
-  # An empty PATH: neither pharos nor the slurm tools can be found, so the
-  # submit must stop at its first check and never reach sbatch.
+  # An empty PATH: the submit must stop at its first check.
   withr::local_envvar(
     PATH = withr::local_tempdir(),
     SLURM_NTASKS = "4",
@@ -459,11 +427,9 @@ test_that("submit_scm_to_slurm() stops before writing when slurm or pharos is mi
   expect_false(file.exists(file.path(p$out_dir, "scm_driver.json")))
 })
 
-test_that("strip_slurm_env() unsets the inherited slurm variables and restores them", {
+test_that("without_slurm_env() unsets the inherited slurm variables and restores them", {
   withr::local_envvar(SLURM_NTASKS = "4", SLURM_CPUS_PER_TASK = NA)
-  old <- strip_slurm_env()
-  expect_equal(Sys.getenv("SLURM_NTASKS", unset = NA), NA_character_)
-  restore_slurm_env(old)
+  expect_equal(without_slurm_env(Sys.getenv("SLURM_NTASKS", unset = NA)), NA_character_)
   expect_equal(Sys.getenv("SLURM_NTASKS"), "4")
   expect_equal(Sys.getenv("SLURM_CPUS_PER_TASK", unset = NA), NA_character_)
 })

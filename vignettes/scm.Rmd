@@ -79,7 +79,6 @@ scm <- init_scm(
   "extdata/models/scm-demo/1001.mod",
   effects = list(
     "WT_CL",
-    "CRCL_CL",
     list(name = "WT_V", type = "categorical", initial = 1, lower = 0, upper = 5)
   )
 )
@@ -100,19 +99,10 @@ The effects are `ScmEffect` objects, held under `scm$covariates$effects`.
 
 ```{r effects}
 scm <- read_scm("extdata/models/scm-demo/scm/1001scm.toml")
-scm <- add_scm_effect(scm, "AGE_CL", initial = 0.5)
+scm <- add_scm_effect(scm, "CRCL_CL", initial = 0.5)
 scm <- remove_scm_effect(scm, "WT_V")
-scm$covariates$effects[[3]]
+scm$covariates$effects[[2]]
 scm <- write_scm(scm)
-```
-
-```{r print-effects, results='asis'}
-scm
-```
-
-```{r reset-effects, include = FALSE}
-scm <- add_scm_effect(scm, "WT_V", type = "categorical", initial = 1, lower = 0, upper = 5)
-scm <- write_scm(remove_scm_effect(scm, "AGE_CL"))
 ```
 
 # Checking the plan
@@ -195,13 +185,6 @@ candidate, so `summary()`, `get_parameters()` and the rest work on it.
 final <- read_scm_model(s)
 summary(final)$run_name
 get_parameters(final)
-```
-
-pharos writes the reference fit without a parent, so the SCM models form a
-lineage of their own, rooted at that fit:
-
-```{r lineage, eval = FALSE}
-get_model_lineage(from = read_scm_model(s, "reference"))
 ```
 
 # What stays in the CLI

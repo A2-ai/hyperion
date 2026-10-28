@@ -1,7 +1,3 @@
-//! Stepwise covariate modeling (SCM): the reader side of `pharos nonmem scm`
-//! (init, summary) and the helpers every SCM wrapper shares. The slurm side
-//! (plan, submit, status, stop) lives in `hyperion-scheduler`.
-
 use extendr_api::Result;
 use extendr_api::prelude::*;
 use extendr_api::serializer::to_robj;
@@ -12,8 +8,8 @@ use config::find_config_dir_from;
 use nonmem::scm::{self, ScmStatus, SummaryOptions};
 use nonmem::validate_model_extension;
 
-use crate::utils::{from_config_relative, get_comment_type, path_from_robj};
-use hyperion_core::{OptionExt, ResultExt, extendr_err};
+use crate::utils::{get_comment_type, path_from_robj, source_attr};
+use hyperion_core::{ResultExt, extendr_err};
 
 /// The S3 class of the SCM config object `read_scm()` returns.
 const SCM_CLASS: &str = "hyperion_nonmem_scm";
@@ -66,13 +62,7 @@ pub fn pharos_version() -> Result<String> {
 /// the pharos config dir) or a path given by the user.
 fn scm_path_from_robj(input: &Robj) -> Result<PathBuf> {
     if input.inherits(SCM_CLASS) {
-        let source = input
-            .get_attrib("config_source")
-            .ok_or_extendr_err("SCM object is missing config_source attribute")?;
-        let source = source
-            .as_str()
-            .ok_or_extendr_err("config_source attribute must be a string")?;
-        return from_config_relative(source);
+        return source_attr(input, "config_source");
     }
     if let Some(s) = input.as_str() {
         if s.is_empty() {
@@ -166,7 +156,8 @@ pub fn read_scm_status(out_dir: &Path) -> Result<ScmStatus> {
     Ok(status)
 }
 
-/// A TOML value as `tomledit::from_toml()` returns it
+/// A TOML value as an R value. (`tomledit::from_toml()` panics on an effects
+/// array that mixes names and inline tables.)
 fn toml_to_robj(value: &toml::Value) -> Robj {
     use toml::Value;
     match value {

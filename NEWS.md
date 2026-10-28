@@ -1,4 +1,4 @@
-# hyperion 0.7.0 (development version)
+# hyperion 0.7.0
 
 ## Breaking changes
 
@@ -8,25 +8,26 @@
 
 ## New features
 
-- Stepwise covariate modeling (SCM), driving `pharos nonmem scm` on SLURM:
-  - `init_scm()` writes `<stem>scm.toml` beside a model's SCM directory with
-    the candidate `effects` given, and returns it as a `hyperion_nonmem_scm`
-    object; `read_scm()` reads one back and `write_scm()` writes an edited
-    object out again.
-  - The effects are `ScmEffect` S7 objects (name, type, initial, fixed,
-    lower, upper, validated as pharos reads them); `add_scm_effect()` and
-    `remove_scm_effect()` edit them on the object.
-  - `check_scm()` shows the plan a config resolves to, its warnings, and
-    whether a started process can resume under it.
-  - `submit_scm_to_slurm()` starts or resumes the process as a SLURM driver
-    job; `stop_scm()` pauses it and cancels queued fits.
-  - `get_scm_status()` and `summary()` return the process record as pharos
-    writes it and print pharos' own rendering; both knit.
-  - `get_scm_candidates()` flattens every round into a data frame and
-    `read_scm_model()` reads the final, forward, reference, initial or a
-    candidate model.
-  - `pharos nonmem scm run` (a login-node driver) is not wrapped.
+- Stepwise covariate modeling (SCM), driving `pharos nonmem scm` on SLURM.
+  `init_scm()` writes `<stem>scm.toml` with the candidate `effects` as
+  `ScmEffect` objects; `read_scm()`, `write_scm()`, `add_scm_effect()` and
+  `remove_scm_effect()` edit the config.
+- `check_scm()` shows the plan a config resolves to and whether a started
+  process can resume under it; `submit_scm_to_slurm()` starts or resumes the
+  process as a SLURM driver job and `stop_scm()` pauses it.
+- `get_scm_status()` and `summary()` return the process record and print
+  pharos' rendering; `get_scm_candidates()` flattens the rounds into a data
+  frame and `read_scm_model()` reads the final, forward, reference, initial
+  or a candidate model. `pharos nonmem scm run` is not wrapped.
 - New vignette: `vignette("scm")`.
+
+## Bug fixes
+
+- Printing, `get_fixed_parameters()`, `get_model_comment_info()` and
+  `check_dataset()` no longer abort the R session for a model with a bare
+  `$COVARIANCE` (or any record whose options are empty). Rust rebuilds the
+  model from the object's source text instead of deserializing the R list,
+  which crashed in extendr 0.9.0 on R >= 4.5.
 
 # hyperion 0.6.0
 

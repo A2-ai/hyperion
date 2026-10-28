@@ -2,9 +2,12 @@
 % Please edit documentation in R/scm-methods.R
 \name{print.hyperion_nonmem_scm}
 \alias{print.hyperion_nonmem_scm}
+\alias{knit_print.hyperion_nonmem_scm}
 \title{Print method for hyperion_nonmem_scm objects}
 \usage{
 \method{print}{hyperion_nonmem_scm}(x, ...)
+
+\method{knit_print}{hyperion_nonmem_scm}(x, ...)
 }
 \arguments{
 \item{x}{A hyperion_nonmem_scm object}

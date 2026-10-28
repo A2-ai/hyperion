@@ -1,6 +1,3 @@
-# The candidate effects of an SCM config: the `[covariates] effects` array as
-# `ScmEffect` objects, and the functions that add and remove them.
-
 SCM_EFFECT_FIELDS <- c("name", "type", "initial", "fixed", "lower", "upper")
 SCM_EFFECT_TYPES <- c("continuous", "categorical")
 
@@ -84,8 +81,7 @@ ScmEffect <- S7::new_class(
   }
 )
 
-# One effect as the config allows it (a name, an inline table as a list, or
-# an ScmEffect) as an ScmEffect.
+# A name, a row or an ScmEffect as an ScmEffect.
 as_scm_effect <- function(x) {
   if (S7::S7_inherits(x, ScmEffect)) {
     return(x)
@@ -110,8 +106,7 @@ as_scm_effect <- function(x) {
   do.call(ScmEffect, x)
 }
 
-# `effects` as the config allows it (names, rows, ScmEffects, or a mix) as a
-# list of ScmEffects, checked for duplicates.
+# `effects` as the config allows them, as a list of ScmEffects.
 normalize_effects <- function(effects) {
   if (is.null(effects) || length(effects) == 0) {
     return(list())
@@ -153,23 +148,17 @@ check_scm_effects <- function(effects) {
   invisible(effects)
 }
 
-# An ScmEffect as the inline table write_scm() writes: its set fields, in the
-# config's order.
+# An ScmEffect as the inline table write_scm() writes.
 scm_effect_row <- function(effect) {
   row <- lapply(SCM_EFFECT_FIELDS, function(field) S7::prop(effect, field))
   names(row) <- SCM_EFFECT_FIELDS
   row[!vapply(row, is.null, logical(1))]
 }
 
-effects_to_rows <- function(effects) {
-  lapply(normalize_effects(effects), scm_effect_row)
-}
-
-# The config's covariates with the effects as rows: the form write_scm()
-# writes and the form two configs are compared in.
+# The covariates with the effects as rows, for writing and comparing.
 covariates_as_rows <- function(cov) {
   cov <- normalize_covariates(cov)
-  cov$effects <- effects_to_rows(cov$effects)
+  cov$effects <- lapply(cov$effects, scm_effect_row)
   cov
 }
 
@@ -226,7 +215,7 @@ add_scm_effect <- function(
         "the settings apply to one effect; add several names without them"
       )
     }
-    new <- lapply(name, function(n) ScmEffect(name = n))
+    new <- normalize_effects(name)
   } else {
     if (!is.character(name) || length(name) != 1) {
       rlang::abort("`name` must be an effect name or an ScmEffect")
@@ -242,9 +231,7 @@ add_scm_effect <- function(
       "; remove_scm_effect() first to change one"
     ))
   }
-  effects <- c(effects, new)
-  check_scm_effects(effects)
-  scm$covariates$effects <- effects
+  scm$covariates$effects <- c(effects, new)
   scm
 }
 

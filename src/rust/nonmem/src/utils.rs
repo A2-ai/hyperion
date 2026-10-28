@@ -279,15 +279,46 @@ pub fn from_config_relative(source: impl AsRef<Path>) -> Result<PathBuf> {
     Ok(source_path.to_path_buf())
 }
 
-/// Extract model_source attribute from Robj and resolve to absolute path.
-fn extract_model_source(model: &Robj) -> Result<PathBuf> {
-    let source = model
-        .get_attrib("model_source")
-        .ok_or_extendr_err("Model object is missing model_source attribute")?;
+/// Extract a source path attribute (`model_source`, `config_source`) from an
+/// Robj and resolve it to an absolute path.
+pub fn source_attr(robj: &Robj, attr: &str) -> Result<PathBuf> {
+    let source = robj
+        .get_attrib(attr)
+        .ok_or_else(|| extendr_err!("object is missing the {attr} attribute"))?;
     let source_str = source
         .as_str()
-        .ok_or_extendr_err("model_source attribute must be a string")?;
+        .ok_or_else(|| extendr_err!("{attr} attribute must be a string"))?;
     from_config_relative(source_str)
+}
+
+/// Rebuild the pharos [`Model`] behind a `hyperion_nonmem_model` object.
+///
+/// Re-parses the model text pharos keeps in the object's `source` element
+/// instead of deserializing the whole R list with `from_robj`. That
+/// deserializer aborts the R session (a non-unwinding panic, not an R error)
+/// on any model whose record options map is empty, such as a bare
+/// `$COVARIANCE`: extendr 0.9.0's `Strings::as_slice` builds a slice from
+/// `STRING_PTR_RO` of the empty `names` vector, and R >= 4.5 returns the
+/// sentinel `(void*) 1` for zero-length vectors, which fails Rust's slice
+/// alignment check.
+pub fn model_from_robj(input: &Robj) -> Result<Model> {
+    if !input.inherits("hyperion_nonmem_model") {
+        return Err(extendr_err!("Input must be a hyperion_nonmem_model object"));
+    }
+    let list = List::try_from(input).map_to_extendr_err("Model object is not a list")?;
+    let source = list
+        .iter()
+        .find(|(name, _)| *name == "source")
+        .and_then(|(_, value)| value.as_str())
+        .ok_or_extendr_err("Model object is missing its `source` text")?;
+    let path = source_attr(input, "model_source").unwrap_or_else(|_| PathBuf::from("model"));
+    let mut model = Model::parse(&path, source)
+        .map_err(|e| extendr_err!("Failed to parse model from object:\n{e}"))?;
+    // Same comment parsing read_model() applies before it serializes a model.
+    if let Some(ct) = get_comment_type() {
+        model.parse_comments(ct);
+    }
+    Ok(model)
 }
 
 /// Extract a path from an Robj (string path or hyperion_nonmem_model object).
@@ -295,7 +326,7 @@ fn extract_model_source(model: &Robj) -> Result<PathBuf> {
 /// If `validate_model` is true, validates the path is an existing .mod/.ctl file.
 pub fn path_from_robj(input: &Robj, validate_model: bool) -> Result<PathBuf> {
     let path = if input.inherits("hyperion_nonmem_model") {
-        extract_model_source(input)?
+        source_attr(input, "model_source")?
     } else if let Some(s) = input.as_str() {
         PathBuf::from(s)
     } else {

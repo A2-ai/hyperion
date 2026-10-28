@@ -143,17 +143,3 @@ If you use hyperion to copy models you can extract the model lineage with
 ```{r lineage, results='asis'}
 get_model_lineage()
 ```
-
-## Stepwise covariate modeling
-
-Set up a stepwise covariate modeling process from an initial model whose
-`$THETA` records declare the candidate effects, check its plan, and submit it
-as a SLURM driver job. See `vignette("scm")`.
-
-```{r scm, eval = FALSE}
-scm <- init_scm("model/nonmem/run001.mod", effects = c("WT_CL", "CRCL_CL"))
-check_scm(scm)
-submit_scm_to_slurm(scm, partition = "cpu")
-get_scm_status(scm)
-summary(scm)
-```

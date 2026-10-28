@@ -40,8 +40,8 @@ library(hyperion)
 #> 
 #> 
 #> ── pharos configuration ────────────────────────────────────────────────────────
-#> ✔ pharos CLI: 0.7.0 (/opt/ubuntu-utils/ubuntu-24.04/snapshots/latest/bin/pharos)
-#> ✔ pharos.toml found: /tmp/RtmpVRpJ5Q/hyperion-readme-2705a6707c01c4/pharos.toml
+#> ✔ pharos CLI: 0.6.0 (/data/user-homes/matthews/.local/bin/pharos)
+#> ✔ pharos.toml found: /tmp/RtmptxW6mE/hyperion-readme-14b9cc3467c701/pharos.toml
 #>     └ hyperion.config_dir : (unset)
 #> ── hyperion options ────────────────────────────────────────────────────────────
 #> ✔ hyperion.significant_number_display : 4
@@ -111,194 +111,327 @@ run002
 <strong>Theta Parameters</strong>
 
 <table class="table table-striped">
+
 <thead>
+
 <tr>
+
 <th style="text-align:left;">
+
 Parameter
 </th>
+
 <th style="text-align:right;">
+
 Initial
 </th>
+
 <th style="text-align:right;">
+
 Lower
 </th>
+
 <th style="text-align:left;">
+
 Fixed
 </th>
+
 <th style="text-align:left;">
+
 Comment
 </th>
+
 </tr>
+
 </thead>
+
 <tbody>
+
 <tr>
+
 <td style="text-align:left;">
+
 THETA1
 </td>
+
 <td style="text-align:right;">
+
 1.24
 </td>
+
 <td style="text-align:right;">
+
 0
 </td>
+
 <td style="text-align:left;">
+
 No
 </td>
+
 <td style="text-align:left;">
+
 TVCL (L/hr)
 </td>
+
 </tr>
+
 <tr>
+
 <td style="text-align:left;">
+
 THETA2
 </td>
+
 <td style="text-align:right;">
+
 40.86
 </td>
+
 <td style="text-align:right;">
+
 0
 </td>
+
 <td style="text-align:left;">
+
 No
 </td>
+
 <td style="text-align:left;">
+
 TVV (L)
 </td>
+
 </tr>
+
 <tr>
+
 <td style="text-align:left;">
+
 THETA3
 </td>
+
 <td style="text-align:right;">
+
 1.24
 </td>
+
 <td style="text-align:right;">
+
 0
 </td>
+
 <td style="text-align:left;">
+
 No
 </td>
+
 <td style="text-align:left;">
+
 TVKA (1/hr)
 </td>
+
 </tr>
+
 </tbody>
+
 </table>
 
 <strong>Omega Parameters</strong>
 
 <table class="table table-striped">
+
 <thead>
+
 <tr>
+
 <th style="text-align:left;">
+
 Parameter
 </th>
+
 <th style="text-align:right;">
+
 Initial
 </th>
+
 <th style="text-align:left;">
+
 Fixed
 </th>
+
 <th style="text-align:left;">
+
 Comment
 </th>
+
 </tr>
+
 </thead>
+
 <tbody>
+
 <tr>
+
 <td style="text-align:left;">
+
 OMEGA(1,1)
 </td>
+
 <td style="text-align:right;">
+
 0.131
 </td>
+
 <td style="text-align:left;">
+
 No
 </td>
+
 <td style="text-align:left;">
+
 OM1 TVCL :EXP
 </td>
+
 </tr>
+
 <tr>
+
 <td style="text-align:left;">
+
 OMEGA(2,2)
 </td>
+
 <td style="text-align:right;">
+
 0.136
 </td>
+
 <td style="text-align:left;">
+
 No
 </td>
+
 <td style="text-align:left;">
+
 OM2 TVV :EXP
 </td>
+
 </tr>
+
 <tr>
+
 <td style="text-align:left;">
+
 OMEGA(3,3)
 </td>
+
 <td style="text-align:right;">
+
 0.1
 </td>
+
 <td style="text-align:left;">
+
 No
 </td>
+
 <td style="text-align:left;">
+
 OM3 TVKA :EXP
 </td>
+
 </tr>
+
 </tbody>
+
 </table>
 
 <strong>Sigma Parameters</strong>
 
 <table class="table table-striped">
+
 <thead>
+
 <tr>
+
 <th style="text-align:left;">
+
 Parameter
 </th>
+
 <th style="text-align:right;">
+
 Initial
 </th>
+
 <th style="text-align:left;">
+
 Fixed
 </th>
+
 <th style="text-align:left;">
+
 Comment
 </th>
+
 </tr>
+
 </thead>
+
 <tbody>
+
 <tr>
+
 <td style="text-align:left;">
+
 SIGMA(1,1)
 </td>
+
 <td style="text-align:right;">
+
 0.0364
 </td>
+
 <td style="text-align:left;">
+
 No
 </td>
+
 <td style="text-align:left;">
+
 SIG1 Proportional error (variance, 20% CV)
 </td>
+
 </tr>
+
 <tr>
+
 <td style="text-align:left;">
+
 SIGMA(2,2)
 </td>
+
 <td style="text-align:right;">
+
 0.01
 </td>
+
 <td style="text-align:left;">
+
 No
 </td>
+
 <td style="text-align:left;">
+
 SIG2 Additive error (variance, 0.01 mg/L SD)
 </td>
+
 </tr>
+
 </tbody>
+
 </table>
 
 ## Running a model
@@ -349,257 +482,432 @@ summary(run002)
 <strong>Theta Parameters</strong>
 
 <table class="table table-striped">
+
 <thead>
+
 <tr>
+
 <th style="text-align:left;">
+
 Parameter
 </th>
+
 <th style="text-align:right;">
+
 Estimate
 </th>
+
 <th style="text-align:right;">
+
 SE
 </th>
+
 <th style="text-align:right;">
+
 RSE (%)
 </th>
+
 <th style="text-align:left;">
+
 Fixed
 </th>
+
 </tr>
+
 </thead>
+
 <tbody>
+
 <tr>
+
 <td style="text-align:left;">
+
 TVCL
 </td>
+
 <td style="text-align:right;">
+
 1.247
 </td>
+
 <td style="text-align:right;">
+
 0.1288
 </td>
+
 <td style="text-align:right;">
+
 10.33
 </td>
+
 <td style="text-align:left;">
+
 No
 </td>
+
 </tr>
+
 <tr>
+
 <td style="text-align:left;">
+
 TVV
 </td>
+
 <td style="text-align:right;">
+
 40.85
 </td>
+
 <td style="text-align:right;">
+
 3.027
 </td>
+
 <td style="text-align:right;">
+
 7.411
 </td>
+
 <td style="text-align:left;">
+
 No
 </td>
+
 </tr>
+
 <tr>
+
 <td style="text-align:left;">
+
 TVKA
 </td>
+
 <td style="text-align:right;">
+
 1.244
 </td>
+
 <td style="text-align:right;">
+
 0.1134
 </td>
+
 <td style="text-align:right;">
+
 9.117
 </td>
+
 <td style="text-align:left;">
+
 No
 </td>
+
 </tr>
+
 </tbody>
+
 </table>
 
 <strong>Omega Parameters</strong>
 
 <table class="table table-striped">
+
 <thead>
+
 <tr>
+
 <th style="text-align:left;">
+
 Parameter
 </th>
+
 <th style="text-align:left;">
+
 Random Effect
 </th>
+
 <th style="text-align:right;">
+
 Estimate
 </th>
+
 <th style="text-align:right;">
+
 SE
 </th>
+
 <th style="text-align:right;">
+
 RSE (%)
 </th>
+
 <th style="text-align:right;">
+
 Shrinkage (%)
 </th>
+
 <th style="text-align:left;">
+
 Fixed
 </th>
+
 </tr>
+
 </thead>
+
 <tbody>
+
 <tr>
+
 <td style="text-align:left;">
+
 OM1 (TVCL)
 </td>
+
 <td style="text-align:left;">
+
 ETA1
 </td>
+
 <td style="text-align:right;">
+
 0.1304
 </td>
+
 <td style="text-align:right;">
+
 0.06019
 </td>
+
 <td style="text-align:right;">
+
 46.15
 </td>
+
 <td style="text-align:right;">
+
 18.06
 </td>
+
 <td style="text-align:left;">
+
 No
 </td>
+
 </tr>
+
 <tr>
+
 <td style="text-align:left;">
+
 OM2 (TVV)
 </td>
+
 <td style="text-align:left;">
+
 ETA2
 </td>
+
 <td style="text-align:right;">
+
 0.1363
 </td>
+
 <td style="text-align:right;">
+
 0.03971
 </td>
+
 <td style="text-align:right;">
+
 29.13
 </td>
+
 <td style="text-align:right;">
+
 4.986
 </td>
+
 <td style="text-align:left;">
+
 No
 </td>
+
 </tr>
+
 <tr>
+
 <td style="text-align:left;">
+
 OM3 (TVKA)
 </td>
+
 <td style="text-align:left;">
+
 ETA3
 </td>
+
 <td style="text-align:right;">
+
 0.1144
 </td>
+
 <td style="text-align:right;">
+
 0.06144
 </td>
+
 <td style="text-align:right;">
+
 <span style="color: #DD0000;">53.71</span>
 </td>
+
 <td style="text-align:right;">
+
 27.19
 </td>
+
 <td style="text-align:left;">
+
 No
 </td>
+
 </tr>
+
 </tbody>
+
 </table>
 
 <strong>Sigma Parameters</strong>
 
 <table class="table table-striped">
+
 <thead>
+
 <tr>
+
 <th style="text-align:left;">
+
 Parameter
 </th>
+
 <th style="text-align:left;">
+
 Random Effect
 </th>
+
 <th style="text-align:right;">
+
 Estimate
 </th>
+
 <th style="text-align:right;">
+
 SE
 </th>
+
 <th style="text-align:right;">
+
 RSE (%)
 </th>
+
 <th style="text-align:right;">
+
 Shrinkage (%)
 </th>
+
 <th style="text-align:left;">
+
 Fixed
 </th>
+
 </tr>
+
 </thead>
+
 <tbody>
+
 <tr>
+
 <td style="text-align:left;">
+
 SIGMA(1,1)
 </td>
+
 <td style="text-align:left;">
+
 EPS1
 </td>
+
 <td style="text-align:right;">
+
 0.03723
 </td>
+
 <td style="text-align:right;">
+
 0.0116
 </td>
+
 <td style="text-align:right;">
+
 31.16
 </td>
+
 <td style="text-align:right;">
+
 15.44
 </td>
+
 <td style="text-align:left;">
+
 No
 </td>
+
 </tr>
+
 <tr>
+
 <td style="text-align:left;">
+
 SIGMA(2,2)
 </td>
+
 <td style="text-align:left;">
+
 EPS2
 </td>
+
 <td style="text-align:right;">
+
 0.006607
 </td>
+
 <td style="text-align:right;">
+
 0.02792
 </td>
+
 <td style="text-align:right;">
+
 <span style="color: #DD0000;">422.6</span>
 </td>
+
 <td style="text-align:right;">
+
 15.44
 </td>
+
 <td style="text-align:left;">
+
 No
 </td>
+
 </tr>
+
 </tbody>
+
 </table>
 
 ## Copying a model
@@ -664,17 +972,3 @@ get_model_lineage()
 - <strong style="color:blue">extdata/models/onecmt/run002a</strong>
   <span style="color:gray">Some description about what makes run002a
   diffe…</span>
-
-## Stepwise covariate modeling
-
-Set up a stepwise covariate modeling process from an initial model whose
-`$THETA` records declare the candidate effects, check its plan, and
-submit it as a SLURM driver job. See `vignette("scm")`.
-
-``` r
-scm <- init_scm("model/nonmem/run001.mod", effects = c("WT_CL", "CRCL_CL"))
-check_scm(scm)
-submit_scm_to_slurm(scm, partition = "cpu")
-get_scm_status(scm)
-summary(scm)
-```

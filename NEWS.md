@@ -1,3 +1,43 @@
+# hyperion 0.7.0 (development version)
+
+## Breaking changes
+
+- Requires pharos CLI 0.7.0. The SCM driver job runs the `pharos` found on
+  `PATH`, and `submit_scm_to_slurm()` refuses a version that differs from
+  the one hyperion was built for.
+
+## New features
+
+- Stepwise covariate modeling (SCM), driving `pharos nonmem scm` on SLURM:
+  - `init_scm()` writes `<stem>scm.toml` beside a model's SCM directory with
+    the candidate `effects` given, and returns it as a `hyperion_nonmem_scm`
+    object; `read_scm()` reads one back and `write_scm()` writes an edited
+    object out again.
+  - The effects are `ScmEffect` S7 objects (name, type, initial, fixed,
+    lower, upper, validated as pharos reads them); `add_scm_effect()` and
+    `remove_scm_effect()` edit them on the object.
+  - `check_scm()` shows the plan a config resolves to, its warnings, and
+    whether a started process can resume under it.
+  - `submit_scm_to_slurm()` starts or resumes the process as a SLURM driver
+    job; `stop_scm()` pauses it and cancels queued fits.
+  - `get_scm_status()` and `summary()` return the process record as pharos
+    writes it and print pharos' own rendering; both knit.
+  - `get_scm_candidates()` flattens every round into a data frame and
+    `read_scm_model()` reads the final, forward, reference, initial or a
+    candidate model.
+  - `pharos nonmem scm run` (a login-node driver) is not wrapped.
+- New vignette: `vignette("scm")`.
+
+## Bug fixes
+
+- `submit_scm_to_slurm()` no longer prints a stray `NA` note on a plain
+  submit, and `stop_scm()` no longer prints `Allocation: NA` for a slurm
+  driver: the Rust side now hands an absent value over as `NULL`.
+- `read_scm()` and `write_scm()` read the config with the `toml` crate
+  instead of `tomledit::from_toml()`, which panicked on an effects array
+  that puts an inline table between two names
+  (`effects = ["WT_CL", { name = "CRCL_CL", type = "categorical" }, "WT_V"]`).
+
 # hyperion 0.6.0
 
 ## Breaking changes

@@ -137,6 +137,7 @@ pub fn copy_model_wrap(
         based_on: based_on.unwrap_or_default(),
         tags: tags.unwrap_or_default(),
         no_metadata,
+        allow_partial: false,
     };
 
     let from_path = path_from_robj(&from, true)?;

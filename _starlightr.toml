@@ -13,7 +13,8 @@ include_pagefind = true
 [versions]
 enabled = true
 list = [
-	{ tag = "0.6.0", label = "v0.6.0", default = true },
+	{ tag = "0.7.0", label = "v0.7.0", default = true },
+	{ tag = "0.6.0", label = "v0.6.0" },
 	{ tag = "0.5.0", label = "v0.5.0" },
 	{ tag = "0.4.2", label = "v0.4.2" },
 	{ tag = "0.4.1", label = "v0.4.1" },
@@ -46,6 +47,7 @@ articles = [
     "lst",
   ], collapsed = true },
   { label = "NONMEM Model Interactions", contents = "hyperion_model", collapsed = true },
+  { label = "Stepwise Covariate Modeling", contents = "scm", collapsed = true },
 ]
 reference = [
   "hyperion-package",
@@ -123,6 +125,18 @@ reference = [
     "submit_model_to_slurm",
     "submit_model_to_sge",
 		"get_partition_info",
+  ] },
+  { label = "Stepwise Covariate Modeling", collapsed = true, contents = [
+    "init_scm",
+    "read_scm",
+    "write_scm",
+    "check_scm",
+    "submit_scm_to_slurm",
+    "get_scm_status",
+    "summary.hyperion_nonmem_scm",
+    "stop_scm",
+    "get_scm_candidates",
+    "read_scm_model",
   ] },
 ]
 news = { label = "Changelog", source = "NEWS.md" }

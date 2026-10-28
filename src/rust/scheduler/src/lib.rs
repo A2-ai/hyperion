@@ -1,3 +1,4 @@
+pub mod scm_slurm;
 pub mod slurm;
 use slurm::PartitionTable;
 
@@ -294,6 +295,7 @@ pub fn submit_model_to_sge(
 extendr_module! {
     mod hyperion_scheduler;
 
+    use scm_slurm;
     use slurm;
 
     fn submit_model_to_slurm;

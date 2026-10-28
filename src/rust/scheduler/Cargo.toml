@@ -14,3 +14,4 @@ which = "8.0.0"
 # Pharos components
 nonmem = { workspace = true }
 scheduler = { workspace = true }
+config = { workspace = true }

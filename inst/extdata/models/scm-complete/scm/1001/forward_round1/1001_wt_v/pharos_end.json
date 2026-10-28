@@ -1,0 +1,9 @@
+{
+  "start": "2026-09-08T16:00:00+00:00",
+  "end": "2026-09-08T16:01:30+00:00",
+  "exit_code": 0,
+  "runtime_ms": 90000,
+  "files_copied": [],
+  "output_files_rewrites": {},
+  "output_files_hashes": []
+}

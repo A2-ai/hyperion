@@ -1,0 +1,221 @@
+---
+title: "Stepwise Covariate Modeling"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Stepwise Covariate Modeling}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+
+# A throwaway pharos project holding the package's SCM fixtures: the planned
+# process under extdata/models/scm and a completed one under
+# extdata/models/scm-complete. Their records are relative to this root.
+vignette_root <- tempfile("hyperion-scm-")
+models <- file.path(vignette_root, "extdata", "models")
+dir.create(models, recursive = TRUE)
+file.copy(
+  system.file("extdata", "models", c("scm", "scm-complete"), package = "hyperion"),
+  models,
+  recursive = TRUE
+)
+file.copy(system.file("pharos.toml", package = "hyperion"), vignette_root)
+options(hyperion.config_dir = vignette_root)
+knitr::opts_knit$set(root.dir = vignette_root)
+```
+
+```{r setup}
+library(hyperion)
+```
+
+hyperion drives pharos' stepwise covariate modeling (SCM) from R. An SCM
+process starts from an **initial model** whose `$THETA` records already declare
+every covariate effect to be tested, runs forward selection (each round fits
+one model per untested candidate and adds the best significant one) and
+backward elimination (each round refits with one retained effect fixed and
+drops the least significant), and writes a final model with exactly the
+retained effects. Scoring is a likelihood-ratio test on the change in OFV.
+Every fit runs on slurm; a one-CPU driver job submits and waits for them.
+
+The pieces mirror the model workflow: `read_scm()` reads the process's config
+the way `read_model()` reads a model, `check_scm()` mirrors `check_model()`,
+`summary()` works on the object, and `submit_scm_to_slurm()` sits beside
+`submit_model_to_slurm()`.
+
+# The initial model
+
+Each candidate effect is a `$THETA`, conventionally `(0 FIX)` so it is switched
+off, named by its comment. The name is what the project's comment dialect
+(`[nonmem.comments] type` in `pharos.toml`) parses as the theta's name, so
+`; WT_CL (cov)` names `WT_CL` under both dialects. Those names are what the
+config refers to.
+
+```{r model, results='asis'}
+mod <- read_model("extdata/models/scm/1001.mod")
+mod
+```
+
+# Setting up the process
+
+`init_scm()` writes the config, `<stem>scm.toml`, beside the process's own
+directory (`scm/<stem>/` next to the model by default) and returns it as an
+object. `effects` names the candidates; an effect that needs more than its
+name is given as a row or an `ScmEffect`. Options are edited by assignment on
+the object and written back with `write_scm()`.
+
+```{r init}
+dir.create("extdata/models/scm-demo")
+file.copy(
+  c("extdata/models/scm/1001.mod", "extdata/models/scm/data.csv"),
+  "extdata/models/scm-demo"
+)
+
+scm <- init_scm(
+  "extdata/models/scm-demo/1001.mod",
+  effects = list(
+    "WT_CL",
+    "CRCL_CL",
+    list(name = "WT_V", type = "categorical", initial = 1, lower = 0, upper = 5)
+  )
+)
+scm$forward_alpha <- 0.01
+scm <- write_scm(scm)
+```
+
+```{r print-scm, results='asis'}
+scm
+```
+
+The written file keeps pharos' explanatory comments for every key the object
+did not change. It can be edited by hand too, and `read_scm()` reads it back.
+
+The effects are `ScmEffect` objects, held under `scm$covariates$effects`.
+`add_scm_effect()` and `remove_scm_effect()` change them on the object;
+`write_scm()` writes the result.
+
+```{r effects}
+scm <- read_scm("extdata/models/scm-demo/scm/1001scm.toml")
+scm <- add_scm_effect(scm, "AGE_CL", initial = 0.5)
+scm <- remove_scm_effect(scm, "WT_V")
+scm$covariates$effects[[3]]
+scm <- write_scm(scm)
+```
+
+```{r print-effects, results='asis'}
+scm
+```
+
+```{r reset-effects, include = FALSE}
+scm <- add_scm_effect(scm, "WT_V", type = "categorical", initial = 1, lower = 0, upper = 5)
+scm <- write_scm(remove_scm_effect(scm, "AGE_CL"))
+```
+
+# Checking the plan
+
+`check_scm()` resolves the config to its plan without writing or running
+anything: the candidates and the thetas they name, the options, the worst case
+number of fits, and pharos' warnings. Once a process has started it also
+reports where it stands and whether the config changed since.
+
+```{r check, results='asis'}
+check_scm(scm)
+```
+
+A name that does not match a `$THETA` comment is the most common problem, and
+the error lists the names pharos did resolve.
+
+# Submitting, following and stopping
+
+`submit_scm_to_slurm()` queues the driver job and returns. It needs the
+`pharos` CLI on `PATH` at the version hyperion was built for, the slurm tools,
+and partitions that exist; it refuses a completed process unless
+`overwrite = TRUE`, and a plan the running process cannot resume under.
+
+```{r submit, eval = FALSE}
+submit_scm_to_slurm(scm, partition = "cpu")
+#> ✔ Submitted the SCM process as slurm job 4242 (scm_1001)
+#> ℹ Log: .slurm-logs/scm_1001_4242.out
+#> Follow it with `get_scm_status("extdata/models/scm-demo/scm/1001")`; stop it
+#> with `stop_scm("extdata/models/scm-demo/scm/1001")`.
+```
+
+`get_scm_status()` reads the process off disk at the time of the call: each
+decided round with its table, the open round fit by fit, and whether the
+driver is still running. `stop_scm()` pauses the process (the driver is
+stopped, fits still in the queue are cancelled, running fits finish and are
+used on resume); submitting the config again resumes it. `num_rounds` pauses
+after that many rounds, and a config change resumes from where the process
+stands unless it changes the candidates it was built on.
+
+```{r follow, eval = FALSE}
+get_scm_status(scm)
+stop_scm(scm)
+submit_scm_to_slurm(scm) # resumes
+submit_scm_to_slurm(scm, overwrite = TRUE) # starts over
+```
+
+# Reading the results
+
+The package ships a completed process as a fixture. `get_scm_status()` and
+`summary()` return the process record (what pharos writes to
+`scm_summary.json`) and print pharos' own rendering.
+
+```{r status-complete, results='asis'}
+done <- read_scm("extdata/models/scm-complete/scm/1001scm.toml")
+get_scm_status(done)
+```
+
+`summary()` takes the same options as `pharos nonmem scm summary`: `round` and
+`candidate` narrow the text, `long`, `timing` and `files` add detail. The
+returned object is always the whole record.
+
+```{r summary-round, results='asis'}
+summary(done, round = "forward_round1", long = TRUE)
+```
+
+`get_scm_candidates()` flattens every round into a data frame, one row per
+candidate per round.
+
+```{r candidates}
+s <- summary(done)
+cand <- get_scm_candidates(s)
+cand[, c("round", "candidate", "ofv", "delta_ofv", "p_value", "significant", "selected")]
+```
+
+Every model the process wrote is a model like any other. `read_scm_model()`
+reads the final, forward, initial or reference model, or one round's
+candidate, so `summary()`, `get_parameters()` and the rest work on it.
+
+```{r final}
+final <- read_scm_model(s)
+summary(final)$run_name
+get_parameters(final)
+```
+
+pharos writes the reference fit without a parent, so the SCM models form a
+lineage of their own, rooted at that fit:
+
+```{r lineage, eval = FALSE}
+get_model_lineage(from = read_scm_model(s, "reference"))
+```
+
+# What stays in the CLI
+
+`pharos nonmem scm run`, which drives the process from a terminal instead of a
+slurm job, is not wrapped: it blocks until the process ends and takes over the
+terminal. Everything else in `pharos nonmem scm` has a hyperion function.
+
+| pharos                    | hyperion                     |
+|---------------------------|------------------------------|
+| `scm init`                | `init_scm()`                 |
+| edit `<stem>scm.toml`     | `read_scm()`, `add_scm_effect()`, `remove_scm_effect()`, `write_scm()` |
+| `scm plan`                | `check_scm()`                |
+| `scm slurm submit`        | `submit_scm_to_slurm()`      |
+| `scm status`              | `get_scm_status()`           |
+| `scm stop`                | `stop_scm()`                 |
+| `scm summary`             | `summary()`                  |

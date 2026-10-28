@@ -512,6 +512,28 @@ compute_rse <- function(estimate, se, param_type, transform = 'identity') .Call(
 #' }
 transform_value <- function(value, transform) .Call(wrap__transform_value, value, transform)
 
+#' Write the starter SCM config and output directory for a model.
+#'
+#' @keywords internal
+#' @noRd
+init_scm_impl <- function(model, overwrite = FALSE) .Call(wrap__init_scm_wrap, model, overwrite)
+
+#' Read an SCM config file as a list (internal implementation)
+#'
+#' @keywords internal
+#' @noRd
+read_scm_toml_impl <- function(path) .Call(wrap__read_scm_toml_wrap, path)
+
+#' Read an SCM process's summary record (internal implementation)
+#'
+#' @param scm A `hyperion_nonmem_scm` object, the SCM config, or the output directory
+#' @param round,candidate,long,timing,files See `summary.hyperion_nonmem_scm()`
+#'
+#' @return hyperion_nonmem_scm_summary S3 object
+#' @keywords internal
+#' @noRd
+get_scm_summary <- function(scm, round = NULL, candidate = NULL, long = FALSE, timing = FALSE, files = FALSE) .Call(wrap__get_scm_summary, scm, round, candidate, long, timing, files)
+
 #' Gets the pharos.toml configuration as an R object
 #'
 #' @return pharos config as nested list structure
@@ -636,6 +658,51 @@ submit_model_to_slurm <- function(model, overwrite = FALSE, dry_run = FALSE, run
 #' submit_model_to_sge("model.mod", dry_run = TRUE)
 #'}
 submit_model_to_sge <- function(model, overwrite = FALSE, dry_run = FALSE, run_in_output_dir = FALSE, ncpu = 1, clean_level = 1, parafile = NULL, template = NULL, verbose = FALSE) .Call(wrap__submit_model_to_sge, model, overwrite, dry_run, run_in_output_dir, ncpu, clean_level, parafile, template, verbose)
+
+#' Check an SCM config (internal implementation)
+#'
+#' @keywords internal
+#' @noRd
+check_scm_impl <- function(scm, num_rounds = NULL, overwrite = FALSE) .Call(wrap__check_scm_wrap, scm, num_rounds, overwrite)
+
+#' Get the status of an SCM process
+#'
+#' Where the SCM process stands, as its driver's terminal would show it now:
+#' the process facts, each decided round's decision and table, the open
+#' round fit by fit (its slurm job, how long it has run, the latest
+#' iteration and OFV read off its `.ext` file), and the driver's own state
+#' (running, exited, or gone while the process still says running, with its
+#' log). Mirrors `pharos nonmem scm status`.
+#'
+#' @param scm A `hyperion_nonmem_scm` object, the SCM config
+#' (`<stem>scm.toml`), the SCM output directory, or a file inside it.
+#'
+#' @return A `hyperion_nonmem_scm_status` S3 object (also of class
+#' `hyperion_nonmem_scm_record`): the process record (`status`, `phase`,
+#' `candidates`, `retained`, `rounds`, `totals`, `models_running`, ...) as
+#' pharos writes it to `scm_summary.json`, plus a `driver` element, with
+#' attributes `text` (the status as pharos renders it), `out_dir` and
+#' `project_root`. Every path in the record is relative to `out_dir`.
+#' @export
+#'
+#' @examples \dontrun{
+#' scm <- read_scm("model/nonmem/scm/run001scm.toml")
+#' get_scm_status(scm)
+#' get_scm_status("model/nonmem/scm/run001")
+#' }
+get_scm_status <- function(scm) .Call(wrap__get_scm_status, scm)
+
+#' Submit an SCM process to slurm (internal implementation)
+#'
+#' @keywords internal
+#' @noRd
+submit_scm_to_slurm_impl <- function(scm, num_rounds = NULL, partition = NULL, driver_partition = NULL, account = NULL, max_concurrent = NULL, shared_node = FALSE, overwrite = FALSE, verbose = FALSE) .Call(wrap__submit_scm_to_slurm_wrap, scm, num_rounds, partition, driver_partition, account, max_concurrent, shared_node, overwrite, verbose)
+
+#' Stop an SCM process (internal implementation)
+#'
+#' @keywords internal
+#' @noRd
+stop_scm_impl <- function(scm) .Call(wrap__stop_scm_wrap, scm)
 
 #' Get the cluster partition information
 #'

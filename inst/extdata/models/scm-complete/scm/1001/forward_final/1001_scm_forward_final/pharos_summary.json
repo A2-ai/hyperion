@@ -1,0 +1,135 @@
+{
+  "run_name": "1001_scm_forward_final",
+  "lst": {
+    "run_details": {
+      "problem": "scm template",
+      "number_data_records": 0,
+      "number_subjects": 0,
+      "number_obs": 0,
+      "estimation_time": [
+        1.0
+      ],
+      "covariance_time": [],
+      "postprocess_time": 0.0,
+      "estimation_methods": [],
+      "function_evaluations": 123,
+      "significant_digits": 0.0,
+      "only_sim": false
+    },
+    "run_heuristics": {
+      "covariance_step_aborted": false,
+      "eigenvalue_issues": false,
+      "parameter_near_boundary": false,
+      "hessian_reset": false,
+      "minimization_terminated": false,
+      "program_terminated_by_obj": false
+    }
+  },
+  "minimization_results": [
+    {
+      "ofv": 973.8,
+      "condition_number": null,
+      "termination_code": null
+    }
+  ],
+  "parameters": {
+    "method": "Foce",
+    "theta": [
+      {
+        "name": "TVCL",
+        "estimate": 3.1,
+        "stderr": null,
+        "rse": null,
+        "fixed": false
+      },
+      {
+        "name": "TVV",
+        "estimate": 21.0,
+        "stderr": null,
+        "rse": null,
+        "fixed": false
+      },
+      {
+        "name": "TVKA",
+        "estimate": 1.3,
+        "stderr": null,
+        "rse": null,
+        "fixed": false
+      },
+      {
+        "name": "WT_CL",
+        "estimate": 0.25,
+        "stderr": null,
+        "rse": null,
+        "fixed": false
+      },
+      {
+        "name": "CRCL_CL",
+        "estimate": 0.15,
+        "stderr": null,
+        "rse": null,
+        "fixed": false
+      },
+      {
+        "name": "WT_V",
+        "estimate": 0.05,
+        "stderr": null,
+        "rse": null,
+        "fixed": false
+      }
+    ],
+    "random_effects": [
+      {
+        "name": "OMEGA(1,1)",
+        "param_type": "Omega",
+        "random_effect": "ETA1",
+        "estimate": 0.08,
+        "sd": null,
+        "corr": null,
+        "stderr": null,
+        "rse": null,
+        "shrinkage": null,
+        "fixed": false,
+        "diagonal": true
+      },
+      {
+        "name": "OMEGA(2,2)",
+        "param_type": "Omega",
+        "random_effect": "ETA2",
+        "estimate": 0.085,
+        "sd": null,
+        "corr": null,
+        "stderr": null,
+        "rse": null,
+        "shrinkage": null,
+        "fixed": false,
+        "diagonal": true
+      },
+      {
+        "name": "SIGMA(1,1)",
+        "param_type": "Sigma",
+        "random_effect": "EPS1",
+        "estimate": 0.018,
+        "sd": null,
+        "corr": null,
+        "stderr": null,
+        "rse": null,
+        "shrinkage": null,
+        "fixed": false,
+        "diagonal": true
+      }
+    ]
+  },
+  "parameter_names": {
+    "OMEGA(1,1)": null,
+    "OMEGA(2,2)": null,
+    "SIGMA(1,1)": null,
+    "THETA1": "TVCL",
+    "THETA2": "TVV",
+    "THETA3": "TVKA",
+    "THETA4": "WT_CL",
+    "THETA5": "CRCL_CL",
+    "THETA6": "WT_V"
+  },
+  "correlation_matrix": null
+}

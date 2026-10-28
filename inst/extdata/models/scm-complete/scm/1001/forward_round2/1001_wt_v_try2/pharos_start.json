@@ -1,0 +1,13 @@
+{
+  "start": "2026-09-08T16:00:00+00:00",
+  "model_name": "1001_wt_v_try2",
+  "model_path": "extdata/models/scm-complete/scm/1001/forward_round2/1001_wt_v_try2.mod",
+  "dataset_path": "data.csv",
+  "dataset_canonical_path": "data.csv",
+  "dataset_hashes": {
+    "blake3": ""
+  },
+  "model_hashes": {
+    "blake3": ""
+  }
+}

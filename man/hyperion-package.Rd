@@ -128,6 +128,25 @@ Functions for submitting models to compute clusters:
 }
 }
 
+\section{Stepwise Covariate Modeling}{
+
+Functions for driving pharos' SCM process on SLURM (see \code{vignette("scm")}):
+\itemize{
+\item \code{\link[=init_scm]{init_scm()}} - Write the SCM config for a model and its candidate effects
+\item \code{\link[=read_scm]{read_scm()}} - Read an SCM config as a \code{hyperion_nonmem_scm} object
+\item \code{\link[=write_scm]{write_scm()}} - Write an edited config back
+\item \code{\link[=add_scm_effect]{add_scm_effect()}}, \code{\link[=remove_scm_effect]{remove_scm_effect()}} - Edit the candidate effects
+\item \link{ScmEffect} - A candidate effect and its settings
+\item \code{\link[=check_scm]{check_scm()}} - The plan a config resolves to, and its warnings
+\item \code{\link[=submit_scm_to_slurm]{submit_scm_to_slurm()}} - Start or resume the process as a SLURM driver job
+\item \code{\link[=get_scm_status]{get_scm_status()}} - Where the process stands
+\item \code{\link[=summary.hyperion_nonmem_scm]{summary.hyperion_nonmem_scm()}} - The process record
+\item \code{\link[=stop_scm]{stop_scm()}} - Pause the process
+\item \code{\link[=get_scm_candidates]{get_scm_candidates()}} - Every round's candidates as a data frame
+\item \code{\link[=read_scm_model]{read_scm_model()}} - Read the final, forward, reference or a candidate model
+}
+}
+
 \seealso{
 Useful links:
 \itemize{

@@ -17,6 +17,7 @@ config = { workspace = true }
 anyhow = { workspace = true }
 fs-err = { workspace = true }
 serde = { workspace = true }
+toml = { workspace = true }
 
 # Testing and utilities
 tempfile = { workspace = true }

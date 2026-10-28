@@ -28,16 +28,6 @@
   - `pharos nonmem scm run` (a login-node driver) is not wrapped.
 - New vignette: `vignette("scm")`.
 
-## Bug fixes
-
-- `submit_scm_to_slurm()` no longer prints a stray `NA` note on a plain
-  submit, and `stop_scm()` no longer prints `Allocation: NA` for a slurm
-  driver: the Rust side now hands an absent value over as `NULL`.
-- `read_scm()` and `write_scm()` read the config with the `toml` crate
-  instead of `tomledit::from_toml()`, which panicked on an effects array
-  that puts an inline table between two names
-  (`effects = ["WT_CL", { name = "CRCL_CL", type = "categorical" }, "WT_V"]`).
-
 # hyperion 0.6.0
 
 ## Breaking changes

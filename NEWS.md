@@ -23,6 +23,18 @@
 
 ## Bug fixes
 
+- `write_scm()` writes `direction` as a TOML array however many phases it
+  names: `scm$direction <- "forward"` used to be written as a bare string,
+  which pharos refused with "expected a sequence". A `list()` value is
+  taken as the same character vector.
+- The warning `get_scm_status()` raises for an unreadable `scm_driver.json`
+  is now signalled from R, so `withCallingHandlers()`, `tryCatch()` and
+  `suppressWarnings()` see it; it used to be raised from Rust outside R's
+  handler stack and could only print.
+- `get_scm_status(out_dir)` on a process whose driver has been submitted
+  but has not written `scm_state.json` yet, and whose config is not beside
+  the out_dir (`[nonmem.scm] out_dir` points elsewhere), says so and what to
+  pass instead; pharos cannot read such a process from the out_dir alone.
 - Printing, `get_fixed_parameters()`, `get_model_comment_info()` and
   `check_dataset()` no longer abort the R session for a model with a bare
   `$COVARIANCE` (or any record whose options are empty). Rust rebuilds the

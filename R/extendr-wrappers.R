@@ -665,32 +665,17 @@ submit_model_to_sge <- function(model, overwrite = FALSE, dry_run = FALSE, run_i
 #' @noRd
 check_scm_impl <- function(scm, num_rounds = NULL, overwrite = FALSE) .Call(wrap__check_scm_wrap, scm, num_rounds, overwrite)
 
-#' Get the status of an SCM process
+#' Get the status of an SCM process (internal implementation)
 #'
-#' Where the SCM process stands, as its driver's terminal would show it now:
-#' the process facts, each decided round's decision and table, the open
-#' round fit by fit (its slurm job, how long it has run, the latest
-#' iteration and OFV read off its `.ext` file), and the driver's own state
-#' (running, exited, or gone while the process still says running, with its
-#' log). Mirrors `pharos nonmem scm status`.
+#' Returns `list(status = <hyperion_nonmem_scm_status>, warnings =
+#' <character>)`: the warnings are raised on the R side, where
+#' `withCallingHandlers()` and `suppressWarnings()` can see them (a
+#' `warning()` called from Rust through `call!` is signalled outside R's
+#' handler stack and cannot be caught).
 #'
-#' @param scm A `hyperion_nonmem_scm` object, the SCM config
-#' (`<stem>scm.toml`), the SCM output directory, or a file inside it.
-#'
-#' @return A `hyperion_nonmem_scm_status` S3 object (also of class
-#' `hyperion_nonmem_scm_record`): the process record (`status`, `phase`,
-#' `candidates`, `retained`, `rounds`, `totals`, `models_running`, ...) as
-#' pharos writes it to `scm_summary.json`, plus a `driver` element, with
-#' attributes `text` (the status as pharos renders it), `out_dir` and
-#' `project_root`. Every path in the record is relative to `out_dir`.
-#' @export
-#'
-#' @examples \dontrun{
-#' scm <- read_scm("model/nonmem/scm/run001scm.toml")
-#' get_scm_status(scm)
-#' get_scm_status("model/nonmem/scm/run001")
-#' }
-get_scm_status <- function(scm) .Call(wrap__get_scm_status, scm)
+#' @keywords internal
+#' @noRd
+get_scm_status_impl <- function(scm) .Call(wrap__get_scm_status_wrap, scm)
 
 #' Submit an SCM process to slurm (internal implementation)
 #'

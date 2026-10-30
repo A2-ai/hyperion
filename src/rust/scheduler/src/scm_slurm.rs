@@ -363,46 +363,41 @@ fn driver_robj(record: &DriverRecord) -> Robj {
     .into_robj()
 }
 
-/// Get the status of an SCM process
+/// Get the status of an SCM process (internal implementation)
 ///
-/// Where the SCM process stands, as its driver's terminal would show it now:
-/// the process facts, each decided round's decision and table, the open
-/// round fit by fit (its slurm job, how long it has run, the latest
-/// iteration and OFV read off its `.ext` file), and the driver's own state
-/// (running, exited, or gone while the process still says running, with its
-/// log). Mirrors `pharos nonmem scm status`.
+/// Returns `list(status = <hyperion_nonmem_scm_status>, warnings =
+/// <character>)`: the warnings are raised on the R side, where
+/// `withCallingHandlers()` and `suppressWarnings()` can see them (a
+/// `warning()` called from Rust through `call!` is signalled outside R's
+/// handler stack and cannot be caught).
 ///
-/// @param scm A `hyperion_nonmem_scm` object, the SCM config
-/// (`<stem>scm.toml`), the SCM output directory, or a file inside it.
-///
-/// @return A `hyperion_nonmem_scm_status` S3 object (also of class
-/// `hyperion_nonmem_scm_record`): the process record (`status`, `phase`,
-/// `candidates`, `retained`, `rounds`, `totals`, `models_running`, ...) as
-/// pharos writes it to `scm_summary.json`, plus a `driver` element, with
-/// attributes `text` (the status as pharos renders it), `out_dir` and
-/// `project_root`. Every path in the record is relative to `out_dir`.
-/// @export
-///
-/// @examples \dontrun{
-/// scm <- read_scm("model/nonmem/scm/run001scm.toml")
-/// get_scm_status(scm)
-/// get_scm_status("model/nonmem/scm/run001")
-/// }
-#[extendr]
-pub fn get_scm_status(scm: Robj) -> Result<Robj> {
+/// @keywords internal
+/// @noRd
+#[extendr(r_name = "get_scm_status_impl")]
+pub fn get_scm_status_wrap(scm: Robj) -> Result<Robj> {
     let out_dir = scm_out_dir(&scm)?;
-    let status = read_scm_status(&out_dir)?;
+    let record = DriverRecord::read(&out_dir);
+    let status = match read_scm_status(&out_dir) {
+        Ok(status) => status,
+        // A driver was submitted but has not written scm_state.json yet, and
+        // the config is not beside the out_dir (`[nonmem.scm] out_dir` points
+        // elsewhere): pharos cannot read the process from the out_dir alone.
+        Err(e) if record.is_some() && !out_dir.join(scm::STATE_FILENAME).exists() => {
+            return Err(extendr_err!(
+                "{e}\nThe SCM process in {} has a driver that has not written its state yet; until it has, pass the SCM config (<stem>scm.toml) rather than the output directory",
+                scm::shown(&out_dir)
+            ));
+        }
+        Err(e) => return Err(e),
+    };
     let place_of = fit_place_lookup();
     let mut text = status.render(&place_of);
-    let record = DriverRecord::read(&out_dir);
+    let mut warnings: Vec<String> = Vec::new();
     if record.is_none() && DriverRecord::path(&out_dir).exists() {
-        call!(
-            "warning",
-            format!(
-                "{} is unreadable; the driver is treated as never started",
-                scm::shown(&DriverRecord::path(&out_dir))
-            )
-        )?;
+        warnings.push(format!(
+            "{} is unreadable; the driver is treated as never started",
+            scm::shown(&DriverRecord::path(&out_dir))
+        ));
     }
     let driver = match &record {
         Some(r) => {
@@ -424,12 +419,13 @@ pub fn get_scm_status(scm: Robj) -> Result<Robj> {
         .map(|(k, v)| (k.to_string(), v))
         .collect();
     pairs.push(("driver".to_string(), driver));
-    scm_obj_from_robj(
+    let status = scm_obj_from_robj(
         List::from_pairs(pairs).into_robj(),
         text,
         &out_dir,
         &[STATUS_CLASS, RECORD_CLASS],
-    )
+    )?;
+    Ok(list!(status = status, warnings = warnings).into_robj())
 }
 
 /// Submit an SCM process to slurm (internal implementation)
@@ -540,7 +536,7 @@ extendr_module! {
     mod scm_slurm;
 
     fn check_scm_wrap;
-    fn get_scm_status;
+    fn get_scm_status_wrap;
     fn submit_scm_to_slurm_wrap;
     fn stop_scm_wrap;
 }

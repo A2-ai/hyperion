@@ -99,8 +99,28 @@ write_scm <- function(scm, path = NULL) {
   if (length(changed)) {
     toml <- do.call(tomledit::insert_items, c(list(toml), fields[changed]))
   }
-  tomledit::write_toml(toml, path)
+  cat(scm_toml_text(toml, fields), file = path, sep = "")
   invisible(new_scm(scm, path))
+}
+
+# Keys pharos reads as arrays however many values they hold.
+SCM_ARRAY_KEYS <- "direction"
+
+# The config as text. tomledit writes a length-one character as a bare string
+# (`direction = "forward"`), which pharos refuses as "expected a sequence", so
+# those keys are rewritten as one-element arrays before the text is written.
+scm_toml_text <- function(toml, fields) {
+  lines <- strsplit(tomledit::to_toml(toml), "\n", fixed = TRUE)[[1]]
+  tables <- grep("^\\[", lines)
+  top <- seq_len(if (length(tables)) tables[1] - 1 else length(lines))
+  for (key in intersect(SCM_ARRAY_KEYS, names(fields))) {
+    value <- fields[[key]]
+    if (is.character(value) && length(value) == 1) {
+      pattern <- sprintf('^%s = ("[^"]*")$', key)
+      lines[top] <- sub(pattern, sprintf("%s = [\\1]", key), lines[top])
+    }
+  }
+  paste0(paste(lines, collapse = "\n"), "\n")
 }
 
 # Equal as TOML values: an integer and the same double are one value.
@@ -198,6 +218,10 @@ scm_fields_as_rows <- function(scm) {
   fields <- unclass(scm)
   attributes(fields) <- list(names = names(fields))
   fields$covariates <- covariates_as_rows(fields$covariates)
+  for (key in intersect(SCM_ARRAY_KEYS, names(fields))) {
+    # `scm$direction <- list("forward")` is the same value as "forward"
+    fields[[key]] <- as.character(unlist(fields[[key]]))
+  }
   fields
 }
 
@@ -379,4 +403,39 @@ stop_scm <- function(scm) {
     "Follow it with {.code get_scm_status(\"{res$out_dir}\")}; resume it with {.code submit_scm_to_slurm(\"{resume}\")}."
   )
   NULL
+}
+
+#' Get the status of an SCM process
+#'
+#' Where the SCM process stands, as its driver's terminal would show it now:
+#' the process facts, each decided round's decision and table, the open
+#' round fit by fit (its slurm job, how long it has run, the latest
+#' iteration and OFV read off its `.ext` file), and the driver's own state
+#' (running, exited, or gone while the process still says running, with its
+#' log). Mirrors `pharos nonmem scm status`.
+#'
+#' @param scm A `hyperion_nonmem_scm` object, the SCM config
+#'   (`<stem>scm.toml`), the SCM output directory, or a file inside it.
+#'
+#' @return A `hyperion_nonmem_scm_status` S3 object (also of class
+#'   `hyperion_nonmem_scm_record`): the process record (`status`, `phase`,
+#'   `candidates`, `retained`, `rounds`, `totals`, `models_running`, ...) as
+#'   pharos writes it to `scm_summary.json`, plus a `driver` element, with
+#'   attributes `text` (the status as pharos renders it), `out_dir` and
+#'   `project_root`. Every path in the record is relative to `out_dir`.
+#'   An unreadable `scm_driver.json` is a warning: the driver is read as
+#'   never started.
+#' @export
+#'
+#' @examples \dontrun{
+#' scm <- read_scm("model/nonmem/scm/run001scm.toml")
+#' get_scm_status(scm)
+#' get_scm_status("model/nonmem/scm/run001")
+#' }
+get_scm_status <- function(scm) {
+  res <- get_scm_status_impl(scm)
+  for (w in res$warnings) {
+    rlang::warn(w)
+  }
+  res$status
 }

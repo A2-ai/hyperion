@@ -433,3 +433,54 @@ test_that("without_slurm_env() unsets the inherited slurm variables and restores
   expect_equal(Sys.getenv("SLURM_NTASKS"), "4")
   expect_equal(Sys.getenv("SLURM_CPUS_PER_TASK", unset = NA), NA_character_)
 })
+
+test_that("write_scm() writes direction as an array however many phases it names", {
+  p <- local_scm_project(effects = "WT_CL")
+  scm <- p$scm
+  scm$direction <- "forward"
+  scm <- write_scm(scm)
+  expect_match(readLines(p$config), '^direction = \\["forward"\\]$', all = FALSE)
+  expect_equal(read_scm(p$config)$direction, "forward")
+  expect_no_error(check_scm(p$config))
+
+  scm$direction <- list("backward")
+  scm <- write_scm(scm)
+  expect_match(readLines(p$config), '^direction = \\["backward"\\]$', all = FALSE)
+  expect_equal(read_scm(p$config)$direction, "backward")
+
+  scm$direction <- c("forward", "backward")
+  write_scm(scm)
+  expect_match(readLines(p$config), '^direction = \\["forward", "backward"\\]$', all = FALSE)
+})
+
+test_that("get_scm_status() warns from R about an unreadable driver record", {
+  p <- local_scm_project(effects = "WT_CL")
+  writeLines('{ "mode": "slurm", "job_id": ', file.path(p$out_dir, "scm_driver.json"))
+  expect_warning(status <- get_scm_status(p$out_dir), "scm_driver.json is unreadable")
+  expect_equal(status$status, "planned")
+  expect_null(status$driver)
+  # The warning is a condition R can handle, not a print from Rust.
+  caught <- NULL
+  withCallingHandlers(
+    get_scm_status(p$scm),
+    warning = function(w) {
+      caught <<- conditionMessage(w)
+      invokeRestart("muffleWarning")
+    }
+  )
+  expect_match(caught, "the driver is treated as never started")
+  expect_no_warning(suppressWarnings(get_scm_status(p$config)))
+})
+
+test_that("get_scm_status(out_dir) says what to pass while a submitted driver has no state yet", {
+  p <- local_scm_project(effects = "WT_CL")
+  elsewhere <- file.path(p$root, "model", "scm_runs", "1001_sel")
+  dir.create(elsewhere, recursive = TRUE)
+  writeLines(
+    '{ "mode": "slurm", "job_id": 7, "log": "driver.out", "started": "2026-01-01T00:00:00+00:00" }',
+    file.path(elsewhere, "scm_driver.json")
+  )
+  err <- expect_error(get_scm_status(elsewhere), "no SCM config")
+  expect_match(conditionMessage(err), "has a driver that has not written its state yet")
+  expect_match(conditionMessage(err), "pass the SCM config")
+})

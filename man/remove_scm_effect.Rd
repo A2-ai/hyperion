@@ -24,5 +24,5 @@ remove_scm_effect("model/nonmem/scm/run001scm.toml", "WT_V")
 }
 }
 \seealso{
-\code{\link[=add_scm_effect]{add_scm_effect()}}
+\code{\link[=add_scm_effect]{add_scm_effect()}}, \code{\link[=update_scm_effect]{update_scm_effect()}}
 }

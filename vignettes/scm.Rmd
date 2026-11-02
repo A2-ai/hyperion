@@ -90,14 +90,26 @@ scm
 
 `read_scm()` reads the file back as the same object.
 
-The effects are `ScmEffect` objects, held under `scm$covariates$effects`.
-`add_scm_effect()` and `remove_scm_effect()` change them in the file and
-return the config read back; each takes the object or the config path.
+The effects are `ScmEffect()` objects, held under `scm$covariates$effects`.
+`add_scm_effect()`, `update_scm_effect()` and `remove_scm_effect()` change
+them in the file and return the config read back; each takes the object or
+the config path, and an effect as its name with the settings, or as an
+`ScmEffect()`.
 
 ```{r effects}
 scm <- add_scm_effect("extdata/models/scm-demo/scm/1001scm.toml", "CRCL_CL", initial = 0.5)
-scm <- remove_scm_effect(scm, "WT_V")
-scm$covariates$effects[[2]]
+scm <- update_scm_effect(scm, "WT_V", upper = 10)
+scm <- remove_scm_effect(scm, ScmEffect("WT_CL"))
+scm$covariates$effects
+```
+
+`update_scm_settings()` writes the settings it is given, `direction` through
+`final_cov_step`, and leaves the others. The `[covariates]` defaults
+(`fixed`, `continuous`, `categorical`) are edited in the file.
+
+```{r settings}
+scm <- update_scm_settings(scm, forward_alpha = 0.01, num_rounds = 2)
+scm
 ```
 
 # Checking the plan
@@ -172,7 +184,7 @@ terminal. Everything else in `pharos nonmem scm` has a hyperion function.
 | pharos                    | hyperion                     |
 |---------------------------|------------------------------|
 | `scm init`                | `init_scm()`                 |
-| edit `<stem>scm.toml`     | `read_scm()`, `add_scm_effect()`, `remove_scm_effect()` |
+| edit `<stem>scm.toml`     | `read_scm()`, `update_scm_settings()`, `add_scm_effect()`, `update_scm_effect()`, `remove_scm_effect()` |
 | `scm plan`                | `check_scm()`                |
 | `scm slurm submit`        | `submit_scm_to_slurm()`      |
 | `scm status`              | `get_scm_status()`           |

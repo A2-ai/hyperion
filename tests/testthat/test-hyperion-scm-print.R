@@ -6,6 +6,13 @@ test_that("print.hyperion_nonmem_scm shows the config", {
   expect_snapshot(print(scm))
 })
 
+test_that("ScmEffect prints on one line", {
+  expect_snapshot({
+    print(ScmEffect("WT_CL"))
+    print(ScmEffect("WT_V", type = "categorical", initial = 1, lower = 0, upper = 5))
+  })
+})
+
 test_that("print methods for the SCM records show pharos' text under a title", {
   comp <- read_scm(scm_complete_fixture("scm", "1001scm.toml"))
   s <- summary(comp)

@@ -134,7 +134,8 @@ Functions for driving pharos' SCM process on SLURM (see \code{vignette("scm")}):
 \itemize{
 \item \code{\link[=init_scm]{init_scm()}} - Write the SCM config for a model and its candidate effects
 \item \code{\link[=read_scm]{read_scm()}} - Read an SCM config as a \code{hyperion_nonmem_scm} object
-\item \code{\link[=add_scm_effect]{add_scm_effect()}}, \code{\link[=remove_scm_effect]{remove_scm_effect()}} - Edit the candidate effects
+\item \code{\link[=update_scm_settings]{update_scm_settings()}} - Edit the settings
+\item \code{\link[=add_scm_effect]{add_scm_effect()}}, \code{\link[=update_scm_effect]{update_scm_effect()}}, \code{\link[=remove_scm_effect]{remove_scm_effect()}} - Edit the candidate effects (\code{\link[=ScmEffect]{ScmEffect()}})
 \item \code{\link[=check_scm]{check_scm()}} - The plan a config resolves to, and its warnings
 \item \code{\link[=submit_scm_to_slurm]{submit_scm_to_slurm()}} - Start or resume the process as a SLURM driver job
 \item \code{\link[=get_scm_status]{get_scm_status()}} - Where the process stands

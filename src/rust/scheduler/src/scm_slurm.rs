@@ -334,15 +334,6 @@ pub fn check_scm_wrap(
         .map_to_extendr_err("Failed to set warnings attribute")?;
     robj.set_attrib("resumable", job.built.is_resumable())
         .map_to_extendr_err("Failed to set resumable attribute")?;
-    let changes: Vec<Robj> = job
-        .built
-        .context
-        .changes
-        .iter()
-        .map(|c| list!(field = c.field.clone(), detail = c.detail.clone()).into_robj())
-        .collect();
-    robj.set_attrib("changes", List::from_values(changes))
-        .map_to_extendr_err("Failed to set changes attribute")?;
     Ok(robj)
 }
 

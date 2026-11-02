@@ -14,37 +14,24 @@ scm_number_property <- function() {
   )
 }
 
-#' SCM candidate effect class
+#' SCM candidate effect
 #'
-#' One entry of an SCM config's `effects` array: a candidate covariate effect,
-#' named the way the initial model's `$THETA` comment names its parameter, and
-#' the optional settings pharos tests it with. [init_scm()] and
-#' [add_scm_effect()] make these from names or rows, and [read_scm()] reads
-#' them from the config.
+#' One entry of an SCM config's `effects` array: a covariate effect named by
+#' its `$THETA` comment in the initial model, and the optional settings
+#' pharos tests it with. [init_scm()], [add_scm_effect()] and
+#' [update_scm_effect()] take one in place of a name.
 #'
-#' @param name Character. The effect's name: its `$THETA` comment in the model
-#'   (e.g., `"WT_CL"`).
-#' @param type Character or NULL. `"continuous"` (pharos' default when the
-#'   type is left out) or `"categorical"`.
-#' @param initial Numeric or NULL. Initial estimate of the effect's theta when
-#'   the effect is tested; pharos uses the config's default for the type
-#'   when NULL.
-#' @param fixed Numeric or NULL. The value the theta is fixed at while the
-#'   effect is held out; pharos uses the config's `[covariates] fixed` when NULL.
-#' @param lower,upper Numeric or NULL. Bounds on the theta while the effect is
-#'   tested.
+#' @param name The effect's `$THETA` comment name in the model (e.g., `"WT_CL"`).
+#' @param type `"continuous"` (pharos' default when left out) or `"categorical"`.
+#' @param initial Initial estimate of the theta while the effect is tested.
+#' @param fixed The value the theta is fixed at while the effect is held out.
+#' @param lower,upper Bounds on the theta while the effect is tested.
+#' @return An `ScmEffect` object.
+#' @export
 #'
-#' @section Properties:
-#' \describe{
-#'   \item{name}{The `$THETA` comment name the effect is tested on.}
-#'   \item{type}{`"continuous"` or `"categorical"`; NULL means continuous.}
-#'   \item{initial}{Initial estimate while tested.}
-#'   \item{fixed}{Value fixed at while held out.}
-#'   \item{lower}{Lower bound while tested; must be below `upper`.}
-#'   \item{upper}{Upper bound while tested.}
+#' @examples \dontrun{
+#' ScmEffect("SEX_V", type = "categorical", initial = 1, lower = 0, upper = 5)
 #' }
-#'
-#' @noRd
 ScmEffect <- S7::new_class(
   "ScmEffect",
   properties = list(
@@ -76,6 +63,19 @@ ScmEffect <- S7::new_class(
     }
   }
 )
+
+#' @noRd
+S7::method(print, ScmEffect) <- function(x, ...) {
+  row <- scm_effect_row(x)
+  numbers <- row[setdiff(names(row), c("name", "type"))]
+  cat(
+    "<ScmEffect> ", x@name, ": ",
+    paste(c(row$type %||% "continuous", if (length(numbers)) paste(names(numbers), "=", unlist(numbers))), collapse = ", "),
+    "\n",
+    sep = ""
+  )
+  invisible(x)
+}
 
 # A name, a row or an ScmEffect as an ScmEffect.
 as_scm_effect <- function(x) {
@@ -158,21 +158,27 @@ covariates_as_rows <- function(cov) {
   cov
 }
 
+# The settings given to add_scm_effect() and update_scm_effect().
+scm_effect_settings <- function(type, initial, fixed, lower, upper) {
+  settings <- list(type = type, initial = initial, fixed = fixed, lower = lower, upper = upper)
+  settings[!vapply(settings, is.null, logical(1))]
+}
+
 #' Add a candidate effect to an SCM config
 #'
 #' Appends an effect to the config's `effects` and writes the config.
 #'
 #' @param scm A `hyperion_nonmem_scm` object or the SCM config (`<stem>scm.toml`).
 #' @param name The effect to add: its `$THETA` comment name in the model, or
-#'   an effect as [read_scm()] returns it. Several names add several effects
-#'   with the settings left out.
+#'   an [ScmEffect()]. Several names add several effects with the settings
+#'   left out.
 #' @param type,initial,fixed,lower,upper The effect's settings, each
 #'   optional: `"continuous"` (pharos' default) or `"categorical"`, the
 #'   initial estimate while tested, the value fixed at while held out, and
 #'   the bounds while tested.
 #' @return The `hyperion_nonmem_scm` object read back from the written
 #'   config, invisibly.
-#' @seealso [remove_scm_effect()]
+#' @seealso [update_scm_effect()], [remove_scm_effect()]
 #' @export
 #'
 #' @examples \dontrun{
@@ -190,14 +196,7 @@ add_scm_effect <- function(
   upper = NULL
 ) {
   scm <- read_scm(scm_config_from(scm))
-  settings <- list(
-    type = type,
-    initial = initial,
-    fixed = fixed,
-    lower = lower,
-    upper = upper
-  )
-  settings <- settings[!vapply(settings, is.null, logical(1))]
+  settings <- scm_effect_settings(type, initial, fixed, lower, upper)
   if (S7::S7_inherits(name, ScmEffect)) {
     if (length(settings)) {
       rlang::abort(
@@ -230,6 +229,63 @@ add_scm_effect <- function(
   invisible(write_scm_effects(scm, c(effects, new)))
 }
 
+#' Update a candidate effect in an SCM config
+#'
+#' Replaces the settings given on the named effect, keeps its others, and
+#' writes the config.
+#'
+#' @inheritParams add_scm_effect
+#' @param name The effect to update: its name, or an [ScmEffect()] that
+#'   replaces the effect of that name whole.
+#' @return The `hyperion_nonmem_scm` object read back from the written
+#'   config, invisibly.
+#' @seealso [add_scm_effect()], [remove_scm_effect()]
+#' @export
+#'
+#' @examples \dontrun{
+#' update_scm_effect("model/nonmem/scm/run001scm.toml", "WT_CL", initial = 0.5)
+#' scm <- read_scm("model/nonmem/scm/run001scm.toml")
+#' scm <- update_scm_effect(scm, ScmEffect("SEX_V", type = "categorical", lower = 0, upper = 5))
+#' }
+update_scm_effect <- function(
+  scm,
+  name,
+  type = NULL,
+  initial = NULL,
+  fixed = NULL,
+  lower = NULL,
+  upper = NULL
+) {
+  scm <- read_scm(scm_config_from(scm))
+  settings <- scm_effect_settings(type, initial, fixed, lower, upper)
+  effects <- scm$covariates$effects
+  current <- scm_effect_names(effects)
+  whole <- S7::S7_inherits(name, ScmEffect)
+  if (whole) {
+    if (length(settings)) {
+      rlang::abort("give the settings on the ScmEffect or as arguments, not both")
+    }
+    new <- name
+    name <- name@name
+  } else if (!is.character(name) || length(name) != 1) {
+    rlang::abort("`name` must be an effect name or an ScmEffect")
+  }
+  i <- match(name, current)
+  if (is.na(i)) {
+    rlang::abort(paste0(
+      "no effect named ",
+      name,
+      " in the config",
+      if (length(current)) paste0("; it has: ", paste(current, collapse = ", ")) else " (it has none)"
+    ))
+  }
+  if (!whole) {
+    new <- do.call(ScmEffect, utils::modifyList(scm_effect_row(effects[[i]]), settings))
+  }
+  effects[[i]] <- new
+  invisible(write_scm_effects(scm, effects))
+}
+
 #' Remove a candidate effect from an SCM config
 #'
 #' Drops effects from the config's `effects` by name and writes the config.
@@ -238,7 +294,7 @@ add_scm_effect <- function(
 #' @param name The name(s) of the effects to remove.
 #' @return The `hyperion_nonmem_scm` object read back from the written
 #'   config, invisibly.
-#' @seealso [add_scm_effect()]
+#' @seealso [add_scm_effect()], [update_scm_effect()]
 #' @export
 #'
 #' @examples \dontrun{

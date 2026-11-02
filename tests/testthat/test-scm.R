@@ -141,6 +141,58 @@ test_that("remove_scm_effect() drops effects by name", {
   expect_error(remove_scm_effect("not an scm", "WT_CL"), "SCM config")
 })
 
+test_that("update_scm_effect() replaces the settings given on an effect", {
+  p <- local_scm_project(effects = c("WT_CL", "WT_V"))
+
+  scm <- update_scm_effect(p$scm, "WT_V", type = "categorical", initial = 1, lower = 0, upper = 5)
+  expect_equal(scm$covariates$effects[[2]], ScmEffect("WT_V", type = "categorical", initial = 1, lower = 0, upper = 5))
+  scm <- update_scm_effect(p$config, "WT_V", initial = 2)
+  expect_equal(scm$covariates$effects[[2]], ScmEffect("WT_V", type = "categorical", initial = 2, lower = 0, upper = 5))
+  scm <- update_scm_effect(scm, ScmEffect("WT_V", fixed = 0))
+  expect_equal(scm$covariates$effects, list(ScmEffect("WT_CL"), ScmEffect("WT_V", fixed = 0)))
+  expect_equal(read_scm(p$config)$covariates$effects, scm$covariates$effects)
+
+  expect_error(update_scm_effect(scm, "AGE_CL"), "no effect named AGE_CL in the config; it has: WT_CL, WT_V")
+  expect_error(update_scm_effect(scm, ScmEffect("AGE_CL")), "no effect named AGE_CL")
+  expect_error(update_scm_effect(scm, ScmEffect("WT_V"), initial = 1), "not both")
+  expect_error(update_scm_effect(scm, c("WT_CL", "WT_V")), "effect name or an ScmEffect")
+  expect_error(update_scm_effect(scm, "WT_CL", lower = 1, upper = 0), "@lower must be below @upper")
+  expect_error(update_scm_effect("not an scm", "WT_CL"), "SCM config")
+})
+
+test_that("update_scm_settings() writes the settings given and keeps the others", {
+  p <- local_scm_project(effects = "WT_CL")
+
+  scm <- update_scm_settings(p$scm, direction = "forward", forward_alpha = 0.01, max_retries = 5, cov_step = TRUE)
+  expect_equal(scm$direction, "forward")
+  expect_equal(scm$forward_alpha, 0.01)
+  expect_equal(scm$backward_alpha, 0.001)
+  expect_identical(scm$max_retries, 5L)
+  expect_true(scm$cov_step)
+  expect_equal(scm$covariates$effects, list(ScmEffect("WT_CL")))
+  expect_equal(read_scm(p$config), scm)
+  written <- readLines(p$config)
+  expect_true('direction = ["forward"]' %in% written)
+  expect_true("max_retries = 5" %in% written)
+  expect_true(any(grepl("^backward_alpha = 0.001 .*# p-value", written)))
+  plan <- check_scm(scm)
+  expect_equal(unlist(plan$options$direction), "forward")
+  expect_equal(plan$options$max_retries, 5)
+
+  scm <- update_scm_settings(p$config, direction = c("forward", "backward"), num_rounds = 2)
+  expect_equal(scm$direction, c("forward", "backward"))
+  expect_identical(scm$num_rounds, 2L)
+  expect_match(attr(check_scm(scm), "text"), "pause after 2")
+
+  expect_error(update_scm_settings(scm), "at least one setting")
+  expect_error(update_scm_settings(scm, direction = "sideways"), '`direction` must be "forward", "backward", or both')
+  expect_error(update_scm_settings(scm, direction = c("forward", "forward")), "`direction` must be")
+  expect_error(update_scm_settings(scm, forward_alpha = "0.05"), "`forward_alpha` must be a single number")
+  expect_error(update_scm_settings(scm, max_retries = 1.5), "`max_retries` must be a single whole number")
+  expect_error(update_scm_settings(scm, cov_step = NA), "`cov_step` must be TRUE or FALSE")
+  expect_error(update_scm_settings(p$model, cov_step = TRUE), "SCM config")
+})
+
 test_that("init_scm() writes the starter config and returns the object", {
   p <- local_scm_project()
   expect_snapshot(scm <- init_scm(p$model))
@@ -172,7 +224,6 @@ test_that("check_scm() returns the plan with its warnings", {
   expect_equal(plan$options$forward_alpha, 0.05)
   expect_match(attr(plan, "warnings"), "cov_step is off")
   expect_true(attr(plan, "resumable"))
-  expect_equal(attr(plan, "changes"), list())
   expect_type(attr(plan, "out_dir"), "character")
   expect_equal(normalizePath(attr(plan, "project_root")), normalizePath(system.file(package = "hyperion")))
   expect_match(attr(plan, "text"), "max models : 13")

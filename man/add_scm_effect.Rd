@@ -18,8 +18,8 @@ add_scm_effect(
 \item{scm}{A \code{hyperion_nonmem_scm} object or the SCM config (\verb{<stem>scm.toml}).}
 
 \item{name}{The effect to add: its \verb{$THETA} comment name in the model, or
-an effect as \code{\link[=read_scm]{read_scm()}} returns it. Several names add several effects
-with the settings left out.}
+an \code{\link[=ScmEffect]{ScmEffect()}}. Several names add several effects with the settings
+left out.}
 
 \item{type, initial, fixed, lower, upper}{The effect's settings, each
 optional: \code{"continuous"} (pharos' default) or \code{"categorical"}, the
@@ -41,5 +41,5 @@ scm <- add_scm_effect(scm, "SEX_V", type = "categorical", lower = 0, upper = 5)
 }
 }
 \seealso{
-\code{\link[=remove_scm_effect]{remove_scm_effect()}}
+\code{\link[=update_scm_effect]{update_scm_effect()}}, \code{\link[=remove_scm_effect]{remove_scm_effect()}}
 }

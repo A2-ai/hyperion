@@ -44,6 +44,17 @@
       Rounds: all
       ! No effects yet: pass `effects` to `init_scm()` or add them with `add_scm_effect()`.
 
+# ScmEffect prints on one line
+
+    Code
+      print(ScmEffect("WT_CL"))
+    Output
+      <ScmEffect> WT_CL: continuous
+    Code
+      print(ScmEffect("WT_V", type = "categorical", initial = 1, lower = 0, upper = 5))
+    Output
+      <ScmEffect> WT_V: categorical, initial = 1, lower = 0, upper = 5
+
 # print methods for the SCM records show pharos' text under a title
 
     Code

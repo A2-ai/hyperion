@@ -18,7 +18,7 @@ or the path to the SCM config (\verb{<stem>scm.toml}).}
 \value{
 A \code{hyperion_nonmem_scm_plan} S3 object: the plan (\code{model},
 \code{out_dir}, \code{candidates}, \code{options}, ...) with attributes \code{text} (the plan
-as pharos renders it), \code{warnings}, \code{resumable}, \code{changes}, \code{out_dir} and
+as pharos renders it), \code{warnings}, \code{resumable}, \code{out_dir} and
 \code{project_root}.
 }
 \description{

@@ -159,15 +159,6 @@ fn toml_to_robj(value: &toml::Value) -> Robj {
             if items.iter().all(|v| v.is_str()) {
                 return Robj::from(items.iter().filter_map(|v| v.as_str()).collect::<Vec<_>>());
             }
-            if items.iter().all(|v| v.is_integer()) && items.iter().all(|v| i32::try_from(v.as_integer().unwrap()).is_ok()) {
-                return Robj::from(items.iter().map(|v| v.as_integer().unwrap() as i32).collect::<Vec<_>>());
-            }
-            if items.iter().all(|v| v.is_float() || v.is_integer()) {
-                return Robj::from(items.iter().map(|v| v.as_float().or_else(|| v.as_integer().map(|i| i as f64)).unwrap()).collect::<Vec<_>>());
-            }
-            if items.iter().all(|v| v.is_bool()) {
-                return Robj::from(items.iter().map(|v| v.as_bool().unwrap()).collect::<Vec<_>>());
-            }
             let values: Vec<Robj> = items.iter().map(toml_to_robj).collect();
             List::from_values(values).into_robj()
         }

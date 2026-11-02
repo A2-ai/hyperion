@@ -30,19 +30,11 @@ read_scm <- function(path) {
   check_scm_config_path(path, must_exist = TRUE)
   x <- read_scm_toml_impl(path)
   x$covariates <- normalize_covariates(x$covariates)
-  new_scm(x, path)
-}
-
-new_scm <- function(x, path) {
   path <- normalizePath(path, mustWork = FALSE)
   attr(x, "config_source") <- to_config_relative(path)
-  attr(x, "filename") <- scm_stem(path)
+  attr(x, "filename") <- sub(paste0(SCM_CONFIG_SUFFIX, "$"), "", basename(path))
   class(x) <- "hyperion_nonmem_scm"
   x
-}
-
-scm_stem <- function(path) {
-  sub(paste0(SCM_CONFIG_SUFFIX, "$"), "", basename(path))
 }
 
 check_scm_config_path <- function(path, must_exist = FALSE) {
@@ -71,16 +63,114 @@ scm_config_from <- function(scm) {
   check_scm_config_path(scm, must_exist = TRUE)
 }
 
-# Write `effects` into the object's config and read it back.
-write_scm_effects <- function(scm, effects) {
+# Write the items into the object's config and read it back.
+write_scm_items <- function(scm, ...) {
   path <- from_config_relative(attr(scm, "config_source"))
-  scm$covariates$effects <- effects
-  toml <- tomledit::insert_items(
-    tomledit::read_toml(path),
-    covariates = covariates_as_rows(scm$covariates)
-  )
+  toml <- tomledit::insert_items(tomledit::read_toml(path), ...)
   tomledit::write_toml(toml, path)
+  # tomledit writes a one-element `direction` as a string; pharos reads an array.
+  lines <- readLines(path)
+  scalar <- grepl('^direction = "', lines)
+  if (any(scalar)) {
+    lines[scalar] <- sub('^direction = "(.*)"$', 'direction = ["\\1"]', lines[scalar])
+    writeLines(lines, path)
+  }
   read_scm(path)
+}
+
+write_scm_effects <- function(scm, effects) {
+  scm$covariates$effects <- effects
+  write_scm_items(scm, covariates = covariates_as_rows(scm$covariates))
+}
+
+SCM_SETTING_FORMS <- c(
+  direction = '"forward", "backward", or both',
+  forward_alpha = "a single number",
+  backward_alpha = "a single number",
+  max_retries = "a single whole number",
+  retry_jitter = "a single number",
+  num_rounds = "a single whole number",
+  cov_step = "TRUE or FALSE",
+  forward_final_cov_step = "TRUE or FALSE",
+  final_cov_step = "TRUE or FALSE"
+)
+
+# `value` as the config takes `key`, or an error.
+scm_setting <- function(key, value) {
+  one <- length(value) == 1 && !is.na(value)
+  ok <- switch(
+    key,
+    direction = is.character(value) && length(value) %in% 1:2 && all(value %in% c("forward", "backward")) && !anyDuplicated(value),
+    max_retries = ,
+    num_rounds = one && is.numeric(value) && value >= 0 && value == trunc(value),
+    cov_step = ,
+    forward_final_cov_step = ,
+    final_cov_step = one && is.logical(value),
+    one && is.numeric(value)
+  )
+  if (!ok) {
+    rlang::abort(paste0("`", key, "` must be ", SCM_SETTING_FORMS[[key]]))
+  }
+  if (key %in% c("max_retries", "num_rounds")) as.integer(value) else value
+}
+
+#' Update the settings of an SCM config
+#'
+#' Writes the settings given into the config (`<stem>scm.toml`); the others
+#' keep their values. The candidate effects are edited with
+#' [add_scm_effect()], [update_scm_effect()] and [remove_scm_effect()].
+#'
+#' @param scm A `hyperion_nonmem_scm` object or the SCM config (`<stem>scm.toml`).
+#' @param direction The phases to run: `"forward"`, `"backward"`, or both.
+#' @param forward_alpha,backward_alpha The p-value to add a covariate in
+#'   forward selection, and to keep one in backward elimination.
+#' @param max_retries Retries per failed fit.
+#' @param retry_jitter How far a retry perturbs the estimates it starts from,
+#'   as a fraction.
+#' @param num_rounds Pause after this many rounds; `0` runs all rounds.
+#' @param cov_step Whether the generated models run `$COVARIANCE`.
+#' @param forward_final_cov_step,final_cov_step Whether the forward model and
+#'   the final model are re-fitted with `$COVARIANCE` on.
+#' @return The `hyperion_nonmem_scm` object read back from the written
+#'   config, invisibly.
+#' @export
+#'
+#' @examples \dontrun{
+#' scm <- update_scm_settings("model/nonmem/scm/run001scm.toml", direction = "forward")
+#' scm <- update_scm_settings(scm, forward_alpha = 0.01, num_rounds = 2)
+#' }
+update_scm_settings <- function(
+  scm,
+  direction = NULL,
+  forward_alpha = NULL,
+  backward_alpha = NULL,
+  max_retries = NULL,
+  retry_jitter = NULL,
+  num_rounds = NULL,
+  cov_step = NULL,
+  forward_final_cov_step = NULL,
+  final_cov_step = NULL
+) {
+  scm <- read_scm(scm_config_from(scm))
+  given <- list(
+    direction = direction,
+    forward_alpha = forward_alpha,
+    backward_alpha = backward_alpha,
+    max_retries = max_retries,
+    retry_jitter = retry_jitter,
+    num_rounds = num_rounds,
+    cov_step = cov_step,
+    forward_final_cov_step = forward_final_cov_step,
+    final_cov_step = final_cov_step
+  )
+  given <- given[!vapply(given, is.null, logical(1))]
+  if (length(given) == 0) {
+    rlang::abort("give at least one setting to update")
+  }
+  for (key in names(given)) {
+    given[[key]] <- scm_setting(key, given[[key]])
+  }
+  invisible(write_scm_items(scm, !!!given))
 }
 
 #' Initialize an SCM process for a model
@@ -146,7 +236,7 @@ init_scm <- function(model, effects = NULL, overwrite = FALSE) {
 #'
 #' @return A `hyperion_nonmem_scm_plan` S3 object: the plan (`model`,
 #'   `out_dir`, `candidates`, `options`, ...) with attributes `text` (the plan
-#'   as pharos renders it), `warnings`, `resumable`, `changes`, `out_dir` and
+#'   as pharos renders it), `warnings`, `resumable`, `out_dir` and
 #'   `project_root`.
 #' @export
 #'

@@ -10,8 +10,9 @@
 
 - Stepwise covariate modeling (SCM), driving `pharos nonmem scm` on SLURM.
   `init_scm()` writes `<stem>scm.toml` with the candidate `effects`;
-  `read_scm()` reads it back, and `add_scm_effect()` and
-  `remove_scm_effect()` edit its effects in place.
+  `read_scm()` reads it back, `update_scm_settings()` edits its settings in
+  place, and `add_scm_effect()`, `update_scm_effect()` and
+  `remove_scm_effect()` its effects (`ScmEffect()` builds one).
 - `check_scm()` shows the plan a config resolves to and whether a started
   process can resume under it; `submit_scm_to_slurm()` starts or resumes the
   process as a SLURM driver job and `stop_scm()` pauses it.
@@ -21,14 +22,6 @@
 
 ## Bug fixes
 
-- The warning `get_scm_status()` raises for an unreadable `scm_driver.json`
-  is now signalled from R, so `withCallingHandlers()`, `tryCatch()` and
-  `suppressWarnings()` see it; it used to be raised from Rust outside R's
-  handler stack and could only print.
-- `get_scm_status(out_dir)` on a process whose driver has been submitted
-  but has not written `scm_state.json` yet, and whose config is not beside
-  the out_dir (`[nonmem.scm] out_dir` points elsewhere), says so and what to
-  pass instead; pharos cannot read such a process from the out_dir alone.
 - Printing, `get_fixed_parameters()`, `get_model_comment_info()` and
   `check_dataset()` no longer abort the R session for a model with a bare
   `$COVARIANCE` (or any record whose options are empty). Rust rebuilds the

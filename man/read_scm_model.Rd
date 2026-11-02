@@ -13,7 +13,7 @@ read_scm_model(
 }
 \arguments{
 \item{x}{A \code{hyperion_nonmem_scm_summary} or \verb{_status} object, a
-\code{hyperion_nonmem_scm} object, or the SCM config or output directory.}
+\code{hyperion_nonmem_scm} object, or the SCM config (\verb{<stem>scm.toml}).}
 
 \item{which}{Which model: \code{"final"}, \code{"forward"}, \code{"initial"} or \code{"reference"}.}
 

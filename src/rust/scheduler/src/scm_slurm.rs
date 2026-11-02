@@ -220,9 +220,10 @@ impl ScmJob {
         if record.liveness() != Liveness::Alive {
             return Ok(());
         }
-        let out_dir = scm::shown(&self.out_dir);
+        let config = scm::shown(&self.scm_config);
         Err(extendr_err!(
-            "the SCM process in {out_dir} is already running ({}); follow it with get_scm_status(\"{out_dir}\"), or stop it with stop_scm(\"{out_dir}\") before resubmitting",
+            "the SCM process in {} is already running ({}); follow it with get_scm_status(\"{config}\"), or stop it with stop_scm(\"{config}\") before resubmitting",
+            scm::shown(&self.out_dir),
             record.describe()
         ))
     }
@@ -237,7 +238,8 @@ impl ScmJob {
         match record.liveness() {
             Liveness::Gone => Ok(()),
             Liveness::Alive => Err(extendr_err!(
-                "the SCM process in {out_dir} is still running; stop it with stop_scm(\"{out_dir}\") before discarding it with overwrite = TRUE"
+                "the SCM process in {out_dir} is still running; stop it with stop_scm(\"{}\") before discarding it with overwrite = TRUE",
+                scm::shown(&self.scm_config)
             )),
             Liveness::Unknown(why) => Err(extendr_err!(
                 "cannot tell whether the SCM process in {out_dir} is still running: {why}; once it has stopped, delete {out_dir}/scm_driver.json and submit again with overwrite = TRUE"
@@ -384,7 +386,7 @@ pub fn get_scm_status_wrap(scm: Robj) -> Result<Robj> {
         // elsewhere): pharos cannot read the process from the out_dir alone.
         Err(e) if record.is_some() && !out_dir.join(scm::STATE_FILENAME).exists() => {
             return Err(extendr_err!(
-                "{e}\nThe SCM process in {} has a driver that has not written its state yet; until it has, pass the SCM config (<stem>scm.toml) rather than the output directory",
+                "{e}\nThe SCM process in {} has a driver that has not written its state yet; try again once it has",
                 scm::shown(&out_dir)
             ));
         }
@@ -491,7 +493,7 @@ pub fn submit_scm_to_slurm_wrap(
         job_id = submitted.job_id as f64,
         job_name = submitted.job_name,
         log = scm::shown(&submitted.log_path),
-        out_dir = scm::shown(&job.out_dir),
+        config = scm::shown(&job.scm_config),
         warnings = job.built.warnings.clone(),
         discard_note = opt_robj(discard_note)
     )
@@ -504,7 +506,8 @@ pub fn submit_scm_to_slurm_wrap(
 /// @noRd
 #[extendr(r_name = "stop_scm_impl")]
 pub fn stop_scm_wrap(scm: Robj) -> Result<Robj> {
-    let out_dir = scm_out_dir(&scm)?;
+    let config = scm_config_path(&scm)?;
+    let out_dir = scm::out_dir_named(&config).map_scm_err(&config)?;
     let shown = scm::shown(&out_dir);
     let Some(record) = DriverRecord::read(&out_dir) else {
         return Err(extendr_err!(
@@ -521,13 +524,12 @@ pub fn stop_scm_wrap(scm: Robj) -> Result<Robj> {
         .map(|j| j as f64)
         .collect();
     let allocation = record.release_allocation().map_scm_err(&out_dir)?;
-    let config = scm::config_beside(&out_dir).ok().map(|c| scm::shown(&c));
     Ok(list!(
         out_dir = shown,
         was_alive = was_alive,
         fits_cancelled = cancelled,
         allocation = opt_robj(allocation),
-        config = opt_robj(config)
+        config = scm::shown(&config)
     )
     .into_robj())
 }

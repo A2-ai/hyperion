@@ -129,7 +129,6 @@ reference = [
   { label = "Stepwise Covariate Modeling", collapsed = true, contents = [
     "init_scm",
     "read_scm",
-    "write_scm",
     "check_scm",
     "submit_scm_to_slurm",
     "get_scm_status",

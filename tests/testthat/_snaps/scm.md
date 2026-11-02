@@ -1,14 +1,4 @@
-# init_scm() writes the starter config and returns the object
-
-    Code
-      scm <- init_scm(p$model)
-    Message
-      v SCM config written: 'model/scm/1001scm.toml'
-      i SCM directory: 'model/scm/1001'
-      ! No effects yet: pass `effects` to `init_scm()` or add them with `add_scm_effect()`.
-      `check_scm()` shows what a submit would do; `submit_scm_to_slurm()` runs it.
-
-# write_scm() writes effects as rows and keeps untouched comments
+# add_scm_effect() appends validated effects to the config
 
     Code
       writeLines(written[grep("^\\[covariates\\]", written):length(written)])
@@ -20,8 +10,21 @@
       effects = [
           { name = "WT_CL" },
           { name = "CRCL_CL" },
-          { name = "WT_V", type = "categorical", initial = 1.0, lower = 0.0, upper = 5.0 }
+          { name = "WT_V", type = "categorical", initial = 1.0, lower = 0.0, upper = 5.0 },
+          { name = "AGE_CL", fixed = 0.0 },
+          { name = "SEX_CL" },
+          { name = "SEX_V" }
       ]
+
+# init_scm() writes the starter config and returns the object
+
+    Code
+      scm <- init_scm(p$model)
+    Message
+      v SCM config written: 'model/scm/1001scm.toml'
+      i SCM directory: 'model/scm/1001'
+      ! No effects yet: pass `effects` to `init_scm()` or add them with `add_scm_effect()`.
+      `check_scm()` shows what a submit would do; `submit_scm_to_slurm()` runs it.
 
 # get_scm_status() reads a planned process
 

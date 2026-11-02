@@ -11,7 +11,7 @@ read_scm(path)
 }
 \value{
 A \code{hyperion_nonmem_scm} object: the config's keys as a list, with
-the effects as \link{ScmEffect} objects under \code{covariates$effects}.
+the effects as \code{ScmEffect} objects under \code{covariates$effects}.
 }
 \description{
 Read an SCM config

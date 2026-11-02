@@ -526,7 +526,7 @@ read_scm_toml_impl <- function(path) .Call(wrap__read_scm_toml_wrap, path)
 
 #' Read an SCM process's summary record (internal implementation)
 #'
-#' @param scm A `hyperion_nonmem_scm` object, the SCM config, or the output directory
+#' @param scm A `hyperion_nonmem_scm` object or the SCM config
 #' @param round,candidate,long,timing,files See `summary.hyperion_nonmem_scm()`
 #'
 #' @return hyperion_nonmem_scm_summary S3 object

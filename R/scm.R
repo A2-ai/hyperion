@@ -19,7 +19,7 @@ SLURM_INHERITED_VARS <- c(
 #'
 #' @param path Path to the SCM config (`<stem>scm.toml`) written by [init_scm()].
 #' @return A `hyperion_nonmem_scm` object: the config's keys as a list, with
-#'   the effects as [ScmEffect] objects under `covariates$effects`.
+#'   the effects as `ScmEffect` objects under `covariates$effects`.
 #' @export
 #'
 #' @examples \dontrun{
@@ -63,78 +63,24 @@ check_scm_config_path <- function(path, must_exist = FALSE) {
   invisible(path)
 }
 
-check_scm_object <- function(scm) {
-  if (!inherits(scm, "hyperion_nonmem_scm")) {
-    rlang::abort("`scm` must be a hyperion_nonmem_scm object from read_scm() or init_scm()")
+# The config file for `scm`: the object's, or the path given.
+scm_config_from <- function(scm) {
+  if (inherits(scm, "hyperion_nonmem_scm")) {
+    return(from_config_relative(attr(scm, "config_source")))
   }
-  invisible(scm)
+  check_scm_config_path(scm, must_exist = TRUE)
 }
 
-#' Write an SCM config
-#'
-#' @param scm A `hyperion_nonmem_scm` object.
-#' @param path Where to write; defaults to the config the object was read from.
-#' @return The object, invisibly, with `config_source` pointing at `path`.
-#' @export
-#'
-#' @examples \dontrun{
-#' scm <- read_scm("model/nonmem/scm/run001scm.toml")
-#' scm$forward_alpha <- 0.01
-#' scm <- add_scm_effect(scm, "AGE_CL")
-#' write_scm(scm)
-#' }
-write_scm <- function(scm, path = NULL) {
-  check_scm_object(scm)
-  if (is.null(path)) {
-    path <- from_config_relative(attr(scm, "config_source"))
-  }
-  check_scm_config_path(path)
-  scm$covariates <- normalize_covariates(scm$covariates)
-  exists <- file.exists(path)
-  toml <- if (exists) tomledit::read_toml(path) else tomledit::toml()
-  # tomledit drops a key's comments when it replaces the key: rewrite changed keys only.
-  fields <- scm_fields_as_rows(scm)
-  current <- if (exists) scm_fields_as_rows(read_scm(path)) else list()
-  changed <- intersect(scm_changed_keys(current, fields), names(fields))
-  if (length(changed)) {
-    toml <- do.call(tomledit::insert_items, c(list(toml), fields[changed]))
-  }
-  cat(scm_toml_text(toml, fields), file = path, sep = "")
-  invisible(new_scm(scm, path))
-}
-
-# Keys pharos reads as arrays however many values they hold.
-SCM_ARRAY_KEYS <- "direction"
-
-# The config as text. tomledit writes a length-one character as a bare string
-# (`direction = "forward"`), which pharos refuses as "expected a sequence", so
-# those keys are rewritten as one-element arrays before the text is written.
-scm_toml_text <- function(toml, fields) {
-  lines <- strsplit(tomledit::to_toml(toml), "\n", fixed = TRUE)[[1]]
-  tables <- grep("^\\[", lines)
-  top <- seq_len(if (length(tables)) tables[1] - 1 else length(lines))
-  for (key in intersect(SCM_ARRAY_KEYS, names(fields))) {
-    value <- fields[[key]]
-    if (is.character(value) && length(value) == 1) {
-      pattern <- sprintf('^%s = ("[^"]*")$', key)
-      lines[top] <- sub(pattern, sprintf("%s = [\\1]", key), lines[top])
-    }
-  }
-  paste0(paste(lines, collapse = "\n"), "\n")
-}
-
-# Equal as TOML values: an integer and the same double are one value.
-scm_value_equal <- function(a, b) {
-  if (is.null(a) || is.null(b)) {
-    return(is.null(a) && is.null(b))
-  }
-  isTRUE(all.equal(a, b, check.attributes = FALSE))
-}
-
-# The keys whose value differs between two configs.
-scm_changed_keys <- function(from, to) {
-  keys <- union(names(from), names(to))
-  keys[!vapply(keys, function(k) scm_value_equal(from[[k]], to[[k]]), logical(1))]
+# Write `effects` into the object's config and read it back.
+write_scm_effects <- function(scm, effects) {
+  path <- from_config_relative(attr(scm, "config_source"))
+  scm$covariates$effects <- effects
+  toml <- tomledit::insert_items(
+    tomledit::read_toml(path),
+    covariates = covariates_as_rows(scm$covariates)
+  )
+  tomledit::write_toml(toml, path)
+  read_scm(path)
 }
 
 #' Initialize an SCM process for a model
@@ -147,14 +93,13 @@ scm_changed_keys <- function(from, to) {
 #'   `hyperion_nonmem_model` object.
 #' @param effects The candidate effects, each named by its `$THETA` comment in
 #'   the model: a character vector of names, or a list whose elements are a
-#'   name, an [ScmEffect], or a row `list(name = , type = , initial = ,
+#'   name or a row `list(name = , type = , initial = ,
 #'   fixed = , lower = , upper = )` (`type` is `"continuous"`, the default, or
 #'   `"categorical"`; the numbers are optional). `NULL` writes the config with
-#'   no effects, to be added with [add_scm_effect()] and [write_scm()] or by
-#'   hand.
+#'   no effects, to be added with [add_scm_effect()] or by hand.
 #' @param overwrite Replace an existing config. Default `FALSE`.
 #' @return The new `hyperion_nonmem_scm` object, invisibly.
-#' @seealso [add_scm_effect()], [remove_scm_effect()], [ScmEffect]
+#' @seealso [add_scm_effect()], [remove_scm_effect()]
 #' @export
 #'
 #' @examples \dontrun{
@@ -165,7 +110,7 @@ scm_changed_keys <- function(from, to) {
 #'   "model/nonmem/run001.mod",
 #'   effects = list(
 #'     "WT_CL",
-#'     ScmEffect("SEX_V", type = "categorical", initial = 1, lower = 0, upper = 5)
+#'     list(name = "SEX_V", type = "categorical", initial = 1, lower = 0, upper = 5)
 #'   ),
 #'   overwrite = TRUE
 #' )
@@ -175,8 +120,7 @@ init_scm <- function(model, effects = NULL, overwrite = FALSE) {
   res <- init_scm_impl(model, overwrite)
   scm <- read_scm(res$config_path)
   if (length(effects)) {
-    scm$covariates$effects <- effects
-    scm <- write_scm(scm)
+    scm <- write_scm_effects(scm, effects)
   }
   config_shown <- attr(scm, "config_source")
   out_dir_shown <- to_config_relative(res$out_dir)
@@ -191,45 +135,11 @@ init_scm <- function(model, effects = NULL, overwrite = FALSE) {
   invisible(scm)
 }
 
-check_scm_written <- function(scm) {
-  if (!inherits(scm, "hyperion_nonmem_scm")) {
-    return(invisible(scm))
-  }
-  path <- from_config_relative(attr(scm, "config_source"))
-  if (!file.exists(path)) {
-    rlang::abort(paste0(
-      "the SCM config ",
-      attr(scm, "config_source"),
-      " does not exist; call write_scm() first"
-    ))
-  }
-  if (length(scm_changed_keys(scm_fields_as_rows(read_scm(path)), scm_fields_as_rows(scm)))) {
-    rlang::abort(paste0(
-      "`scm` has changes that are not written to ",
-      attr(scm, "config_source"),
-      "; call write_scm() first"
-    ))
-  }
-  invisible(scm)
-}
-
-# The config as a plain list with the effects as rows, for comparison.
-scm_fields_as_rows <- function(scm) {
-  fields <- unclass(scm)
-  attributes(fields) <- list(names = names(fields))
-  fields$covariates <- covariates_as_rows(fields$covariates)
-  for (key in intersect(SCM_ARRAY_KEYS, names(fields))) {
-    # `scm$direction <- list("forward")` is the same value as "forward"
-    fields[[key]] <- as.character(unlist(fields[[key]]))
-  }
-  fields
-}
-
 #' Check an SCM config: the plan it resolves to and its warnings
 #'
 #'
 #' @param scm A `hyperion_nonmem_scm` object from [read_scm()] or [init_scm()],
-#'   the path to the SCM config (`<stem>scm.toml`), or the SCM output directory.
+#'   or the path to the SCM config (`<stem>scm.toml`).
 #' @param num_rounds Pause after this many rounds; `NULL` uses the config's
 #'   `num_rounds`, `0L` runs all rounds.
 #' @param overwrite Show the plan as a submit with `overwrite = TRUE` would run it.
@@ -246,14 +156,12 @@ scm_fields_as_rows <- function(scm) {
 #' check_scm(scm, num_rounds = 2)
 #' }
 check_scm <- function(scm, num_rounds = NULL, overwrite = FALSE) {
-  check_scm_written(scm)
   check_scm_impl(scm, num_rounds, overwrite)
 }
 
 #' Submit an SCM process to slurm
 #'
-#' @param scm A `hyperion_nonmem_scm` object, the SCM config
-#'   (`<stem>scm.toml`), or the SCM output directory.
+#' @param scm A `hyperion_nonmem_scm` object or the SCM config (`<stem>scm.toml`).
 #' @param num_rounds Pause after this many rounds; `NULL` uses the config.
 #' @param partition Slurm partition for the model fits.
 #' @param driver_partition Slurm partition for the driver job.
@@ -293,7 +201,6 @@ submit_scm_to_slurm <- function(
       "`driver_partition` cannot be used with `shared_node = TRUE`: the driver and the fits share the node `partition` picks"
     )
   }
-  check_scm_written(scm)
   check_pharos_cli_version(allow_version_mismatch)
   res <- without_slurm_env(submit_scm_to_slurm_impl(
     scm,
@@ -318,7 +225,7 @@ submit_scm_to_slurm <- function(
   )
   cli::cli_alert_info("Log: {.path {res$log}}")
   cli::cli_text(
-    "Follow it with {.code get_scm_status(\"{res$out_dir}\")}; stop it with {.code stop_scm(\"{res$out_dir}\")}."
+    "Follow it with {.code get_scm_status(\"{res$config}\")}; stop it with {.code stop_scm(\"{res$config}\")}."
   )
   NULL
 }
@@ -369,13 +276,12 @@ without_slurm_env <- function(expr) {
 #'
 #' Stops the driver of a stepwise covariate modeling process
 #'
-#' @param scm A `hyperion_nonmem_scm` object, the SCM config
-#'   (`<stem>scm.toml`), or the SCM output directory.
+#' @param scm A `hyperion_nonmem_scm` object or the SCM config (`<stem>scm.toml`).
 #' @return `NULL`, after printing what was stopped and cancelled.
 #' @export
 #'
 #' @examples \dontrun{
-#' stop_scm("model/nonmem/scm/run001")
+#' stop_scm("model/nonmem/scm/run001scm.toml")
 #' }
 stop_scm <- function(scm) {
   res <- stop_scm_impl(scm)
@@ -398,9 +304,8 @@ stop_scm <- function(scm) {
   if (!is.null(res$allocation)) {
     cli::cli_text("{.strong Allocation:} {res$allocation}")
   }
-  resume <- res$config %||% paste0("<", res$out_dir, "'s scm config>")
   cli::cli_text(
-    "Follow it with {.code get_scm_status(\"{res$out_dir}\")}; resume it with {.code submit_scm_to_slurm(\"{resume}\")}."
+    "Follow it with {.code get_scm_status(\"{res$config}\")}; resume it with {.code submit_scm_to_slurm(\"{res$config}\")}."
   )
   NULL
 }
@@ -414,8 +319,7 @@ stop_scm <- function(scm) {
 #' (running, exited, or gone while the process still says running, with its
 #' log). Mirrors `pharos nonmem scm status`.
 #'
-#' @param scm A `hyperion_nonmem_scm` object, the SCM config
-#'   (`<stem>scm.toml`), the SCM output directory, or a file inside it.
+#' @param scm A `hyperion_nonmem_scm` object or the SCM config (`<stem>scm.toml`).
 #'
 #' @return A `hyperion_nonmem_scm_status` S3 object (also of class
 #'   `hyperion_nonmem_scm_record`): the process record (`status`, `phase`,
@@ -430,7 +334,7 @@ stop_scm <- function(scm) {
 #' @examples \dontrun{
 #' scm <- read_scm("model/nonmem/scm/run001scm.toml")
 #' get_scm_status(scm)
-#' get_scm_status("model/nonmem/scm/run001")
+#' get_scm_status("model/nonmem/scm/run001scm.toml")
 #' }
 get_scm_status <- function(scm) {
   res <- get_scm_status_impl(scm)

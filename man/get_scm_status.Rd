@@ -7,8 +7,7 @@
 get_scm_status(scm)
 }
 \arguments{
-\item{scm}{A \code{hyperion_nonmem_scm} object, the SCM config
-(\verb{<stem>scm.toml}), the SCM output directory, or a file inside it.}
+\item{scm}{A \code{hyperion_nonmem_scm} object or the SCM config (\verb{<stem>scm.toml}).}
 }
 \value{
 A \code{hyperion_nonmem_scm_status} S3 object (also of class
@@ -32,6 +31,6 @@ log). Mirrors \verb{pharos nonmem scm status}.
 \dontrun{
 scm <- read_scm("model/nonmem/scm/run001scm.toml")
 get_scm_status(scm)
-get_scm_status("model/nonmem/scm/run001")
+get_scm_status("model/nonmem/scm/run001scm.toml")
 }
 }

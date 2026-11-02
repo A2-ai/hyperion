@@ -7,8 +7,7 @@
 stop_scm(scm)
 }
 \arguments{
-\item{scm}{A \code{hyperion_nonmem_scm} object, the SCM config
-(\verb{<stem>scm.toml}), or the SCM output directory.}
+\item{scm}{A \code{hyperion_nonmem_scm} object or the SCM config (\verb{<stem>scm.toml}).}
 }
 \value{
 \code{NULL}, after printing what was stopped and cancelled.
@@ -18,6 +17,6 @@ Stops the driver of a stepwise covariate modeling process
 }
 \examples{
 \dontrun{
-stop_scm("model/nonmem/scm/run001")
+stop_scm("model/nonmem/scm/run001scm.toml")
 }
 }

@@ -7,24 +7,22 @@
 remove_scm_effect(scm, name)
 }
 \arguments{
-\item{scm}{A \code{hyperion_nonmem_scm} object from \code{\link[=read_scm]{read_scm()}} or \code{\link[=init_scm]{init_scm()}}.}
+\item{scm}{A \code{hyperion_nonmem_scm} object or the SCM config (\verb{<stem>scm.toml}).}
 
-\item{name}{The name(s) of the effects to remove, or an \link{ScmEffect}.}
+\item{name}{The name(s) of the effects to remove.}
 }
 \value{
-The \code{hyperion_nonmem_scm} object with the effects removed.
+The \code{hyperion_nonmem_scm} object read back from the written
+config, invisibly.
 }
 \description{
-Drops effects from the object's \code{effects} by name. The object is changed
-in memory only: \code{\link[=write_scm]{write_scm()}} writes it to the config.
+Drops effects from the config's \code{effects} by name and writes the config.
 }
 \examples{
 \dontrun{
-scm <- read_scm("model/nonmem/scm/run001scm.toml")
-scm <- remove_scm_effect(scm, "WT_V")
-write_scm(scm)
+remove_scm_effect("model/nonmem/scm/run001scm.toml", "WT_V")
 }
 }
 \seealso{
-\code{\link[=add_scm_effect]{add_scm_effect()}}, \link{ScmEffect}
+\code{\link[=add_scm_effect]{add_scm_effect()}}
 }

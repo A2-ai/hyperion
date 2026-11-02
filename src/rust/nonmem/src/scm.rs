@@ -6,7 +6,6 @@ use std::path::{Path, PathBuf};
 
 use config::find_config_dir_from;
 use nonmem::scm::{self, ScmStatus, SummaryOptions};
-use nonmem::validate_model_extension;
 
 use crate::utils::{get_comment_type, path_from_robj, source_attr};
 use hyperion_core::{ResultExt, extendr_err};
@@ -57,51 +56,35 @@ pub fn pharos_version() -> Result<String> {
         .unwrap_or_default())
 }
 
-/// Resolve the `scm` argument every SCM function takes: a
-/// `hyperion_nonmem_scm` object (its `config_source` attribute, relative to
-/// the pharos config dir) or a path given by the user.
-fn scm_path_from_robj(input: &Robj) -> Result<PathBuf> {
-    if input.inherits(SCM_CLASS) {
-        return source_attr(input, "config_source");
-    }
-    if let Some(s) = input.as_str() {
-        if s.is_empty() {
-            return Err(extendr_err!("`scm` is an empty path"));
-        }
-        return Ok(PathBuf::from(s));
-    }
-    Err(extendr_err!(
-        "`scm` must be a hyperion_nonmem_scm object or a path to an SCM config (<stem>scm.toml) or output directory"
-    ))
-}
-
-fn reject_model_file(path: &Path) -> Result<()> {
-    if validate_model_extension(path).is_ok() {
+/// Resolve the `scm` argument every SCM function takes: the SCM config
+/// (`<stem>scm.toml`), as a path or as the `config_source` of a
+/// `hyperion_nonmem_scm` object.
+pub fn scm_config_path(input: &Robj) -> Result<PathBuf> {
+    let path = if input.inherits(SCM_CLASS) {
+        source_attr(input, "config_source")?
+    } else if let Some(s) = input.as_str() {
+        PathBuf::from(s)
+    } else {
         return Err(extendr_err!(
-            "{} is a model file; pass the SCM config (<stem>scm.toml), its output directory, or a hyperion_nonmem_scm object",
+            "`scm` must be a hyperion_nonmem_scm object or the path to an SCM config (<stem>scm.toml)"
+        ));
+    };
+    let is_config = path
+        .file_name()
+        .is_some_and(|n| n.to_string_lossy().ends_with("scm.toml"));
+    if !is_config {
+        return Err(extendr_err!(
+            "`scm` must be an SCM config named <stem>scm.toml, got: {}",
             path.display()
         ));
-    }
-    Ok(())
-}
-
-/// The SCM config for `input`: the path given (or the object's), or the
-/// config beside an output directory.
-pub fn scm_config_path(input: &Robj) -> Result<PathBuf> {
-    let path = scm_path_from_robj(input)?;
-    reject_model_file(&path)?;
-    if path.is_dir() {
-        return scm::config_beside(&path).map_scm_err(&path);
     }
     Ok(path)
 }
 
-/// The SCM output directory for `input`: the directory itself, its
-/// `<stem>scm.toml`, or a file inside it.
+/// The output directory of `input`'s SCM process.
 pub fn scm_out_dir(input: &Robj) -> Result<PathBuf> {
-    let path = scm_path_from_robj(input)?;
-    reject_model_file(&path)?;
-    scm::out_dir_named(&path).map_scm_err(&path)
+    let config = scm_config_path(input)?;
+    scm::out_dir_named(&config).map_scm_err(&config)
 }
 
 fn absolute_string(path: &Path) -> String {
@@ -230,7 +213,7 @@ pub fn init_scm_wrap(model: Robj, #[extendr(default = "FALSE")] overwrite: bool)
 
 /// Read an SCM process's summary record (internal implementation)
 ///
-/// @param scm A `hyperion_nonmem_scm` object, the SCM config, or the output directory
+/// @param scm A `hyperion_nonmem_scm` object or the SCM config
 /// @param round,candidate,long,timing,files See `summary.hyperion_nonmem_scm()`
 ///
 /// @return hyperion_nonmem_scm_summary S3 object

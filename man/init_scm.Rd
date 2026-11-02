@@ -12,10 +12,9 @@ init_scm(model, effects = NULL, overwrite = FALSE)
 
 \item{effects}{The candidate effects, each named by its \verb{$THETA} comment in
 the model: a character vector of names, or a list whose elements are a
-name, an \link{ScmEffect}, or a row \code{list(name = , type = , initial = , fixed = , lower = , upper = )} (\code{type} is \code{"continuous"}, the default, or
+name or a row \code{list(name = , type = , initial = , fixed = , lower = , upper = )} (\code{type} is \code{"continuous"}, the default, or
 \code{"categorical"}; the numbers are optional). \code{NULL} writes the config with
-no effects, to be added with \code{\link[=add_scm_effect]{add_scm_effect()}} and \code{\link[=write_scm]{write_scm()}} or by
-hand.}
+no effects, to be added with \code{\link[=add_scm_effect]{add_scm_effect()}} or by hand.}
 
 \item{overwrite}{Replace an existing config. Default \code{FALSE}.}
 }
@@ -36,12 +35,12 @@ init_scm(
   "model/nonmem/run001.mod",
   effects = list(
     "WT_CL",
-    ScmEffect("SEX_V", type = "categorical", initial = 1, lower = 0, upper = 5)
+    list(name = "SEX_V", type = "categorical", initial = 1, lower = 0, upper = 5)
   ),
   overwrite = TRUE
 )
 }
 }
 \seealso{
-\code{\link[=add_scm_effect]{add_scm_effect()}}, \code{\link[=remove_scm_effect]{remove_scm_effect()}}, \link{ScmEffect}
+\code{\link[=add_scm_effect]{add_scm_effect()}}, \code{\link[=remove_scm_effect]{remove_scm_effect()}}
 }

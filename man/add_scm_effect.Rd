@@ -15,31 +15,31 @@ add_scm_effect(
 )
 }
 \arguments{
-\item{scm}{A \code{hyperion_nonmem_scm} object from \code{\link[=read_scm]{read_scm()}} or \code{\link[=init_scm]{init_scm()}}.}
+\item{scm}{A \code{hyperion_nonmem_scm} object or the SCM config (\verb{<stem>scm.toml}).}
 
 \item{name}{The effect to add: its \verb{$THETA} comment name in the model, or
-an \link{ScmEffect} carrying its settings. Several names add several effects
+an effect as \code{\link[=read_scm]{read_scm()}} returns it. Several names add several effects
 with the settings left out.}
 
-\item{type, initial, fixed, lower, upper}{The effect's settings; see
-\link{ScmEffect}. Each is optional.}
+\item{type, initial, fixed, lower, upper}{The effect's settings, each
+optional: \code{"continuous"} (pharos' default) or \code{"categorical"}, the
+initial estimate while tested, the value fixed at while held out, and
+the bounds while tested.}
 }
 \value{
-The \code{hyperion_nonmem_scm} object with the effect added.
+The \code{hyperion_nonmem_scm} object read back from the written
+config, invisibly.
 }
 \description{
-Appends an effect to the object's \code{effects}. The object is changed in
-memory only: \code{\link[=write_scm]{write_scm()}} writes it to the config.
+Appends an effect to the config's \code{effects} and writes the config.
 }
 \examples{
 \dontrun{
+add_scm_effect("model/nonmem/scm/run001scm.toml", "AGE_CL")
 scm <- read_scm("model/nonmem/scm/run001scm.toml")
-scm <- add_scm_effect(scm, "AGE_CL")
 scm <- add_scm_effect(scm, "SEX_V", type = "categorical", lower = 0, upper = 5)
-scm <- add_scm_effect(scm, ScmEffect("CRCL_CL", initial = 0.5))
-write_scm(scm)
 }
 }
 \seealso{
-\code{\link[=remove_scm_effect]{remove_scm_effect()}}, \link{ScmEffect}
+\code{\link[=remove_scm_effect]{remove_scm_effect()}}
 }

@@ -18,8 +18,7 @@ submit_scm_to_slurm(
 )
 }
 \arguments{
-\item{scm}{A \code{hyperion_nonmem_scm} object, the SCM config
-(\verb{<stem>scm.toml}), or the SCM output directory.}
+\item{scm}{A \code{hyperion_nonmem_scm} object or the SCM config (\verb{<stem>scm.toml}).}
 
 \item{num_rounds}{Pause after this many rounds; \code{NULL} uses the config.}
 

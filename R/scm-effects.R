@@ -19,8 +19,8 @@ scm_number_property <- function() {
 #' One entry of an SCM config's `effects` array: a candidate covariate effect,
 #' named the way the initial model's `$THETA` comment names its parameter, and
 #' the optional settings pharos tests it with. [init_scm()] and
-#' [add_scm_effect()] make these from names or rows, [read_scm()] reads them
-#' from the config, and [write_scm()] writes them back.
+#' [add_scm_effect()] make these from names or rows, and [read_scm()] reads
+#' them from the config.
 #'
 #' @param name Character. The effect's name: its `$THETA` comment in the model
 #'   (e.g., `"WT_CL"`).
@@ -44,11 +44,7 @@ scm_number_property <- function() {
 #'   \item{upper}{Upper bound while tested.}
 #' }
 #'
-#' @examples
-#' ScmEffect("WT_CL")
-#' ScmEffect("SEX_V", type = "categorical", initial = 1, lower = 0, upper = 5)
-#'
-#' @export
+#' @noRd
 ScmEffect <- S7::new_class(
   "ScmEffect",
   properties = list(
@@ -148,14 +144,14 @@ check_scm_effects <- function(effects) {
   invisible(effects)
 }
 
-# An ScmEffect as the inline table write_scm() writes.
+# An ScmEffect as the inline table the config holds.
 scm_effect_row <- function(effect) {
   row <- lapply(SCM_EFFECT_FIELDS, function(field) S7::prop(effect, field))
   names(row) <- SCM_EFFECT_FIELDS
   row[!vapply(row, is.null, logical(1))]
 }
 
-# The covariates with the effects as rows, for writing and comparing.
+# The covariates with the effects as rows, for writing.
 covariates_as_rows <- function(cov) {
   cov <- normalize_covariates(cov)
   cov$effects <- lapply(cov$effects, scm_effect_row)
@@ -164,25 +160,25 @@ covariates_as_rows <- function(cov) {
 
 #' Add a candidate effect to an SCM config
 #'
-#' Appends an effect to the object's `effects`. The object is changed in
-#' memory only: [write_scm()] writes it to the config.
+#' Appends an effect to the config's `effects` and writes the config.
 #'
-#' @param scm A `hyperion_nonmem_scm` object from [read_scm()] or [init_scm()].
+#' @param scm A `hyperion_nonmem_scm` object or the SCM config (`<stem>scm.toml`).
 #' @param name The effect to add: its `$THETA` comment name in the model, or
-#'   an [ScmEffect] carrying its settings. Several names add several effects
+#'   an effect as [read_scm()] returns it. Several names add several effects
 #'   with the settings left out.
-#' @param type,initial,fixed,lower,upper The effect's settings; see
-#'   [ScmEffect]. Each is optional.
-#' @return The `hyperion_nonmem_scm` object with the effect added.
-#' @seealso [remove_scm_effect()], [ScmEffect]
+#' @param type,initial,fixed,lower,upper The effect's settings, each
+#'   optional: `"continuous"` (pharos' default) or `"categorical"`, the
+#'   initial estimate while tested, the value fixed at while held out, and
+#'   the bounds while tested.
+#' @return The `hyperion_nonmem_scm` object read back from the written
+#'   config, invisibly.
+#' @seealso [remove_scm_effect()]
 #' @export
 #'
 #' @examples \dontrun{
+#' add_scm_effect("model/nonmem/scm/run001scm.toml", "AGE_CL")
 #' scm <- read_scm("model/nonmem/scm/run001scm.toml")
-#' scm <- add_scm_effect(scm, "AGE_CL")
 #' scm <- add_scm_effect(scm, "SEX_V", type = "categorical", lower = 0, upper = 5)
-#' scm <- add_scm_effect(scm, ScmEffect("CRCL_CL", initial = 0.5))
-#' write_scm(scm)
 #' }
 add_scm_effect <- function(
   scm,
@@ -193,7 +189,7 @@ add_scm_effect <- function(
   lower = NULL,
   upper = NULL
 ) {
-  check_scm_object(scm)
+  scm <- read_scm(scm_config_from(scm))
   settings <- list(
     type = type,
     initial = initial,
@@ -222,7 +218,7 @@ add_scm_effect <- function(
     }
     new <- list(do.call(ScmEffect, c(list(name = name), settings)))
   }
-  effects <- normalize_effects(scm$covariates$effects)
+  effects <- scm$covariates$effects
   present <- intersect(scm_effect_names(new), scm_effect_names(effects))
   if (length(present)) {
     rlang::abort(paste0(
@@ -231,35 +227,32 @@ add_scm_effect <- function(
       "; remove_scm_effect() first to change one"
     ))
   }
-  scm$covariates$effects <- c(effects, new)
-  scm
+  invisible(write_scm_effects(scm, c(effects, new)))
 }
 
 #' Remove a candidate effect from an SCM config
 #'
-#' Drops effects from the object's `effects` by name. The object is changed
-#' in memory only: [write_scm()] writes it to the config.
+#' Drops effects from the config's `effects` by name and writes the config.
 #'
-#' @param scm A `hyperion_nonmem_scm` object from [read_scm()] or [init_scm()].
-#' @param name The name(s) of the effects to remove, or an [ScmEffect].
-#' @return The `hyperion_nonmem_scm` object with the effects removed.
-#' @seealso [add_scm_effect()], [ScmEffect]
+#' @param scm A `hyperion_nonmem_scm` object or the SCM config (`<stem>scm.toml`).
+#' @param name The name(s) of the effects to remove.
+#' @return The `hyperion_nonmem_scm` object read back from the written
+#'   config, invisibly.
+#' @seealso [add_scm_effect()]
 #' @export
 #'
 #' @examples \dontrun{
-#' scm <- read_scm("model/nonmem/scm/run001scm.toml")
-#' scm <- remove_scm_effect(scm, "WT_V")
-#' write_scm(scm)
+#' remove_scm_effect("model/nonmem/scm/run001scm.toml", "WT_V")
 #' }
 remove_scm_effect <- function(scm, name) {
-  check_scm_object(scm)
+  scm <- read_scm(scm_config_from(scm))
   if (S7::S7_inherits(name, ScmEffect)) {
     name <- name@name
   }
   if (!is.character(name) || length(name) == 0 || anyNA(name)) {
     rlang::abort("`name` must be one or more effect names, or an ScmEffect")
   }
-  effects <- normalize_effects(scm$covariates$effects)
+  effects <- scm$covariates$effects
   current <- scm_effect_names(effects)
   missing <- setdiff(name, current)
   if (length(missing)) {
@@ -270,6 +263,5 @@ remove_scm_effect <- function(scm, name) {
       if (length(current)) paste0("; it has: ", paste(current, collapse = ", ")) else " (it has none)"
     ))
   }
-  scm$covariates$effects <- effects[!current %in% name]
-  scm
+  invisible(write_scm_effects(scm, effects[!current %in% name]))
 }

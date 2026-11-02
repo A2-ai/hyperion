@@ -8,7 +8,7 @@ check_scm(scm, num_rounds = NULL, overwrite = FALSE)
 }
 \arguments{
 \item{scm}{A \code{hyperion_nonmem_scm} object from \code{\link[=read_scm]{read_scm()}} or \code{\link[=init_scm]{init_scm()}},
-the path to the SCM config (\verb{<stem>scm.toml}), or the SCM output directory.}
+or the path to the SCM config (\verb{<stem>scm.toml}).}
 
 \item{num_rounds}{Pause after this many rounds; \code{NULL} uses the config's
 \code{num_rounds}, \code{0L} runs all rounds.}

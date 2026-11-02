@@ -65,8 +65,8 @@ mod
 `init_scm()` writes the config, `<stem>scm.toml`, beside the process's own
 directory (`scm/<stem>/` next to the model by default) and returns it as an
 object. `effects` names the candidates; an effect that needs more than its
-name is given as a row or an `ScmEffect`. Options are edited by assignment on
-the object and written back with `write_scm()`.
+name is given as a row. The other options are set in the
+file, where pharos' comments explain each one.
 
 ```{r init}
 dir.create("extdata/models/scm-demo")
@@ -82,27 +82,22 @@ scm <- init_scm(
     list(name = "WT_V", type = "categorical", initial = 1, lower = 0, upper = 5)
   )
 )
-scm$forward_alpha <- 0.01
-scm <- write_scm(scm)
 ```
 
 ```{r print-scm, results='asis'}
 scm
 ```
 
-The written file keeps pharos' explanatory comments for every key the object
-did not change. It can be edited by hand too, and `read_scm()` reads it back.
+`read_scm()` reads the file back as the same object.
 
 The effects are `ScmEffect` objects, held under `scm$covariates$effects`.
-`add_scm_effect()` and `remove_scm_effect()` change them on the object;
-`write_scm()` writes the result.
+`add_scm_effect()` and `remove_scm_effect()` change them in the file and
+return the config read back; each takes the object or the config path.
 
 ```{r effects}
-scm <- read_scm("extdata/models/scm-demo/scm/1001scm.toml")
-scm <- add_scm_effect(scm, "CRCL_CL", initial = 0.5)
+scm <- add_scm_effect("extdata/models/scm-demo/scm/1001scm.toml", "CRCL_CL", initial = 0.5)
 scm <- remove_scm_effect(scm, "WT_V")
 scm$covariates$effects[[2]]
-scm <- write_scm(scm)
 ```
 
 # Checking the plan
@@ -130,8 +125,8 @@ and partitions that exist; it refuses a completed process unless
 submit_scm_to_slurm(scm, partition = "cpu")
 #> ✔ Submitted the SCM process as slurm job 4242 (scm_1001)
 #> ℹ Log: .slurm-logs/scm_1001_4242.out
-#> Follow it with `get_scm_status("extdata/models/scm-demo/scm/1001")`; stop it
-#> with `stop_scm("extdata/models/scm-demo/scm/1001")`.
+#> Follow it with `get_scm_status("extdata/models/scm-demo/scm/1001scm.toml")`;
+#> stop it with `stop_scm("extdata/models/scm-demo/scm/1001scm.toml")`.
 ```
 
 `get_scm_status()` reads the process off disk at the time of the call: each
@@ -196,7 +191,7 @@ terminal. Everything else in `pharos nonmem scm` has a hyperion function.
 | pharos                    | hyperion                     |
 |---------------------------|------------------------------|
 | `scm init`                | `init_scm()`                 |
-| edit `<stem>scm.toml`     | `read_scm()`, `add_scm_effect()`, `remove_scm_effect()`, `write_scm()` |
+| edit `<stem>scm.toml`     | `read_scm()`, `add_scm_effect()`, `remove_scm_effect()` |
 | `scm plan`                | `check_scm()`                |
 | `scm slurm submit`        | `submit_scm_to_slurm()`      |
 | `scm status`              | `get_scm_status()`           |

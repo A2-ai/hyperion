@@ -224,14 +224,14 @@ as_scm_record <- function(x) {
     return(get_scm_summary(x))
   }
   rlang::abort(
-    "`x` must be an SCM summary or status, a hyperion_nonmem_scm object, or the SCM config or output directory"
+    "`x` must be an SCM summary or status, a hyperion_nonmem_scm object, or the SCM config"
   )
 }
 
 #' Get the candidates of an SCM process as a data frame
 #'
 #' @param x A `hyperion_nonmem_scm_summary` or `_status` object, a
-#'   `hyperion_nonmem_scm` object, or the SCM config or output directory.
+#'   `hyperion_nonmem_scm` object, or the SCM config (`<stem>scm.toml`).
 #' @param timing Add the candidate's `started`, `ended`, `wall_seconds` and
 #'   `estimation_seconds`. Default `FALSE`.
 #' @return A data frame with columns `round`, `direction`, `index`,
@@ -329,7 +329,7 @@ find_scm_round <- function(x, round) {
 #' Read a model of an SCM process
 #'
 #' @param x A `hyperion_nonmem_scm_summary` or `_status` object, a
-#'   `hyperion_nonmem_scm` object, or the SCM config or output directory.
+#'   `hyperion_nonmem_scm` object, or the SCM config (`<stem>scm.toml`).
 #' @param which Which model: `"final"`, `"forward"`, `"initial"` or `"reference"`.
 #' @param round A round, as `summary()` names it (`"2"`, `"forward_round1"`,
 #'   `"reference"`); overrides `which`.

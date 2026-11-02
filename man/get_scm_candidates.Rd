@@ -8,7 +8,7 @@ get_scm_candidates(x, timing = FALSE)
 }
 \arguments{
 \item{x}{A \code{hyperion_nonmem_scm_summary} or \verb{_status} object, a
-\code{hyperion_nonmem_scm} object, or the SCM config or output directory.}
+\code{hyperion_nonmem_scm} object, or the SCM config (\verb{<stem>scm.toml}).}
 
 \item{timing}{Add the candidate's \code{started}, \code{ended}, \code{wall_seconds} and
 \code{estimation_seconds}. Default \code{FALSE}.}

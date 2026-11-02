@@ -9,9 +9,9 @@
 ## New features
 
 - Stepwise covariate modeling (SCM), driving `pharos nonmem scm` on SLURM.
-  `init_scm()` writes `<stem>scm.toml` with the candidate `effects` as
-  `ScmEffect` objects; `read_scm()`, `write_scm()`, `add_scm_effect()` and
-  `remove_scm_effect()` edit the config.
+  `init_scm()` writes `<stem>scm.toml` with the candidate `effects`;
+  `read_scm()` reads it back, and `add_scm_effect()` and
+  `remove_scm_effect()` edit its effects in place.
 - `check_scm()` shows the plan a config resolves to and whether a started
   process can resume under it; `submit_scm_to_slurm()` starts or resumes the
   process as a SLURM driver job and `stop_scm()` pauses it.
@@ -23,10 +23,6 @@
 
 ## Bug fixes
 
-- `write_scm()` writes `direction` as a TOML array however many phases it
-  names: `scm$direction <- "forward"` used to be written as a bare string,
-  which pharos refused with "expected a sequence". A `list()` value is
-  taken as the same character vector.
 - The warning `get_scm_status()` raises for an unreadable `scm_driver.json`
   is now signalled from R, so `withCallingHandlers()`, `tryCatch()` and
   `suppressWarnings()` see it; it used to be raised from Rust outside R's

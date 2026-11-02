@@ -134,8 +134,6 @@ reference = [
     "get_scm_status",
     "summary.hyperion_nonmem_scm",
     "stop_scm",
-    "get_scm_candidates",
-    "read_scm_model",
   ] },
 ]
 news = { label = "Changelog", source = "NEWS.md" }

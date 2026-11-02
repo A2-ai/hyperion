@@ -163,25 +163,6 @@ returned object is always the whole record.
 summary(done, round = "forward_round1", long = TRUE)
 ```
 
-`get_scm_candidates()` flattens every round into a data frame, one row per
-candidate per round.
-
-```{r candidates}
-s <- summary(done)
-cand <- get_scm_candidates(s)
-cand[, c("round", "candidate", "ofv", "delta_ofv", "p_value", "significant", "selected")]
-```
-
-Every model the process wrote is a model like any other. `read_scm_model()`
-reads the final, forward, initial or reference model, or one round's
-candidate, so `summary()`, `get_parameters()` and the rest work on it.
-
-```{r final}
-final <- read_scm_model(s)
-summary(final)$run_name
-get_parameters(final)
-```
-
 # What stays in the CLI
 
 `pharos nonmem scm run`, which drives the process from a terminal instead of a

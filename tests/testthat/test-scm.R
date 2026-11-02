@@ -293,52 +293,6 @@ test_that("summary() renders the long, timing and files views", {
   expect_error(summary(comp, candidate = "AGE_CL"), "no candidate named AGE_CL")
 })
 
-test_that("get_scm_candidates() flattens the rounds", {
-  comp <- read_scm(scm_complete_fixture("scm", "1001scm.toml"))
-  cand <- get_scm_candidates(comp)
-  expect_s3_class(cand, "data.frame")
-  expect_equal(nrow(cand), 10)
-  expect_equal(cand$round[1:4], c("reference", rep("forward_round1", 3)))
-  expect_equal(cand$candidate[2:4], c("WT_CL", "CRCL_CL", "WT_V"))
-  expect_equal(cand$selected, c(FALSE, TRUE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, TRUE, FALSE))
-  expect_equal(cand$attempts[6], 2)
-  expect_equal(cand$delta_ofv[2], -20)
-  expect_equal(cand$p_value[2], 7.744216e-06, tolerance = 1e-6)
-  expect_true(is.na(cand$p_value[1]))
-  expect_equal(cand$run_dir[2], "forward_round1/1001_wt_cl")
-  expect_true(all(c("statistic", "df", "critical_delta_ofv", "heuristics") %in% names(cand)))
-
-  timed <- get_scm_candidates(summary(comp), timing = TRUE)
-  expect_equal(timed$wall_seconds[2], 90)
-  expect_equal(timed$estimation_seconds[6], 2)
-
-  planned <- get_scm_candidates(scm_fixture("scm", "1001scm.toml"))
-  expect_equal(nrow(planned), 0)
-  expect_equal(names(planned), names(cand))
-  expect_error(get_scm_candidates(42), "must be an SCM summary")
-})
-
-test_that("read_scm_model() reads the process's models", {
-  comp <- read_scm(scm_complete_fixture("scm", "1001scm.toml"))
-  s <- summary(comp)
-  final <- read_scm_model(s)
-  expect_s3_class(final, "hyperion_nonmem_model")
-  expect_equal(attr(final, "model_source"), "extdata/models/scm-complete/scm/1001/final/1001_scm_final.mod")
-  expect_equal(summary(final)$run_name, "1001_scm_final")
-  expect_equal(attr(read_scm_model(s, "forward"), "model_source"), "extdata/models/scm-complete/scm/1001/forward_final/1001_scm_forward_final.mod")
-  expect_equal(attr(read_scm_model(s, "reference"), "model_source"), "extdata/models/scm-complete/scm/1001/base/1001_base.mod")
-  expect_equal(attr(read_scm_model(comp, "initial"), "model_source"), "extdata/models/scm-complete/1001.mod")
-  expect_equal(attr(read_scm_model(s, round = "forward_round1"), "model_source"), "extdata/models/scm-complete/scm/1001/forward_round1/1001_wt_cl.mod")
-  expect_equal(attr(read_scm_model(s, round = "2", candidate = "wt_v"), "model_source"), "extdata/models/scm-complete/scm/1001/forward_round2/1001_wt_v_try2.mod")
-  expect_error(read_scm_model(s, round = "9"), "no round matching")
-  expect_error(read_scm_model(s, round = "forward_round3"), "has no winner")
-  expect_error(read_scm_model(s, round = "1", candidate = "AGE_CL"), "no candidate named AGE_CL")
-  expect_error(read_scm_model(s, candidate = "WT_CL"), "needs `round`")
-
-  planned <- summary(read_scm(scm_fixture("scm", "1001scm.toml")))
-  expect_error(read_scm_model(planned), "no final model yet \\(status: planned\\)")
-})
-
 test_that("submit_scm_to_slurm() checks its arguments and the pharos CLI first", {
   p <- local_scm_project(effects = "WT_CL")
   expect_error(

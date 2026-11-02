@@ -16,9 +16,7 @@
   process can resume under it; `submit_scm_to_slurm()` starts or resumes the
   process as a SLURM driver job and `stop_scm()` pauses it.
 - `get_scm_status()` and `summary()` return the process record and print
-  pharos' rendering; `get_scm_candidates()` flattens the rounds into a data
-  frame and `read_scm_model()` reads the final, forward, reference, initial
-  or a candidate model. `pharos nonmem scm run` is not wrapped.
+  pharos' rendering. `pharos nonmem scm run` is not wrapped.
 - New vignette: `vignette("scm")`.
 
 ## Bug fixes

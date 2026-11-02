@@ -114,8 +114,6 @@
 #'   \item [get_scm_status()] - Where the process stands
 #'   \item [summary.hyperion_nonmem_scm()] - The process record
 #'   \item [stop_scm()] - Pause the process
-#'   \item [get_scm_candidates()] - Every round's candidates as a data frame
-#'   \item [read_scm_model()] - Read the final, forward, reference or a candidate model
 #' }
 #'
 ## usethis namespace: start

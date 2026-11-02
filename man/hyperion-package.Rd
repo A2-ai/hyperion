@@ -140,8 +140,6 @@ Functions for driving pharos' SCM process on SLURM (see \code{vignette("scm")}):
 \item \code{\link[=get_scm_status]{get_scm_status()}} - Where the process stands
 \item \code{\link[=summary.hyperion_nonmem_scm]{summary.hyperion_nonmem_scm()}} - The process record
 \item \code{\link[=stop_scm]{stop_scm()}} - Pause the process
-\item \code{\link[=get_scm_candidates]{get_scm_candidates()}} - Every round's candidates as a data frame
-\item \code{\link[=read_scm_model]{read_scm_model()}} - Read the final, forward, reference or a candidate model
 }
 }
 

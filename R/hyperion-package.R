@@ -104,17 +104,17 @@
 #' }
 #'
 #' @section Stepwise Covariate Modeling:
-#' Functions for driving pharos' SCM process on SLURM (see `vignette("scm")`):
+#' Functions for writing, editing, and submitting an SCM process (see `vignette("scm")`):
 #' \itemize{
 #'   \item [init_scm()] - Write the SCM config for a model and its candidate effects
 #'   \item [read_scm()] - Read an SCM config as a `hyperion_nonmem_scm` object
-#'   \item [update_scm_settings()] - Edit the settings
+#'   \item [update_scm_settings()] - Edit the settings for an SCM process
 #'   \item [add_scm_effect()], [update_scm_effect()], [remove_scm_effect()] - Edit the candidate effects ([ScmEffect()])
-#'   \item [check_scm()] - The plan a config resolves to, and its warnings
+#'   \item [check_scm()] - Prints the plan a config resolves to, and its warnings
 #'   \item [submit_scm_to_slurm()] - Start or resume the process as a SLURM driver job
-#'   \item [get_scm_status()] - Where the process stands
-#'   \item [summary.hyperion_nonmem_scm()] - The process record
-#'   \item [stop_scm()] - Pause the process
+#'   \item [get_scm_status()] - Current status of scm process as of function call
+#'   \item [summary()] - Generate a summary of SCM results
+#'   \item [stop_scm()] - Stop an SCM process. The process pauses, and submitting its config again resumes it
 #' }
 #'
 ## usethis namespace: start

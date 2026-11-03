@@ -104,7 +104,7 @@
 #' }
 #'
 #' @section Stepwise Covariate Modeling:
-#' Functions for writing, editing, and submitting an SCM process (see `vignette("scm")`):
+#' Functions for writing, editing, and submitting an SCM process:
 #' \itemize{
 #'   \item [init_scm()] - Write the SCM config for a model and its candidate effects
 #'   \item [read_scm()] - Read an SCM config as a `hyperion_nonmem_scm` object

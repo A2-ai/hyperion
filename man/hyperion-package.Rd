@@ -130,7 +130,7 @@ Functions for submitting models to compute clusters:
 
 \section{Stepwise Covariate Modeling}{
 
-Functions for writing, editing, and submitting an SCM process (see \code{vignette("scm")}):
+Functions for writing, editing, and submitting an SCM process:
 \itemize{
 \item \code{\link[=init_scm]{init_scm()}} - Write the SCM config for a model and its candidate effects
 \item \code{\link[=read_scm]{read_scm()}} - Read an SCM config as a \code{hyperion_nonmem_scm} object

@@ -5,7 +5,7 @@
 \title{Update the settings of an SCM config}
 \usage{
 update_scm_settings(
-  scm,
+  path,
   direction = NULL,
   forward_alpha = NULL,
   backward_alpha = NULL,
@@ -18,7 +18,7 @@ update_scm_settings(
 )
 }
 \arguments{
-\item{scm}{A \code{hyperion_nonmem_scm} object or the SCM config (\verb{<stem>scm.toml}).}
+\item{path}{The SCM config (\verb{<stem>scm.toml}), as \code{\link[=init_scm]{init_scm()}} returns it.}
 
 \item{direction}{The phases to run: \code{"forward"}, \code{"backward"}, or both.}
 
@@ -38,17 +38,19 @@ as a fraction.}
 the final model are re-fitted with \verb{$COVARIANCE} on.}
 }
 \value{
-The \code{hyperion_nonmem_scm} object read back from the written
-config, invisibly.
+The config path, invisibly.
 }
 \description{
 Writes the settings given into the config (\verb{<stem>scm.toml}); the others
 keep their values. The candidate effects are edited with
 \code{\link[=add_scm_effect]{add_scm_effect()}}, \code{\link[=update_scm_effect]{update_scm_effect()}} and \code{\link[=remove_scm_effect]{remove_scm_effect()}}.
+Every edit goes to the file: \code{\link[=read_scm]{read_scm()}} reads the result back.
 }
 \examples{
 \dontrun{
-scm <- update_scm_settings("model/nonmem/scm/run001scm.toml", direction = "forward")
-scm <- update_scm_settings(scm, forward_alpha = 0.01, num_rounds = 2)
+config <- "model/nonmem/scm/run001scm.toml"
+update_scm_settings(config, direction = "forward")
+update_scm_settings(config, forward_alpha = 0.01, num_rounds = 2)
+read_scm(config)
 }
 }

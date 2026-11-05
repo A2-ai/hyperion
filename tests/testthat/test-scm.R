@@ -54,7 +54,7 @@ test_that("ScmEffect() validates an effect as pharos reads it", {
 
 test_that("init_scm() takes the effects as names, rows or ScmEffects and validates them", {
   p <- local_scm_project()
-  scm <- suppressMessages(init_scm(
+  config <- suppressMessages(init_scm(
     p$model,
     effects = list(
       "WT_CL",
@@ -62,20 +62,20 @@ test_that("init_scm() takes the effects as names, rows or ScmEffects and validat
       ScmEffect("WT_V", type = "categorical", initial = 1, fixed = 0, lower = 0, upper = 5)
     )
   ))
+  expect_equal(normalizePath(config), normalizePath(p$config))
   expect_equal(
-    scm$covariates$effects,
+    read_scm(config)$covariates$effects,
     list(
       ScmEffect("WT_CL"),
       ScmEffect("CRCL_CL"),
       ScmEffect("WT_V", type = "categorical", initial = 1, fixed = 0, lower = 0, upper = 5)
     )
   )
-  expect_equal(read_scm(p$config)$covariates$effects, scm$covariates$effects)
 
-  scm <- suppressMessages(init_scm(p$model, effects = c("WT_CL", "CRCL_CL"), overwrite = TRUE))
-  expect_equal(scm$covariates$effects, list(ScmEffect("WT_CL"), ScmEffect("CRCL_CL")))
-  scm <- suppressMessages(init_scm(p$model, effects = ScmEffect("WT_CL"), overwrite = TRUE))
-  expect_equal(scm$covariates$effects, list(ScmEffect("WT_CL")))
+  suppressMessages(init_scm(p$model, effects = c("WT_CL", "CRCL_CL"), overwrite = TRUE))
+  expect_equal(read_scm(p$config)$covariates$effects, list(ScmEffect("WT_CL"), ScmEffect("CRCL_CL")))
+  suppressMessages(init_scm(p$model, effects = ScmEffect("WT_CL"), overwrite = TRUE))
+  expect_equal(read_scm(p$config)$covariates$effects, list(ScmEffect("WT_CL")))
 
   before <- readLines(p$config)
   bad <- function(effects) init_scm(p$model, effects = effects, overwrite = TRUE)
@@ -90,10 +90,13 @@ test_that("init_scm() takes the effects as names, rows or ScmEffects and validat
 test_that("add_scm_effect() appends validated effects to the config", {
   p <- local_scm_project(effects = "WT_CL")
 
-  scm <- add_scm_effect(p$scm, "CRCL_CL")
-  scm <- add_scm_effect(p$config, "WT_V", type = "categorical", initial = 1, lower = 0, upper = 5)
-  scm <- add_scm_effect(p$scm, ScmEffect("AGE_CL", fixed = 0))
-  expect_s3_class(scm, "hyperion_nonmem_scm")
+  expect_message(out <- add_scm_effect(p$config, "CRCL_CL"), "Added CRCL_CL in")
+  expect_equal(normalizePath(out), normalizePath(p$config))
+  suppressMessages({
+    add_scm_effect(p$config, "WT_V", type = "categorical", initial = 1, lower = 0, upper = 5)
+    add_scm_effect(p$config, ScmEffect("AGE_CL", fixed = 0))
+  })
+  scm <- read_scm(p$config)
   expect_equal(attr(scm, "config_source"), "model/scm/1001scm.toml")
   expect_equal(
     scm$covariates$effects,
@@ -104,19 +107,22 @@ test_that("add_scm_effect() appends validated effects to the config", {
       ScmEffect("AGE_CL", fixed = 0)
     )
   )
-  expect_equal(read_scm(p$config)$covariates$effects, scm$covariates$effects)
-  more <- add_scm_effect(scm, c("SEX_CL", "SEX_V"))
-  expect_equal(scm_effect_names(more$covariates$effects), c("WT_CL", "CRCL_CL", "WT_V", "AGE_CL", "SEX_CL", "SEX_V"))
+  expect_message(add_scm_effect(p$config, c("SEX_CL", "SEX_V")), "Added SEX_CL, SEX_V")
+  expect_equal(
+    scm_effect_names(read_scm(p$config)$covariates$effects),
+    c("WT_CL", "CRCL_CL", "WT_V", "AGE_CL", "SEX_CL", "SEX_V")
+  )
   written <- readLines(p$config)
   expect_true("# SCM setup for 1001.mod." %in% written)
   expect_true(any(grepl("^forward_alpha = 0.05 .*# p-value", written)))
   expect_snapshot(writeLines(written[grep("^\\[covariates\\]", written):length(written)]))
 
-  expect_error(add_scm_effect(scm, "WT_CL"), "already in the config: WT_CL")
-  expect_error(add_scm_effect(scm, c("SEX_CL", "SEX_CL")), "duplicate effect")
-  expect_error(add_scm_effect(scm, c("SEX_CL", "SEX_V"), initial = 1), "one effect")
-  expect_error(add_scm_effect(scm, ScmEffect("SEX_CL"), initial = 1), "not both")
-  expect_error(add_scm_effect(scm, 42), "effect name or an ScmEffect")
+  expect_error(add_scm_effect(p$config, "WT_CL"), "already in the config: WT_CL")
+  expect_error(add_scm_effect(p$config, c("SEX_CL", "SEX_CL")), "duplicate effect")
+  expect_error(add_scm_effect(p$config, c("SEX_CL", "SEX_V"), initial = 1), "one effect")
+  expect_error(add_scm_effect(p$config, ScmEffect("SEX_CL"), initial = 1), "not both")
+  expect_error(add_scm_effect(p$config, 42), "effect name or an ScmEffect")
+  expect_error(add_scm_effect(scm, "SEX_CL"), "not the object")
   expect_error(add_scm_effect(list(), "SEX_CL"), "SCM config")
   expect_equal(readLines(p$config), written)
 })
@@ -124,53 +130,62 @@ test_that("add_scm_effect() appends validated effects to the config", {
 test_that("remove_scm_effect() drops effects by name", {
   p <- local_scm_project(effects = c("WT_CL", "CRCL_CL", "WT_V"))
 
-  scm <- remove_scm_effect(p$scm, "CRCL_CL")
-  expect_equal(scm$covariates$effects, list(ScmEffect("WT_CL"), ScmEffect("WT_V")))
-  expect_equal(read_scm(p$config)$covariates$effects, scm$covariates$effects)
-  expect_equal(
-    remove_scm_effect(p$config, ScmEffect("WT_V"))$covariates$effects,
-    list(ScmEffect("WT_CL"))
-  )
+  expect_message(out <- remove_scm_effect(p$config, "CRCL_CL"), "Removed CRCL_CL in")
+  expect_equal(normalizePath(out), normalizePath(p$config))
+  expect_equal(read_scm(p$config)$covariates$effects, list(ScmEffect("WT_CL"), ScmEffect("WT_V")))
+  suppressMessages(remove_scm_effect(p$config, ScmEffect("WT_V")))
+  expect_equal(read_scm(p$config)$covariates$effects, list(ScmEffect("WT_CL")))
 
-  expect_error(remove_scm_effect(scm, "AGE_CL"), "no effect\\(s\\) named AGE_CL in the config; it has: WT_CL")
-  expect_error(remove_scm_effect(scm, c("WT_CL", "AGE_CL", "SEX_V")), "named AGE_CL, SEX_V")
-  expect_error(remove_scm_effect(scm, character()), "one or more effect names")
-  expect_error(remove_scm_effect(scm, 1), "one or more effect names")
-  expect_length(remove_scm_effect(scm, "WT_CL")$covariates$effects, 0)
-  expect_error(remove_scm_effect(scm, "WT_CL"), "it has none")
+  expect_error(remove_scm_effect(p$config, "AGE_CL"), "no effect\\(s\\) named AGE_CL in the config; it has: WT_CL")
+  expect_error(remove_scm_effect(p$config, c("WT_CL", "AGE_CL", "SEX_V")), "named AGE_CL, SEX_V")
+  expect_error(remove_scm_effect(p$config, character()), "one or more effect names")
+  expect_error(remove_scm_effect(p$config, 1), "one or more effect names")
+  suppressMessages(remove_scm_effect(p$config, "WT_CL"))
+  expect_length(read_scm(p$config)$covariates$effects, 0)
+  expect_error(remove_scm_effect(p$config, "WT_CL"), "it has none")
+  expect_error(remove_scm_effect(p$scm, "WT_CL"), "not the object")
   expect_error(remove_scm_effect("not an scm", "WT_CL"), "SCM config")
 })
 
 test_that("update_scm_effect() replaces the settings given on an effect", {
   p <- local_scm_project(effects = c("WT_CL", "WT_V"))
 
-  scm <- update_scm_effect(p$scm, "WT_V", type = "categorical", initial = 1, lower = 0, upper = 5)
-  expect_equal(scm$covariates$effects[[2]], ScmEffect("WT_V", type = "categorical", initial = 1, lower = 0, upper = 5))
-  scm <- update_scm_effect(p$config, "WT_V", initial = 2)
-  expect_equal(scm$covariates$effects[[2]], ScmEffect("WT_V", type = "categorical", initial = 2, lower = 0, upper = 5))
-  scm <- update_scm_effect(scm, ScmEffect("WT_V", fixed = 0))
-  expect_equal(scm$covariates$effects, list(ScmEffect("WT_CL"), ScmEffect("WT_V", fixed = 0)))
-  expect_equal(read_scm(p$config)$covariates$effects, scm$covariates$effects)
+  expect_message(
+    out <- update_scm_effect(p$config, "WT_V", type = "categorical", initial = 1, lower = 0, upper = 5),
+    "Updated WT_V in"
+  )
+  expect_equal(normalizePath(out), normalizePath(p$config))
+  effects <- function() read_scm(p$config)$covariates$effects
+  expect_equal(effects()[[2]], ScmEffect("WT_V", type = "categorical", initial = 1, lower = 0, upper = 5))
+  suppressMessages(update_scm_effect(p$config, "WT_V", initial = 2))
+  expect_equal(effects()[[2]], ScmEffect("WT_V", type = "categorical", initial = 2, lower = 0, upper = 5))
+  suppressMessages(update_scm_effect(p$config, ScmEffect("WT_V", fixed = 0)))
+  expect_equal(effects(), list(ScmEffect("WT_CL"), ScmEffect("WT_V", fixed = 0)))
 
-  expect_error(update_scm_effect(scm, "AGE_CL"), "no effect named AGE_CL in the config; it has: WT_CL, WT_V")
-  expect_error(update_scm_effect(scm, ScmEffect("AGE_CL")), "no effect named AGE_CL")
-  expect_error(update_scm_effect(scm, ScmEffect("WT_V"), initial = 1), "not both")
-  expect_error(update_scm_effect(scm, c("WT_CL", "WT_V")), "effect name or an ScmEffect")
-  expect_error(update_scm_effect(scm, "WT_CL", lower = 1, upper = 0), "@lower must be below @upper")
+  expect_error(update_scm_effect(p$config, "AGE_CL"), "no effect named AGE_CL in the config; it has: WT_CL, WT_V")
+  expect_error(update_scm_effect(p$config, ScmEffect("AGE_CL")), "no effect named AGE_CL")
+  expect_error(update_scm_effect(p$config, ScmEffect("WT_V"), initial = 1), "not both")
+  expect_error(update_scm_effect(p$config, c("WT_CL", "WT_V")), "effect name or an ScmEffect")
+  expect_error(update_scm_effect(p$config, "WT_CL", lower = 1, upper = 0), "@lower must be below @upper")
+  expect_error(update_scm_effect(p$scm, "WT_CL", initial = 1), "not the object")
   expect_error(update_scm_effect("not an scm", "WT_CL"), "SCM config")
 })
 
 test_that("update_scm_settings() writes the settings given and keeps the others", {
   p <- local_scm_project(effects = "WT_CL")
 
-  scm <- update_scm_settings(p$scm, direction = "forward", forward_alpha = 0.01, max_retries = 5, cov_step = TRUE)
+  expect_message(
+    out <- update_scm_settings(p$config, direction = "forward", forward_alpha = 0.01, max_retries = 5, cov_step = TRUE),
+    "Set direction, forward_alpha, max_retries, cov_step in"
+  )
+  expect_equal(normalizePath(out), normalizePath(p$config))
+  scm <- read_scm(p$config)
   expect_equal(scm$direction, "forward")
   expect_equal(scm$forward_alpha, 0.01)
   expect_equal(scm$backward_alpha, 0.001)
   expect_identical(scm$max_retries, 5L)
   expect_true(scm$cov_step)
   expect_equal(scm$covariates$effects, list(ScmEffect("WT_CL")))
-  expect_equal(read_scm(p$config), scm)
   written <- readLines(p$config)
   expect_true('direction = ["forward"]' %in% written)
   expect_true("max_retries = 5" %in% written)
@@ -179,23 +194,27 @@ test_that("update_scm_settings() writes the settings given and keeps the others"
   expect_equal(unlist(plan$options$direction), "forward")
   expect_equal(plan$options$max_retries, 5)
 
-  scm <- update_scm_settings(p$config, direction = c("forward", "backward"), num_rounds = 2)
+  suppressMessages(update_scm_settings(p$config, direction = c("forward", "backward"), num_rounds = 2))
+  scm <- read_scm(p$config)
   expect_equal(scm$direction, c("forward", "backward"))
   expect_identical(scm$num_rounds, 2L)
   expect_match(attr(check_scm(scm), "text"), "pause after 2")
 
-  expect_error(update_scm_settings(scm), "at least one setting")
-  expect_error(update_scm_settings(scm, direction = "sideways"), '`direction` must be "forward", "backward", or both')
-  expect_error(update_scm_settings(scm, direction = c("forward", "forward")), "`direction` must be")
-  expect_error(update_scm_settings(scm, forward_alpha = "0.05"), "`forward_alpha` must be a single number")
-  expect_error(update_scm_settings(scm, max_retries = 1.5), "`max_retries` must be a single whole number")
-  expect_error(update_scm_settings(scm, cov_step = NA), "`cov_step` must be TRUE or FALSE")
+  expect_error(update_scm_settings(p$config), "at least one setting")
+  expect_error(update_scm_settings(p$config, direction = "sideways"), '`direction` must be "forward", "backward", or both')
+  expect_error(update_scm_settings(p$config, direction = c("forward", "forward")), "`direction` must be")
+  expect_error(update_scm_settings(p$config, forward_alpha = "0.05"), "`forward_alpha` must be a single number")
+  expect_error(update_scm_settings(p$config, max_retries = 1.5), "`max_retries` must be a single whole number")
+  expect_error(update_scm_settings(p$config, cov_step = NA), "`cov_step` must be TRUE or FALSE")
+  expect_error(update_scm_settings(scm, cov_step = TRUE), "not the object")
   expect_error(update_scm_settings(p$model, cov_step = TRUE), "SCM config")
 })
 
-test_that("init_scm() writes the starter config and returns the object", {
+test_that("init_scm() writes the starter config and returns its path", {
   p <- local_scm_project()
-  expect_snapshot(scm <- init_scm(p$model))
+  expect_snapshot(config <- init_scm(p$model))
+  expect_equal(normalizePath(config), normalizePath(p$config))
+  scm <- read_scm(config)
   expect_s3_class(scm, "hyperion_nonmem_scm")
   expect_equal(attr(scm, "config_source"), "model/scm/1001scm.toml")
   expect_equal(scm$model, "model/1001.mod")
@@ -204,10 +223,28 @@ test_that("init_scm() writes the starter config and returns the object", {
   expect_true(dir.exists(p$out_dir))
   expect_true(file.exists(file.path(p$out_dir, ".gitignore")))
 
-  expect_error(suppressMessages(init_scm(p$model)), "already exists")
   expect_no_error(suppressMessages(init_scm(p$model, overwrite = TRUE)))
   expect_no_error(suppressMessages(init_scm(read_model(p$model), overwrite = TRUE)))
   expect_error(init_scm(file.path(p$root, "model", "nope.mod")), "File not found")
+})
+
+test_that("init_scm() reports a config that already exists and returns its path", {
+  p <- local_scm_project(effects = c("WT_CL", "CRCL_CL"))
+  before <- readLines(p$config)
+  expect_snapshot(config <- init_scm(p$model))
+  expect_equal(normalizePath(config), normalizePath(p$config))
+  expect_equal(readLines(p$config), before)
+
+  # The same names in another order are the config's; others are a warning.
+  expect_no_warning(suppressMessages(init_scm(p$model, effects = c("CRCL_CL", "WT_CL"))))
+  expect_warning(
+    suppressMessages(init_scm(p$model, effects = c("WT_CL", "WT_V"))),
+    "`effects` differ from the config's"
+  )
+  expect_equal(readLines(p$config), before)
+
+  suppressMessages(init_scm(p$model, effects = "WT_V", overwrite = TRUE))
+  expect_equal(read_scm(p$config)$covariates$effects, list(ScmEffect("WT_V")))
 })
 
 test_that("check_scm() returns the plan with its warnings", {
@@ -244,12 +281,12 @@ test_that("check_scm() reports a started process", {
 
 test_that("check_scm() errors as pharos does, with the dialect hint", {
   p <- local_scm_project()
-  scm <- suppressMessages(init_scm(p$model))
-  expect_error(check_scm(scm), "effects must name at least one theta")
-  expect_error(check_scm(p$config), "effects must name at least one theta")
+  config <- suppressMessages(init_scm(p$model))
+  expect_error(check_scm(config), "effects must name at least one theta")
+  expect_error(check_scm(read_scm(config)), "effects must name at least one theta")
 
-  scm <- add_scm_effect(scm, "AGE_CL")
-  err <- expect_error(check_scm(scm), "no theta named AGE_CL")
+  suppressMessages(add_scm_effect(config, "AGE_CL"))
+  err <- expect_error(check_scm(config), "no theta named AGE_CL")
   expect_match(conditionMessage(err), "named by a comment: CRCL_CL, TVCL, TVKA, TVV, WT_CL, WT_V")
   expect_match(conditionMessage(err), "comments are parsed as type2")
 
@@ -342,6 +379,38 @@ test_that("summary() renders the long, timing and files views", {
   expect_false(grepl("backward_round1", attr(r2, "text")))
   expect_error(summary(comp, round = "9"), "no round matching '9'")
   expect_error(summary(comp, candidate = "AGE_CL"), "no candidate named AGE_CL")
+})
+
+test_that("get_scm_model() reads a fitted model by stage, round and candidate", {
+  comp <- read_scm(scm_complete_fixture("scm", "1001scm.toml"))
+  stem <- function(m) attr(m, "filename")
+
+  final <- get_scm_model(comp, "final")
+  expect_s3_class(final, "hyperion_nonmem_model")
+  expect_equal(stem(final), "1001_scm_final")
+  expect_no_error(summary(final))
+
+  expect_equal(stem(get_scm_model(comp, "forward_final")), "1001_scm_forward_final")
+  expect_equal(stem(get_scm_model(comp, "reference")), "1001_base")
+  expect_equal(stem(get_scm_model(comp, "reference", candidate = "ignored")), "1001_base")
+  expect_equal(stem(get_scm_model(comp, "forward_round2")), "1001_crcl_cl")
+  expect_equal(stem(get_scm_model(comp, "backward_round1")), "1001_crcl_cl")
+  # The attempt that counted: WT_V was retried in forward round 2.
+  expect_equal(stem(get_scm_model(comp, "forward_round2", candidate = "WT_V")), "1001_wt_v_try2")
+  expect_equal(stem(get_scm_model(comp, 2, candidate = "wt_v")), "1001_wt_v_try2")
+  expect_equal(stem(get_scm_model(comp, "round 2", candidate = "WT_V")), "1001_wt_v_try2")
+  expect_equal(stem(get_scm_model(scm_complete_fixture("scm", "1001scm.toml"), "FINAL")), "1001_scm_final")
+
+  expect_error(get_scm_model(comp, "forward_round3"), "forward_round3 has no winner: no candidate significant")
+  expect_error(
+    get_scm_model(comp, "forward_round2", candidate = "AGE_CL"),
+    "no candidate named AGE_CL in forward_round2; it has: CRCL_CL, WT_V"
+  )
+  expect_error(get_scm_model(comp, "9"), "no round matching '9'; rounds so far: reference, forward_round1")
+  expect_error(get_scm_model(comp, c("final", "reference")), "`round` must be")
+  expect_error(get_scm_model(comp, "final", candidate = 1), "`candidate` must be")
+  expect_error(get_scm_model(read_scm(scm_fixture("scm", "1001scm.toml")), "final"), "has not started")
+  expect_error(get_scm_model(scm_fixture("1001.mod"), "final"), "named <stem>scm.toml")
 })
 
 test_that("submit_scm_to_slurm() checks its arguments and the pharos CLI first", {

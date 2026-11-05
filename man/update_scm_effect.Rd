@@ -5,7 +5,7 @@
 \title{Update a candidate effect in an SCM config}
 \usage{
 update_scm_effect(
-  scm,
+  path,
   name,
   type = NULL,
   initial = NULL,
@@ -15,7 +15,7 @@ update_scm_effect(
 )
 }
 \arguments{
-\item{scm}{A \code{hyperion_nonmem_scm} object or the SCM config (\verb{<stem>scm.toml}).}
+\item{path}{The SCM config (\verb{<stem>scm.toml}), as \code{\link[=init_scm]{init_scm()}} returns it.}
 
 \item{name}{The effect to update: its name, or an \code{\link[=ScmEffect]{ScmEffect()}} that
 replaces the effect of that name whole.}
@@ -26,18 +26,19 @@ initial estimate while tested, the value fixed at while held out, and
 the bounds while tested.}
 }
 \value{
-The \code{hyperion_nonmem_scm} object read back from the written
-config, invisibly.
+The config path, invisibly.
 }
 \description{
 Replaces the settings given on the named effect, keeps its others, and
-writes the config.
+writes the config. Every edit goes to the file: \code{\link[=read_scm]{read_scm()}} reads the
+result back.
 }
 \examples{
 \dontrun{
-update_scm_effect("model/nonmem/scm/run001scm.toml", "WT_CL", initial = 0.5)
-scm <- read_scm("model/nonmem/scm/run001scm.toml")
-scm <- update_scm_effect(scm, ScmEffect("SEX_V", type = "categorical", lower = 0, upper = 5))
+config <- "model/nonmem/scm/run001scm.toml"
+update_scm_effect(config, "WT_CL", initial = 0.5)
+update_scm_effect(config, ScmEffect("SEX_V", type = "categorical", lower = 0, upper = 5))
+read_scm(config)
 }
 }
 \seealso{

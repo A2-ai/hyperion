@@ -512,7 +512,8 @@ compute_rse <- function(estimate, se, param_type, transform = 'identity') .Call(
 #' }
 transform_value <- function(value, transform) .Call(wrap__transform_value, value, transform)
 
-#' Write the starter SCM config and output directory for a model.
+#' Write the starter SCM config and output directory for a model, or find
+#' the config already there: `existed` says which.
 #'
 #' @keywords internal
 #' @noRd

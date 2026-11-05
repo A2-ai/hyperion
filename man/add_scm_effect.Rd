@@ -5,7 +5,7 @@
 \title{Add a candidate effect to an SCM config}
 \usage{
 add_scm_effect(
-  scm,
+  path,
   name,
   type = NULL,
   initial = NULL,
@@ -15,7 +15,7 @@ add_scm_effect(
 )
 }
 \arguments{
-\item{scm}{A \code{hyperion_nonmem_scm} object or the SCM config (\verb{<stem>scm.toml}).}
+\item{path}{The SCM config (\verb{<stem>scm.toml}), as \code{\link[=init_scm]{init_scm()}} returns it.}
 
 \item{name}{The effect to add: its \verb{$THETA} comment name in the model, or
 an \code{\link[=ScmEffect]{ScmEffect()}}. Several names add several effects with the settings
@@ -27,17 +27,18 @@ initial estimate while tested, the value fixed at while held out, and
 the bounds while tested.}
 }
 \value{
-The \code{hyperion_nonmem_scm} object read back from the written
-config, invisibly.
+The config path, invisibly.
 }
 \description{
-Appends an effect to the config's \code{effects} and writes the config.
+Appends an effect to the config's \code{effects} and writes the config. Every
+edit goes to the file: \code{\link[=read_scm]{read_scm()}} reads the result back.
 }
 \examples{
 \dontrun{
-add_scm_effect("model/nonmem/scm/run001scm.toml", "AGE_CL")
-scm <- read_scm("model/nonmem/scm/run001scm.toml")
-scm <- add_scm_effect(scm, "SEX_V", type = "categorical", lower = 0, upper = 5)
+config <- "model/nonmem/scm/run001scm.toml"
+add_scm_effect(config, "AGE_CL")
+add_scm_effect(config, "SEX_V", type = "categorical", lower = 0, upper = 5)
+read_scm(config)
 }
 }
 \seealso{

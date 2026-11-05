@@ -63,10 +63,13 @@ mod
 # Setting up the process
 
 `init_scm()` writes the config, `<stem>scm.toml`, beside the process's own
-directory (`scm/<stem>/` next to the model by default) and returns it as an
-object. `effects` names the candidates; an effect that needs more than its
-name is given as a row. The other options are set in the
-file, where pharos' comments explain each one.
+directory (`scm/<stem>/` next to the model by default) and returns its path.
+`effects` names the candidates; an effect that needs more than its name is
+given as a row. The other options are set in the file, where pharos'
+comments explain each one. A config that is already there is reported and
+its path returned as it is, so the call reads the same the first time a
+document runs and every time after; `overwrite = TRUE` replaces it.
+`read_scm()` reads the file as an object.
 
 ```{r init}
 dir.create("extdata/models/scm-demo")
@@ -75,32 +78,31 @@ file.copy(
   "extdata/models/scm-demo"
 )
 
-scm <- init_scm(
+config <- init_scm(
   "extdata/models/scm-demo/1001.mod",
   effects = list(
     "WT_CL",
     list(name = "WT_V", type = "categorical", initial = 1, lower = 0, upper = 5)
   )
 )
+scm <- read_scm(config)
 ```
 
 ```{r print-scm, results='asis'}
 scm
 ```
 
-`read_scm()` reads the file back as the same object.
-
 The effects are `ScmEffect()` objects, held under `scm$covariates$effects`.
 `add_scm_effect()`, `update_scm_effect()` and `remove_scm_effect()` change
-them in the file and return the config read back; each takes the object or
-the config path, and an effect as its name with the settings, or as an
-`ScmEffect()`.
+them in the file: each takes the config path, and an effect as its name with
+the settings, or as an `ScmEffect()`, and returns the path. The edits go to
+the file, never to an object, so `read_scm()` reads them back.
 
 ```{r effects}
-scm <- add_scm_effect("extdata/models/scm-demo/scm/1001scm.toml", "CRCL_CL", initial = 0.5)
-scm <- update_scm_effect(scm, "WT_V", upper = 10)
-scm <- remove_scm_effect(scm, ScmEffect("WT_CL"))
-scm$covariates$effects
+add_scm_effect(config, "CRCL_CL", initial = 0.5)
+update_scm_effect(config, "WT_V", upper = 10)
+remove_scm_effect(config, ScmEffect("WT_CL"))
+read_scm(config)$covariates$effects
 ```
 
 `update_scm_settings()` writes the settings it is given, `direction` through
@@ -108,7 +110,8 @@ scm$covariates$effects
 (`fixed`, `continuous`, `categorical`) are edited in the file.
 
 ```{r settings}
-scm <- update_scm_settings(scm, forward_alpha = 0.01, num_rounds = 2)
+update_scm_settings(config, forward_alpha = 0.01, num_rounds = 2)
+scm <- read_scm(config)
 scm
 ```
 
@@ -175,6 +178,28 @@ returned object is always the whole record.
 summary(done, round = "forward_round1", long = TRUE)
 ```
 
+# Getting a fitted model
+
+`get_scm_model()` reads one of the process's fits as a `hyperion_nonmem_model`,
+the object `read_model()` gives for any run, so `summary()` and the parameter
+functions work on it. `round` names a stage, `"reference"`, `"forward_final"`
+or `"final"`, or a selection round as `summary()` takes it; in a round,
+`candidate` picks one effect's fit, and left out gives the round's winner.
+A fit that was retried comes back as the attempt that counted.
+
+```{r model-final, results='asis'}
+final <- get_scm_model(done, "final")
+final
+```
+
+`summary(final)` then reads its run like any other. The attempt that counted
+is the one returned: `WT_V` was retried in the second forward round, so its
+fit there is the retry.
+
+```{r model-round}
+get_model_name(get_scm_model(done, "forward_round2", candidate = "WT_V"))
+```
+
 # What stays in the CLI
 
 `pharos nonmem scm run`, which drives the process from a terminal instead of a
@@ -190,3 +215,4 @@ terminal. Everything else in `pharos nonmem scm` has a hyperion function.
 | `scm status`              | `get_scm_status()`           |
 | `scm stop`                | `stop_scm()`                 |
 | `scm summary`             | `summary()`                  |
+| read a fit's `.mod`       | `get_scm_model()`            |

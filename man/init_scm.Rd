@@ -14,21 +14,25 @@ init_scm(model, effects = NULL, overwrite = FALSE)
 the model: a character vector of names, or a list whose elements are a
 name or a row \code{list(name = , type = , initial = , fixed = , lower = , upper = )} (\code{type} is \code{"continuous"}, the default, or
 \code{"categorical"}; the numbers are optional). \code{NULL} writes the config with
-no effects, to be added with \code{\link[=add_scm_effect]{add_scm_effect()}} or by hand.}
+no effects, to be added with \code{\link[=add_scm_effect]{add_scm_effect()}} or by hand. When the
+config already exists the effects are not written; names that differ
+from the file's are a warning.}
 
 \item{overwrite}{Replace an existing config. Default \code{FALSE}.}
 }
 \value{
-The new \code{hyperion_nonmem_scm} object, invisibly.
+The path to the config, invisibly. \code{\link[=read_scm]{read_scm()}} reads it.
 }
 \description{
 Writes the starter config (\verb{<stem>scm.toml}) and the SCM directory beside
 the model, as \verb{pharos nonmem scm init} does, with the candidate effects
-filled in.
+filled in. A config already there is left as it is and its path returned,
+so the call is the same the first time and every time after; \code{overwrite = TRUE} replaces it.
 }
 \examples{
 \dontrun{
-scm <- init_scm("model/nonmem/run001.mod", effects = c("WT_CL", "CRCL_CL"))
+config <- init_scm("model/nonmem/run001.mod", effects = c("WT_CL", "CRCL_CL"))
+scm <- read_scm(config)
 check_scm(scm)
 
 init_scm(
@@ -42,5 +46,5 @@ init_scm(
 }
 }
 \seealso{
-\code{\link[=add_scm_effect]{add_scm_effect()}}, \code{\link[=remove_scm_effect]{remove_scm_effect()}}
+\code{\link[=read_scm]{read_scm()}}, \code{\link[=add_scm_effect]{add_scm_effect()}}, \code{\link[=remove_scm_effect]{remove_scm_effect()}}
 }

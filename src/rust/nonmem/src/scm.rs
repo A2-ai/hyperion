@@ -183,7 +183,30 @@ pub fn read_scm_toml_wrap(path: &str) -> Result<Robj> {
     Ok(toml_to_robj(&value))
 }
 
-/// Write the starter SCM config and output directory for a model.
+/// Where `scm init` puts the config for `model`, when it is already there:
+/// `<stem>scm.toml` beside the out_dir the project's `[nonmem.scm] out_dir`
+/// template names, as `scm::init_scm` places it. A missing model is left
+/// for pharos to report.
+fn existing_scm_config(model: &Path) -> std::result::Result<Option<scm::ScmInit>, anyhow::Error> {
+    if !model.exists() {
+        return Ok(None);
+    }
+    let layout = nonmem::ModelLayout::for_model_path(model)?;
+    let settings = scm::project_config(layout.model_dir())
+        .unwrap_or_default()
+        .scm;
+    let out_dir = scm::default_out_dir(&layout, &settings)?;
+    let config_path = out_dir
+        .parent()
+        .ok_or_else(|| anyhow::anyhow!("{} has no parent directory", out_dir.display()))?
+        .join(format!("{}{}", layout.stem(), scm::CONFIG_SUFFIX));
+    Ok(config_path
+        .exists()
+        .then(|| scm::ScmInit { config_path, out_dir }))
+}
+
+/// Write the starter SCM config and output directory for a model, or find
+/// the config already there: `existed` says which.
 ///
 /// @keywords internal
 /// @noRd
@@ -194,10 +217,15 @@ pub fn init_scm_wrap(model: Robj, #[extendr(default = "FALSE")] overwrite: bool)
         .parent()
         .map(Path::to_path_buf)
         .unwrap_or_default();
-    let init = scm::init_scm(&model_path, overwrite).map_scm_err(&near)?;
+    // Look before writing: a config already there is reported, not replaced.
+    let (init, existed) = match existing_scm_config(&model_path).map_scm_err(&near)? {
+        Some(existing) if !overwrite => (existing, true),
+        _ => (scm::init_scm(&model_path, overwrite).map_scm_err(&near)?, false),
+    };
     Ok(list!(
         config_path = absolute_string(&init.config_path),
-        out_dir = absolute_string(&init.out_dir)
+        out_dir = absolute_string(&init.out_dir),
+        existed = existed
     )
     .into_robj())
 }

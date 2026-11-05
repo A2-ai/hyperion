@@ -166,9 +166,10 @@ scm_effect_settings <- function(type, initial, fixed, lower, upper) {
 
 #' Add a candidate effect to an SCM config
 #'
-#' Appends an effect to the config's `effects` and writes the config.
+#' Appends an effect to the config's `effects` and writes the config. Every
+#' edit goes to the file: [read_scm()] reads the result back.
 #'
-#' @param scm A `hyperion_nonmem_scm` object or the SCM config (`<stem>scm.toml`).
+#' @param path The SCM config (`<stem>scm.toml`), as [init_scm()] returns it.
 #' @param name The effect to add: its `$THETA` comment name in the model, or
 #'   an [ScmEffect()]. Several names add several effects with the settings
 #'   left out.
@@ -176,18 +177,18 @@ scm_effect_settings <- function(type, initial, fixed, lower, upper) {
 #'   optional: `"continuous"` (pharos' default) or `"categorical"`, the
 #'   initial estimate while tested, the value fixed at while held out, and
 #'   the bounds while tested.
-#' @return The `hyperion_nonmem_scm` object read back from the written
-#'   config, invisibly.
+#' @return The config path, invisibly.
 #' @seealso [update_scm_effect()], [remove_scm_effect()]
 #' @export
 #'
 #' @examples \dontrun{
-#' add_scm_effect("model/nonmem/scm/run001scm.toml", "AGE_CL")
-#' scm <- read_scm("model/nonmem/scm/run001scm.toml")
-#' scm <- add_scm_effect(scm, "SEX_V", type = "categorical", lower = 0, upper = 5)
+#' config <- "model/nonmem/scm/run001scm.toml"
+#' add_scm_effect(config, "AGE_CL")
+#' add_scm_effect(config, "SEX_V", type = "categorical", lower = 0, upper = 5)
+#' read_scm(config)
 #' }
 add_scm_effect <- function(
-  scm,
+  path,
   name,
   type = NULL,
   initial = NULL,
@@ -195,7 +196,7 @@ add_scm_effect <- function(
   lower = NULL,
   upper = NULL
 ) {
-  scm <- read_scm(scm_config_from(scm))
+  scm <- read_scm(check_scm_edit_path(path))
   settings <- scm_effect_settings(type, initial, fixed, lower, upper)
   if (S7::S7_inherits(name, ScmEffect)) {
     if (length(settings)) {
@@ -223,32 +224,35 @@ add_scm_effect <- function(
     rlang::abort(paste0(
       "effect(s) already in the config: ",
       paste(present, collapse = ", "),
-      "; remove_scm_effect() first to change one"
+      "; update_scm_effect() changes one"
     ))
   }
-  invisible(write_scm_effects(scm, c(effects, new)))
+  path <- write_scm_effects(scm, c(effects, new))
+  scm_edit_note(paste0("Added ", paste(scm_effect_names(new), collapse = ", ")), path)
+  invisible(path)
 }
 
 #' Update a candidate effect in an SCM config
 #'
 #' Replaces the settings given on the named effect, keeps its others, and
-#' writes the config.
+#' writes the config. Every edit goes to the file: [read_scm()] reads the
+#' result back.
 #'
 #' @inheritParams add_scm_effect
 #' @param name The effect to update: its name, or an [ScmEffect()] that
 #'   replaces the effect of that name whole.
-#' @return The `hyperion_nonmem_scm` object read back from the written
-#'   config, invisibly.
+#' @return The config path, invisibly.
 #' @seealso [add_scm_effect()], [remove_scm_effect()]
 #' @export
 #'
 #' @examples \dontrun{
-#' update_scm_effect("model/nonmem/scm/run001scm.toml", "WT_CL", initial = 0.5)
-#' scm <- read_scm("model/nonmem/scm/run001scm.toml")
-#' scm <- update_scm_effect(scm, ScmEffect("SEX_V", type = "categorical", lower = 0, upper = 5))
+#' config <- "model/nonmem/scm/run001scm.toml"
+#' update_scm_effect(config, "WT_CL", initial = 0.5)
+#' update_scm_effect(config, ScmEffect("SEX_V", type = "categorical", lower = 0, upper = 5))
+#' read_scm(config)
 #' }
 update_scm_effect <- function(
-  scm,
+  path,
   name,
   type = NULL,
   initial = NULL,
@@ -256,7 +260,7 @@ update_scm_effect <- function(
   lower = NULL,
   upper = NULL
 ) {
-  scm <- read_scm(scm_config_from(scm))
+  scm <- read_scm(check_scm_edit_path(path))
   settings <- scm_effect_settings(type, initial, fixed, lower, upper)
   effects <- scm$covariates$effects
   current <- scm_effect_names(effects)
@@ -283,25 +287,27 @@ update_scm_effect <- function(
     new <- do.call(ScmEffect, utils::modifyList(scm_effect_row(effects[[i]]), settings))
   }
   effects[[i]] <- new
-  invisible(write_scm_effects(scm, effects))
+  path <- write_scm_effects(scm, effects)
+  scm_edit_note(paste0("Updated ", name), path)
+  invisible(path)
 }
 
 #' Remove a candidate effect from an SCM config
 #'
 #' Drops effects from the config's `effects` by name and writes the config.
+#' Every edit goes to the file: [read_scm()] reads the result back.
 #'
-#' @param scm A `hyperion_nonmem_scm` object or the SCM config (`<stem>scm.toml`).
+#' @param path The SCM config (`<stem>scm.toml`), as [init_scm()] returns it.
 #' @param name The name(s) of the effects to remove.
-#' @return The `hyperion_nonmem_scm` object read back from the written
-#'   config, invisibly.
+#' @return The config path, invisibly.
 #' @seealso [add_scm_effect()], [update_scm_effect()]
 #' @export
 #'
 #' @examples \dontrun{
 #' remove_scm_effect("model/nonmem/scm/run001scm.toml", "WT_V")
 #' }
-remove_scm_effect <- function(scm, name) {
-  scm <- read_scm(scm_config_from(scm))
+remove_scm_effect <- function(path, name) {
+  scm <- read_scm(check_scm_edit_path(path))
   if (S7::S7_inherits(name, ScmEffect)) {
     name <- name@name
   }
@@ -319,5 +325,7 @@ remove_scm_effect <- function(scm, name) {
       if (length(current)) paste0("; it has: ", paste(current, collapse = ", ")) else " (it has none)"
     ))
   }
-  invisible(write_scm_effects(scm, effects[!current %in% name]))
+  path <- write_scm_effects(scm, effects[!current %in% name])
+  scm_edit_note(paste0("Removed ", paste(name, collapse = ", ")), path)
+  invisible(path)
 }

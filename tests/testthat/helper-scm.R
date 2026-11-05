@@ -14,15 +14,17 @@ local_scm_project <- function(effects = NULL, .local_envir = parent.frame()) {
   file.copy(scm_fixture(c("1001.mod", "data.csv")), file.path(root, "model"))
   withr::local_options(hyperion.config_dir = root, .local_envir = .local_envir)
   model <- file.path(root, "model", "1001.mod")
+  config <- file.path(root, "model", "scm", "1001scm.toml")
   scm <- NULL
   if (!is.null(effects)) {
-    scm <- suppressMessages(init_scm(model, effects = effects))
+    suppressMessages(init_scm(model, effects = effects))
+    scm <- read_scm(config)
   }
   list(
     root = root,
     model = model,
     scm = scm,
-    config = file.path(root, "model", "scm", "1001scm.toml"),
+    config = config,
     out_dir = file.path(root, "model", "scm", "1001")
   )
 }

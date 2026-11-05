@@ -4,19 +4,19 @@
 \alias{remove_scm_effect}
 \title{Remove a candidate effect from an SCM config}
 \usage{
-remove_scm_effect(scm, name)
+remove_scm_effect(path, name)
 }
 \arguments{
-\item{scm}{A \code{hyperion_nonmem_scm} object or the SCM config (\verb{<stem>scm.toml}).}
+\item{path}{The SCM config (\verb{<stem>scm.toml}), as \code{\link[=init_scm]{init_scm()}} returns it.}
 
 \item{name}{The name(s) of the effects to remove.}
 }
 \value{
-The \code{hyperion_nonmem_scm} object read back from the written
-config, invisibly.
+The config path, invisibly.
 }
 \description{
 Drops effects from the config's \code{effects} by name and writes the config.
+Every edit goes to the file: \code{\link[=read_scm]{read_scm()}} reads the result back.
 }
 \examples{
 \dontrun{

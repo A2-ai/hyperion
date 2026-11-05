@@ -16,15 +16,24 @@
           { name = "SEX_V" }
       ]
 
-# init_scm() writes the starter config and returns the object
+# init_scm() writes the starter config and returns its path
 
     Code
-      scm <- init_scm(p$model)
+      config <- init_scm(p$model)
     Message
       v SCM config written: 'model/scm/1001scm.toml'
       i SCM directory: 'model/scm/1001'
       ! No effects yet: pass `effects` to `init_scm()` or add them with `add_scm_effect()`.
+      Read it with `read_scm()`.
       `check_scm()` shows what a submit would do; `submit_scm_to_slurm()` runs it.
+
+# init_scm() reports a config that already exists and returns its path
+
+    Code
+      config <- init_scm(p$model)
+    Message
+      i SCM config already exists: 'model/scm/1001scm.toml'
+      `read_scm()` reads it; `overwrite = TRUE` replaces it.
 
 # get_scm_status() reads a planned process
 

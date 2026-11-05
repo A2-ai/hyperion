@@ -55,15 +55,19 @@ check_scm_config_path <- function(path, must_exist = FALSE) {
   invisible(path)
 }
 
-# The config file for `scm`: the object's, or the path given.
-scm_config_from <- function(scm) {
-  if (inherits(scm, "hyperion_nonmem_scm")) {
-    return(from_config_relative(attr(scm, "config_source")))
+# The config path an editor takes: the file itself, never the object, so
+# that every edit lands in the file.
+check_scm_edit_path <- function(path) {
+  if (inherits(path, "hyperion_nonmem_scm")) {
+    rlang::abort(c(
+      "`path` must be the SCM config (<stem>scm.toml), not the object",
+      i = "the edits go to the file; `read_scm()` reads them back"
+    ))
   }
-  check_scm_config_path(scm, must_exist = TRUE)
+  check_scm_config_path(path, must_exist = TRUE)
 }
 
-# Write the items into the object's config and read it back.
+# Write the items into the object's config; returns the config path.
 write_scm_items <- function(scm, ...) {
   path <- from_config_relative(attr(scm, "config_source"))
   toml <- tomledit::insert_items(tomledit::read_toml(path), ...)
@@ -75,12 +79,17 @@ write_scm_items <- function(scm, ...) {
     lines[scalar] <- sub('^direction = "(.*)"$', 'direction = ["\\1"]', lines[scalar])
     writeLines(lines, path)
   }
-  read_scm(path)
+  invisible(path)
 }
 
 write_scm_effects <- function(scm, effects) {
   scm$covariates$effects <- effects
   write_scm_items(scm, covariates = covariates_as_rows(scm$covariates))
+}
+
+# One line on what an editor wrote, with the config as the object shows it.
+scm_edit_note <- function(what, path) {
+  cli::cli_alert_success("{what} in {.path {to_config_relative(path)}}")
 }
 
 SCM_SETTING_FORMS <- c(
@@ -119,8 +128,9 @@ scm_setting <- function(key, value) {
 #' Writes the settings given into the config (`<stem>scm.toml`); the others
 #' keep their values. The candidate effects are edited with
 #' [add_scm_effect()], [update_scm_effect()] and [remove_scm_effect()].
+#' Every edit goes to the file: [read_scm()] reads the result back.
 #'
-#' @param scm A `hyperion_nonmem_scm` object or the SCM config (`<stem>scm.toml`).
+#' @param path The SCM config (`<stem>scm.toml`), as [init_scm()] returns it.
 #' @param direction The phases to run: `"forward"`, `"backward"`, or both.
 #' @param forward_alpha,backward_alpha The p-value to add a covariate in
 #'   forward selection, and to keep one in backward elimination.
@@ -131,16 +141,17 @@ scm_setting <- function(key, value) {
 #' @param cov_step Whether the generated models run `$COVARIANCE`.
 #' @param forward_final_cov_step,final_cov_step Whether the forward model and
 #'   the final model are re-fitted with `$COVARIANCE` on.
-#' @return The `hyperion_nonmem_scm` object read back from the written
-#'   config, invisibly.
+#' @return The config path, invisibly.
 #' @export
 #'
 #' @examples \dontrun{
-#' scm <- update_scm_settings("model/nonmem/scm/run001scm.toml", direction = "forward")
-#' scm <- update_scm_settings(scm, forward_alpha = 0.01, num_rounds = 2)
+#' config <- "model/nonmem/scm/run001scm.toml"
+#' update_scm_settings(config, direction = "forward")
+#' update_scm_settings(config, forward_alpha = 0.01, num_rounds = 2)
+#' read_scm(config)
 #' }
 update_scm_settings <- function(
-  scm,
+  path,
   direction = NULL,
   forward_alpha = NULL,
   backward_alpha = NULL,
@@ -151,7 +162,7 @@ update_scm_settings <- function(
   forward_final_cov_step = NULL,
   final_cov_step = NULL
 ) {
-  scm <- read_scm(scm_config_from(scm))
+  scm <- read_scm(check_scm_edit_path(path))
   given <- list(
     direction = direction,
     forward_alpha = forward_alpha,
@@ -170,14 +181,18 @@ update_scm_settings <- function(
   for (key in names(given)) {
     given[[key]] <- scm_setting(key, given[[key]])
   }
-  invisible(write_scm_items(scm, !!!given))
+  path <- write_scm_items(scm, !!!given)
+  scm_edit_note(paste0("Set ", paste(names(given), collapse = ", ")), path)
+  invisible(path)
 }
 
 #' Initialize an SCM process for a model
 #'
 #' Writes the starter config (`<stem>scm.toml`) and the SCM directory beside
 #' the model, as `pharos nonmem scm init` does, with the candidate effects
-#' filled in.
+#' filled in. A config already there is left as it is and its path returned,
+#' so the call is the same the first time and every time after; `overwrite =
+#' TRUE` replaces it.
 #'
 #' @param model Path to the initial model (`.mod`/`.ctl`), or a
 #'   `hyperion_nonmem_model` object.
@@ -186,14 +201,17 @@ update_scm_settings <- function(
 #'   name or a row `list(name = , type = , initial = ,
 #'   fixed = , lower = , upper = )` (`type` is `"continuous"`, the default, or
 #'   `"categorical"`; the numbers are optional). `NULL` writes the config with
-#'   no effects, to be added with [add_scm_effect()] or by hand.
+#'   no effects, to be added with [add_scm_effect()] or by hand. When the
+#'   config already exists the effects are not written; names that differ
+#'   from the file's are a warning.
 #' @param overwrite Replace an existing config. Default `FALSE`.
-#' @return The new `hyperion_nonmem_scm` object, invisibly.
-#' @seealso [add_scm_effect()], [remove_scm_effect()]
+#' @return The path to the config, invisibly. [read_scm()] reads it.
+#' @seealso [read_scm()], [add_scm_effect()], [remove_scm_effect()]
 #' @export
 #'
 #' @examples \dontrun{
-#' scm <- init_scm("model/nonmem/run001.mod", effects = c("WT_CL", "CRCL_CL"))
+#' config <- init_scm("model/nonmem/run001.mod", effects = c("WT_CL", "CRCL_CL"))
+#' scm <- read_scm(config)
 #' check_scm(scm)
 #'
 #' init_scm(
@@ -208,28 +226,52 @@ update_scm_settings <- function(
 init_scm <- function(model, effects = NULL, overwrite = FALSE) {
   effects <- normalize_effects(effects)
   res <- init_scm_impl(model, overwrite)
-  scm <- read_scm(res$config_path)
-  if (length(effects)) {
-    scm <- write_scm_effects(scm, effects)
+  config <- res$config_path
+  config_shown <- to_config_relative(config)
+  if (isTRUE(res$existed)) {
+    cli::cli_alert_info("SCM config already exists: {.path {config_shown}}")
+    cli::cli_text("{.fn read_scm} reads it; {.code overwrite = TRUE} replaces it.")
+    if (length(effects)) {
+      warn_scm_effects_differ(read_scm(config)$covariates$effects, effects)
+    }
+    return(invisible(config))
   }
-  config_shown <- attr(scm, "config_source")
-  out_dir_shown <- to_config_relative(res$out_dir)
+  if (length(effects)) {
+    write_scm_effects(read_scm(config), effects)
+  }
   cli::cli_alert_success("SCM config written: {.path {config_shown}}")
-  cli::cli_alert_info("SCM directory: {.path {out_dir_shown}}")
+  cli::cli_alert_info("SCM directory: {.path {to_config_relative(res$out_dir)}}")
   if (length(effects) == 0) {
     cli::cli_alert_warning(SCM_NO_EFFECTS)
   }
+  cli::cli_text("Read it with {.fn read_scm}.")
   cli::cli_text(
     "{.fn check_scm} shows what a submit would do; {.fn submit_scm_to_slurm} runs it."
   )
-  invisible(scm)
+  invisible(config)
+}
+
+# A warning when the effect names given to init_scm() are not the config's.
+warn_scm_effects_differ <- function(current, given) {
+  have <- scm_effect_names(current)
+  want <- scm_effect_names(given)
+  if (setequal(have, want)) {
+    return(invisible())
+  }
+  show <- function(x) if (length(x)) paste(x, collapse = ", ") else "(none)"
+  cli::cli_warn(c(
+    "`effects` differ from the config's, which was left as it is",
+    i = "in the config: {show(have)}",
+    i = "given: {show(want)}",
+    i = "edit them with {.fn add_scm_effect}, {.fn update_scm_effect} and {.fn remove_scm_effect}, or pass {.code overwrite = TRUE}"
+  ))
 }
 
 #' Check an SCM config: the plan it resolves to and its warnings
 #'
 #'
-#' @param scm A `hyperion_nonmem_scm` object from [read_scm()] or [init_scm()],
-#'   or the path to the SCM config (`<stem>scm.toml`).
+#' @param scm A `hyperion_nonmem_scm` object from [read_scm()], or the path
+#'   to the SCM config (`<stem>scm.toml`).
 #' @param num_rounds Pause after this many rounds; `NULL` uses the config's
 #'   `num_rounds`, `0L` runs all rounds.
 #' @param overwrite Show the plan as a submit with `overwrite = TRUE` would run it.

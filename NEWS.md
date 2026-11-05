@@ -1,3 +1,24 @@
+# hyperion (development version)
+
+## Breaking changes
+
+- `init_scm()` returns the path to the config instead of the
+  `hyperion_nonmem_scm` object, and a config that already exists is reported
+  with its path instead of being an error, so the same call works the first
+  time and every time after (`overwrite = TRUE` still replaces it). Effect
+  names passed to an existing config that differ from the file's are a
+  warning.
+- `add_scm_effect()`, `update_scm_effect()`, `remove_scm_effect()` and
+  `update_scm_settings()` take the config path only, not the object, and
+  return the path: every edit lands in the file, and `read_scm()` reads it
+  back. Each prints a line saying what it wrote.
+
+## New features
+
+- `get_scm_model()` reads a model the SCM process fitted, by round and
+  candidate, or by stage (`"reference"`, `"forward_final"`, `"final"`), as a
+  `hyperion_nonmem_model` for `summary()`.
+
 # hyperion 0.7.0
 
 ## Breaking changes

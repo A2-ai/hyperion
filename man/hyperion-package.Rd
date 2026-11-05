@@ -142,6 +142,7 @@ Functions for writing, editing, and submitting an SCM process:
 \item \code{\link[=submit_scm_to_slurm]{submit_scm_to_slurm()}} - Start or resume the process as a SLURM driver job
 \item \code{\link[=get_scm_status]{get_scm_status()}} - Current status of scm process as of function call
 \item \code{\link[=summary]{summary()}} - Generate a summary of SCM results
+\item \code{\link[=get_scm_model]{get_scm_model()}} - Read a fitted model from the process by round and candidate
 \item \code{\link[=stop_scm]{stop_scm()}} - Stop an SCM process. Submitting the process again resumes it
 }
 }

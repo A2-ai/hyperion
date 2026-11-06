@@ -10,6 +10,7 @@ hyperion-nonmem = { path = "../nonmem" }
 hyperion-core = { path = "../core" }
 
 which = "8.0.0"
+anyhow = { workspace = true }
 
 # Pharos components
 nonmem = { workspace = true }

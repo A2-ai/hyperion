@@ -1,14 +1,11 @@
 use extendr_api::Result;
 use extendr_api::prelude::*;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use which::which;
 
-use config::{CONFIG_FILENAME, NonmemConfig};
-use nonmem::check_model;
-use nonmem::scm::{self, BuiltPlan, PlanContext, ScmOverrides, ScmRunStatus};
-use scheduler::slurm::resolve_partition;
+use nonmem::scm::{self, PlanContext};
 use scheduler::{
-    DriverRecord, Liveness, ScmDriver, SubmittedDriver, cancel_recorded_fits, fit_place_lookup,
+    DriverRecord, Liveness, ScmHints, ScmJob, ScmSubmitArgs, cancel_recorded_fits, fit_place_lookup,
 };
 
 use crate::slurm::PartitionTable;
@@ -19,280 +16,48 @@ use hyperion_nonmem::scm::{
 };
 use hyperion_nonmem::utils::load_nonmem_config;
 
-/// What a submit (and `check_scm`, which reports what a submit would do)
-/// takes: the CLI's `ScmSubmitArgs`.
-#[derive(Default)]
-pub struct ScmSubmitArgs {
-    pub config: PathBuf,
-    pub num_rounds: Option<usize>,
-    pub partition: Option<String>,
-    pub account: Option<String>,
-    pub max_concurrent: Option<usize>,
-    pub shared_node: bool,
-    pub overwrite: bool,
+/// How hyperion's user does what a refusal asks for next. pharos's
+/// [`ScmJob`] decides what a submit checks and refuses; its hints name the
+/// CLI's commands, and these name the R functions instead, with the project
+/// chosen through `options(hyperion.config_dir)`.
+struct RHints;
+
+impl ScmHints for RHints {
+    fn status(&self, _out_dir: &Path, scm_config: &Path) -> String {
+        format!("get_scm_status(\"{}\")", scm::shown(scm_config))
+    }
+
+    fn stop(&self, _out_dir: &Path, scm_config: &Path) -> String {
+        format!("stop_scm(\"{}\")", scm::shown(scm_config))
+    }
+
+    fn overwrite(&self) -> String {
+        "overwrite = TRUE".to_string()
+    }
+
+    fn use_project(&self, root: &Path) -> String {
+        format!(
+            "run from that project, or set options(hyperion.config_dir = \"{}\")",
+            root.display()
+        )
+    }
 }
 
-/// An SCM config resolved to its plan, and the settings it runs under:
-/// arguments over `[nonmem.scm]`.
-pub struct ScmJob {
-    /// The SCM config, as submitted (canonical)
-    scm_config: PathBuf,
-    built: BuiltPlan,
-    /// The project's pharos.toml
-    config_path: PathBuf,
-    nonmem_config: NonmemConfig,
-    out_dir: PathBuf,
-    /// The fits' partition
-    partition: Option<String>,
-    account: Option<String>,
-    /// Unset: no cap (a shared node fills its CPUs)
-    max_concurrent: Option<usize>,
-}
-
-impl ScmJob {
-    /// Resolve the config to its plan (so validate it, and read where the
-    /// SCM process in its out_dir stands) before anything is touched.
-    pub fn load(args: &ScmSubmitArgs) -> Result<Self> {
-        let scm_config = std::fs::canonicalize(&args.config)
-            .map_err(|e| extendr_err!("no SCM config at {}: {e}", scm::shown(&args.config)))?;
-        let near = scm_config
-            .parent()
-            .map(Path::to_path_buf)
-            .unwrap_or_default();
-        let overrides = ScmOverrides {
-            num_rounds: args.num_rounds,
-        };
-        let built = scm::build_plan_from_config(&scm_config, &overrides, &pharos_version()?)
-            .map_scm_err(&near)?;
-        let (config_path, nonmem_config) = load_nonmem_config(None)?;
-        // The plan was built under the model's project; the fits run under
-        // the pharos.toml hyperion found. They have to be the same file.
-        let project_root = config_path
-            .parent()
-            .map(Path::to_path_buf)
-            .unwrap_or_default()
-            .canonicalize()
-            .unwrap_or_default();
-        let plan_root = built.plan.root.canonicalize().unwrap_or_default();
-        if project_root != plan_root {
-            return Err(extendr_err!(
-                "the pharos.toml in use ({}) is not the project the model belongs to ({}); \
-                 run from that project, or set options(hyperion.config_dir = \"{}\")",
-                config_path.display(),
-                plan_root.join(CONFIG_FILENAME).display(),
-                plan_root.display()
-            ));
-        }
-        let scm_settings = &nonmem_config.scm;
-        let max_concurrent = args.max_concurrent.or(scm_settings.max_concurrent());
-        Ok(Self {
-            partition: args
-                .partition
-                .clone()
-                .or_else(|| scm_settings.partition.clone()),
-            account: args
-                .account
-                .clone()
-                .or_else(|| scm_settings.account.clone()),
-            max_concurrent,
-            out_dir: built.plan.out_dir_path(),
-            config_path: config_path
-                .canonicalize()
-                .map_to_extendr_err("Failed to resolve pharos.toml")?,
-            nonmem_config,
-            scm_config,
-            built,
-        })
-    }
-
-    fn model_stem(&self) -> String {
-        self.built
-            .plan
-            .model_path()
-            .file_stem()
-            .map(|s| s.to_string_lossy().into_owned())
-            .unwrap_or_else(|| "scm".to_string())
-    }
-
-    /// Whether the SCM process in the out_dir has already run to completion:
-    /// a submit without `overwrite` has nothing to do and is refused.
-    fn completed(&self) -> bool {
-        self.built
-            .context
-            .progress
-            .as_ref()
-            .is_some_and(|p| p.state.status == ScmRunStatus::Completed)
-    }
-
-    /// The note `overwrite` earns: the SCM process in the out_dir `who`
-    /// discards, as `<status>, N rounds complete`; `None` when none has started.
-    pub fn discard_note(&self, who: &str) -> Option<String> {
-        self.built.context.progress.as_ref().map(|p| {
-            let n = p.state.completed_rounds();
-            let s = if n == 1 { "" } else { "s" };
-            format!(
-                "overwrite = TRUE: {who} discards the SCM process in {} ({}, {n} round{s} complete) and starts fresh",
-                scm::shown(&self.out_dir),
-                p.state.status
-            )
-        })
-    }
-
-    /// The initial model through NM-TRAN, as every fit's script runs it
-    /// before `sbatch`: nothing when the project has no NM-TRAN to check
-    /// with, the failure's output as the error.
-    fn nmtran_check(&self) -> Result<()> {
-        if self
-            .nonmem_config
-            .get_nmtrans_executable_path(None)
-            .is_err()
-        {
-            return Ok(());
-        }
-        let model = self.built.plan.model_path();
-        let result =
-            check_model(&self.nonmem_config, &model).map_to_extendr_err("Failed to run NM-TRAN")?;
-        if !result.success {
-            return Err(extendr_err!(
-                "NM-TRAN rejects the initial model {}:\n{}",
-                scm::shown(&model),
-                result.stdout.trim()
-            ));
-        }
-        Ok(())
-    }
-
-    /// The screening every submit does before it drives; returns the discard
-    /// note an `overwrite` earns.
-    pub fn screen(&self, overwrite: bool) -> Result<Option<String>> {
-        let out_dir = scm::shown(&self.out_dir);
-        if !overwrite && self.completed() {
-            return Err(extendr_err!(
-                "the SCM process in {out_dir} is already complete; submit with overwrite = TRUE to start it over"
-            ));
-        }
-        if !overwrite && !self.built.is_resumable() {
-            return Err(extendr_err!(
-                "the SCM process in {out_dir} cannot resume under this plan; submit with overwrite = TRUE to discard that process and start fresh\n{}",
-                self.built.context.render_text().trim_end()
-            ));
-        }
-        self.nmtran_check()?;
-        self.built.write_gitignore().map_scm_err(&self.out_dir)?;
-        Ok(overwrite.then(|| self.discard_note("the driver")).flatten())
-    }
-
-    /// The driver job's `scm run` flags: the settings already resolved
-    /// here, so the job runs with exactly what was submitted.
-    fn driver_job_flags(&self, args: &ScmSubmitArgs) -> Vec<String> {
-        let mut flags = Vec::new();
-        // As given, not as the plan holds it: `0` (run all rounds) overrides
-        // a cap the config sets, and the driver reads the config again.
-        if let Some(n) = args.num_rounds {
-            flags.extend(["--num-rounds".to_string(), n.to_string()]);
-        }
-        if let Some(n) = self.max_concurrent {
-            flags.extend(["--max-concurrent".to_string(), n.to_string()]);
-        }
-        for (flag, value) in [
-            ("--partition", &self.partition),
-            ("--account", &self.account),
-        ] {
-            if let Some(v) = value {
-                flags.extend([flag.to_string(), v.clone()]);
-            }
-        }
-        if args.shared_node {
-            flags.push("--shared-node".to_string());
-        }
-        if args.overwrite {
-            flags.push("--overwrite".to_string());
-        }
-        flags
-    }
-
-    /// One driver per SCM process: refuse while another is queued or
-    /// running. The record, not the driver's job name, identifies it.
-    pub fn refuse_second_driver(&self) -> Result<()> {
-        let Some(record) = DriverRecord::read(&self.out_dir) else {
-            return Ok(());
-        };
-        if record.liveness() != Liveness::Alive {
-            return Ok(());
-        }
-        let config = scm::shown(&self.scm_config);
-        Err(extendr_err!(
-            "the SCM process in {} is already running ({}); follow it with get_scm_status(\"{config}\"), or stop it with stop_scm(\"{config}\") before resubmitting",
-            scm::shown(&self.out_dir),
-            record.describe()
-        ))
-    }
-
-    /// `overwrite` discards the process, so it is refused while its last
-    /// driver may still be running: alive, or not checkable from here.
-    pub fn refuse_overwrite_under_driver(&self) -> Result<()> {
-        let Some(record) = DriverRecord::read(&self.out_dir) else {
-            return Ok(());
-        };
-        let out_dir = scm::shown(&self.out_dir);
-        match record.liveness() {
-            Liveness::Gone => Ok(()),
-            Liveness::Alive => Err(extendr_err!(
-                "the SCM process in {out_dir} is still running; stop it with stop_scm(\"{}\") before discarding it with overwrite = TRUE",
-                scm::shown(&self.scm_config)
-            )),
-            Liveness::Unknown(why) => Err(extendr_err!(
-                "cannot tell whether the SCM process in {out_dir} is still running: {why}; once it has stopped, delete {out_dir}/scm_driver.json and submit again with overwrite = TRUE"
-            )),
-        }
-    }
-
-    /// Queue the driver as a slurm job and return: held until the record
-    /// naming it is on disk, released then, cancelled if that fails.
-    pub fn submit_to_slurm(
-        &self,
-        args: &ScmSubmitArgs,
-        driver_partition: Option<String>,
-        pharos_exe: PathBuf,
-        verbose: bool,
-    ) -> Result<SubmittedDriver> {
-        // A driver alone gets the cluster default partition: it only waits.
-        // On a shared node it is where the fits run.
-        let driver_partition = if args.shared_node {
-            self.partition.clone()
-        } else {
-            driver_partition.or_else(|| self.nonmem_config.scm.driver_partition.clone())
-        };
-        let driver = ScmDriver {
-            config_path: self.config_path.clone(),
-            nonmem_config: self.nonmem_config.clone(),
-            pharos_exe,
-            scm_config: self.scm_config.clone(),
-            model_stem: self.model_stem(),
-            partition: driver_partition,
-            account: self.account.clone(),
-            shared_node: args.shared_node,
-            run_flags: self.driver_job_flags(args),
-            verbose,
-        };
-        let submitted = driver.submit().map_scm_err(&self.out_dir)?;
-        let record = DriverRecord::slurm(
-            submitted.job_id,
-            args.shared_node,
-            submitted.log_path.clone(),
-        );
-        if let Err(e) = record
-            .save(&self.out_dir)
-            .and_then(|_| submitted.release())
-        {
-            let _ = submitted.cancel();
-            return Err(extendr_err!(
-                "the SCM driver job {} was cancelled before it started: {e:#}",
-                submitted.job_id
-            ));
-        }
-        Ok(submitted)
-    }
+/// Resolve an SCM config as hyperion does: under the pharos version the
+/// package was built against, with the R functions as the hints, and the
+/// pharos.toml hyperion finds. The error shows paths relative to the
+/// config's project, as every SCM message does.
+fn load_job(args: &ScmSubmitArgs) -> Result<ScmJob> {
+    let near = args
+        .config
+        .parent()
+        .map(Path::to_path_buf)
+        .unwrap_or_default();
+    let version = pharos_version()?;
+    ScmJob::load(args, &version, Box::new(RHints), || {
+        load_nonmem_config(None).map_err(|e| anyhow::anyhow!("{e}"))
+    })
+    .map_scm_err(&near)
 }
 
 /// An optional value as R sees it: the value, or NULL. (`list!` turns a
@@ -318,7 +83,7 @@ pub fn check_scm_wrap(
         overwrite,
         ..Default::default()
     };
-    let job = ScmJob::load(&args)?;
+    let job = load_job(&args)?;
     let mut text = String::new();
     if overwrite {
         // The process in the out_dir is gone before the plan meets it.
@@ -329,7 +94,12 @@ pub fn check_scm_wrap(
     } else {
         text.push_str(&job.built.render_text());
     }
-    let mut robj = scm_obj(&job.built.plan, text, &job.out_dir, &[PLAN_CLASS, RECORD_CLASS])?;
+    let mut robj = scm_obj(
+        &job.built.plan,
+        text,
+        &job.out_dir,
+        &[PLAN_CLASS, RECORD_CLASS],
+    )?;
     robj.set_attrib("warnings", job.built.warnings.clone())
         .map_to_extendr_err("Failed to set warnings attribute")?;
     robj.set_attrib("resumable", job.built.is_resumable())
@@ -407,10 +177,7 @@ pub fn get_scm_status_wrap(scm: Robj) -> Result<Robj> {
     let summary = summary
         .as_list()
         .ok_or_extendr_err("SCM record is not a list")?;
-    let mut pairs: Vec<(String, Robj)> = summary
-        .iter()
-        .map(|(k, v)| (k.to_string(), v))
-        .collect();
+    let mut pairs: Vec<(String, Robj)> = summary.iter().map(|(k, v)| (k.to_string(), v)).collect();
     pairs.push(("driver".to_string(), driver));
     let status = scm_obj_from_robj(
         List::from_pairs(pairs).into_robj(),
@@ -450,12 +217,10 @@ pub fn submit_scm_to_slurm_wrap(
         shared_node,
         overwrite,
     };
-    let job = ScmJob::load(&args)?;
-    let fits_partition = resolve_partition(
-        job.partition.as_deref(),
-        job.nonmem_config.slurm.partition.as_deref(),
-    )
-    .map_to_extendr_err("Failed to resolve the fits' partition")?;
+    let job = load_job(&args)?;
+    let fits_partition = job
+        .fits_partition()
+        .map_to_extendr_err("Failed to resolve the fits' partition")?;
     let config_dir = job
         .config_path
         .parent()
@@ -474,12 +239,10 @@ pub fn submit_scm_to_slurm_wrap(
             )
         )?;
     }
-    job.refuse_second_driver()?;
-    if overwrite {
-        job.refuse_overwrite_under_driver()?;
-    }
-    let discard_note = job.screen(overwrite)?;
-    let submitted = job.submit_to_slurm(&args, driver_partition, pharos_exe, verbose)?;
+    let discard_note = job.screen_for_submit(overwrite).map_scm_err(&job.out_dir)?;
+    let submitted = job
+        .submit_to_slurm(&args, driver_partition, pharos_exe, verbose)
+        .map_scm_err(&job.out_dir)?;
     Ok(list!(
         job_id = submitted.job_id as f64,
         job_name = submitted.job_name,

@@ -117,6 +117,7 @@
 #'   \item [get_scm_status()] - Current status of scm process as of function call
 #'   \item [summary()] - Generate a summary of SCM results
 #'   \item [get_scm_model()] - Read a fitted model from the process by round and candidate
+#'   \item [get_scm_lineage()] - Lineage tree of the process's fits, for a run summary table
 #'   \item [stop_scm()] - Stop an SCM process. Submitting the process again resumes it
 #' }
 #'

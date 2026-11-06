@@ -143,6 +143,7 @@ Functions for writing, editing, and submitting an SCM process:
 \item \code{\link[=get_scm_status]{get_scm_status()}} - Current status of scm process as of function call
 \item \code{\link[=summary]{summary()}} - Generate a summary of SCM results
 \item \code{\link[=get_scm_model]{get_scm_model()}} - Read a fitted model from the process by round and candidate
+\item \code{\link[=get_scm_lineage]{get_scm_lineage()}} - Lineage tree of the process's fits, for a run summary table
 \item \code{\link[=stop_scm]{stop_scm()}} - Stop an SCM process. Submitting the process again resumes it
 }
 }

@@ -18,6 +18,11 @@
 - `get_scm_model()` reads a model the SCM process fitted, by round and
   candidate, or by stage (`"reference"`, `"forward_final"`, `"final"`), as a
   `hyperion_nonmem_model` for `summary()`.
+- `get_scm_lineage()` builds the lineage tree of an SCM process's fits from
+  its record: the `hyperion_nonmem_tree` that `get_model_lineage()` gives,
+  with each fit based on the model its round tested against and tagged with
+  its round, so `hyperion.tables::apply_summary_spec()` makes a run summary
+  table of the process.
 
 # hyperion 0.7.0
 

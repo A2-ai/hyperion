@@ -200,6 +200,20 @@ fit there is the retry.
 get_model_name(get_scm_model(done, "forward_round2", candidate = "WT_V"))
 ```
 
+# The process as a lineage
+
+`get_scm_lineage()` builds the lineage tree of the process's fits from its
+record, the `hyperion_nonmem_tree` that `get_model_lineage()` gives for a
+project. Every fit is based on the model its round tested against, and each
+node is tagged with its round, so the tree goes straight into
+`hyperion.tables::apply_summary_spec()` for a run summary table of the
+process with a section per round; `scm_summary_spec()` there builds the spec
+for it.
+
+```{r lineage, results='asis'}
+get_scm_lineage(done)
+```
+
 # What stays in the CLI
 
 `pharos nonmem scm run`, which drives the process from a terminal instead of a
@@ -216,3 +230,4 @@ terminal. Everything else in `pharos nonmem scm` has a hyperion function.
 | `scm stop`                | `stop_scm()`                 |
 | `scm summary`             | `summary()`                  |
 | read a fit's `.mod`       | `get_scm_model()`            |
+| lineage of the fits       | `get_scm_lineage()`          |

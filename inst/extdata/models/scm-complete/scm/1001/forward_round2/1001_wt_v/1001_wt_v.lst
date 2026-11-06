@@ -27,8 +27,16 @@ $ESTIMATION METHOD=1 INTER MAXEVAL=9999 NOABORT
 
 NM-TRAN MESSAGES
  
+ TOT. NO. OF INDIVIDUALS:       30
+ TOT. NO. OF OBS RECS:      210
+ 
  MONITORING OF SEARCH:
  
  
+ #METH: First Order Conditional Estimation with Interaction
+ 
  #TERE:
  Elapsed estimation  time in seconds:     1.00
+ 
+Stop Time:
+Wed Sep  4 00:00:00 UTC 2026

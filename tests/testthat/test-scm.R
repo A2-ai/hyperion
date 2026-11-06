@@ -481,3 +481,64 @@ test_that("get_scm_status() says so while a submitted driver has not written its
   err <- expect_error(get_scm_status(p$config), "no SCM config")
   expect_match(conditionMessage(err), "has a driver that has not written its state yet")
 })
+
+test_that("get_scm_lineage() builds the tree of the process's fits from its record", {
+  comp <- read_scm(scm_complete_fixture("scm", "1001scm.toml"))
+  tree <- get_scm_lineage(comp)
+  expect_s3_class(tree, "hyperion_nonmem_tree")
+  expect_identical(tree, get_scm_lineage(scm_complete_fixture("scm", "1001scm.toml")))
+
+  out_dir <- "extdata/models/scm-complete/scm/1001"
+  name <- function(n) sub(paste0(out_dir, "/"), "", n$name, fixed = TRUE)
+  parent <- function(n) {
+    if (length(n$model$based_on) == 0) return(NA_character_)
+    sub(paste0(out_dir, "/"), "", n$model$based_on[[1]], fixed = TRUE)
+  }
+  tags <- function(n) paste(unlist(n$model$tags), collapse = ",")
+  nodes <- data.frame(
+    name = vapply(tree$nodes, name, ""),
+    parent = vapply(tree$nodes, parent, ""),
+    description = vapply(tree$nodes, function(n) n$model$description, ""),
+    tags = vapply(tree$nodes, tags, ""),
+    stringsAsFactors = FALSE
+  )
+  expect_equal(nodes$name, c(
+    "base/1001_base.mod",
+    "forward_round1/1001_wt_cl.mod", "forward_round1/1001_crcl_cl.mod", "forward_round1/1001_wt_v.mod",
+    "forward_round2/1001_crcl_cl.mod", "forward_round2/1001_wt_v_try2.mod",
+    "forward_round3/1001_wt_v.mod",
+    "forward_final/1001_scm_forward_final.mod",
+    "backward_round1/1001_wt_cl.mod", "backward_round1/1001_crcl_cl.mod",
+    "backward_round2/1001_wt_cl.mod",
+    "final/1001_scm_final.mod"
+  ))
+  # Every fit is based on the model its round tested against; the final
+  # model on what the last round left.
+  expect_equal(nodes$parent, c(
+    NA, rep("base/1001_base.mod", 3),
+    rep("forward_round1/1001_wt_cl.mod", 2),
+    "forward_round2/1001_crcl_cl.mod", "forward_round2/1001_crcl_cl.mod",
+    rep("forward_round2/1001_crcl_cl.mod", 2),
+    "backward_round1/1001_crcl_cl.mod",
+    "backward_round1/1001_crcl_cl.mod"
+  ))
+  expect_equal(nodes$description, c(
+    "base model", "add WT_CL", "add CRCL_CL", "add WT_V", "add CRCL_CL", "add WT_V", "add WT_V",
+    "forward model: WT_CL, CRCL_CL", "drop WT_CL", "drop CRCL_CL", "drop WT_CL", "final model: WT_CL"
+  ))
+  expect_equal(nodes$tags, c(
+    "scm,reference",
+    "scm,forward_round1,selected", "scm,forward_round1", "scm,forward_round1",
+    "scm,forward_round2,selected", "scm,forward_round2,retry",
+    "scm,forward_round3",
+    "scm,forward_final",
+    "scm,backward_round1", "scm,backward_round1,selected",
+    "scm,backward_round2",
+    "scm,final"
+  ))
+  expect_true(all(file.exists(file.path(attr(summary(comp), "project_root"), vapply(tree$nodes, `[[`, "", "name")))))
+  expect_snapshot(print(tree))
+
+  expect_error(get_scm_lineage(read_scm(scm_fixture("scm", "1001scm.toml"))), "has not started")
+  expect_error(get_scm_lineage(scm_fixture("1001.mod")), "named <stem>scm.toml")
+})

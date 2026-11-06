@@ -512,19 +512,26 @@ test_that("get_scm_lineage() builds the tree of the process's fits from its reco
     "backward_round2/1001_wt_cl.mod",
     "final/1001_scm_final.mod"
   ))
-  # Every fit is based on the model its round tested against; the final
-  # model on what the last round left.
+  # Every fit is based on the model its round tested against; the forward
+  # model and the final model on the reference fit.
   expect_equal(nodes$parent, c(
     NA, rep("base/1001_base.mod", 3),
     rep("forward_round1/1001_wt_cl.mod", 2),
-    "forward_round2/1001_crcl_cl.mod", "forward_round2/1001_crcl_cl.mod",
+    "forward_round2/1001_crcl_cl.mod", "base/1001_base.mod",
     rep("forward_round2/1001_crcl_cl.mod", 2),
     "backward_round1/1001_crcl_cl.mod",
-    "backward_round1/1001_crcl_cl.mod"
+    "base/1001_base.mod"
   ))
+  # The action, then the covariates the model has.
   expect_equal(nodes$description, c(
-    "base model", "add WT_CL", "add CRCL_CL", "add WT_V", "add CRCL_CL", "add WT_V", "add WT_V",
-    "forward model: WT_CL, CRCL_CL", "drop WT_CL", "drop CRCL_CL", "drop WT_CL", "final model: WT_CL"
+    "base model; covariates: none",
+    "add WT_CL; covariates: WT_CL", "add CRCL_CL; covariates: CRCL_CL", "add WT_V; covariates: WT_V",
+    "add CRCL_CL; covariates: WT_CL, CRCL_CL", "add WT_V; covariates: WT_CL, WT_V",
+    "add WT_V; covariates: WT_CL, CRCL_CL, WT_V",
+    "forward model; covariates: WT_CL, CRCL_CL",
+    "drop WT_CL; covariates: CRCL_CL", "drop CRCL_CL; covariates: WT_CL",
+    "drop WT_CL; covariates: none",
+    "final model; covariates: WT_CL"
   ))
   expect_equal(nodes$tags, c(
     "scm,reference",

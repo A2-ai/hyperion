@@ -81,27 +81,3 @@
             forward_round2/1001_wt_v.mod                 no ofv
             forward_round2/1001_wt_v_try2.mod            succeeded
 
-# get_scm_lineage() builds the tree of the process's fits from its record
-
-    Code
-      print(tree)
-    Message
-      
-      
-      -- Hyperion Model Tree ---------------------------------------------------------
-      i Models: 12
-      
-    Output
-      extdata/models/scm-complete/scm/1001/base/1001_base base model
-      +-extdata/models/scm-complete/scm/1001/forward_round1/1001_wt_cl add WT_CL
-      | +-extdata/models/scm-complete/scm/1001/forward_round2/1001_crcl_cl add CRCL_CL
-      | | +-extdata/models/scm-complete/scm/1001/forward_round3/1001_wt_v add WT_V
-      | | +-extdata/models/scm-complete/scm/1001/forward_final/1001_scm_forward_final forward model: WT_CL, CRCL_CL
-      | | +-extdata/models/scm-complete/scm/1001/backward_round1/1001_wt_cl drop WT_CL
-      | | \-extdata/models/scm-complete/scm/1001/backward_round1/1001_crcl_cl drop CRCL_CL
-      | |   +-extdata/models/scm-complete/scm/1001/backward_round2/1001_wt_cl drop WT_CL
-      | |   \-extdata/models/scm-complete/scm/1001/final/1001_scm_final final model: WT_CL
-      | \-extdata/models/scm-complete/scm/1001/forward_round2/1001_wt_v_try2 add WT_V
-      +-extdata/models/scm-complete/scm/1001/forward_round1/1001_crcl_cl add CRCL_CL
-      \-extdata/models/scm-complete/scm/1001/forward_round1/1001_wt_v add WT_V
-

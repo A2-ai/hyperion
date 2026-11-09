@@ -387,6 +387,7 @@ dependencies = [
 name = "hyperion-scheduler"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "config",
  "extendr-api",
  "hyperion-core",

@@ -42,9 +42,9 @@ build_scm_display_parts <- function(x) {
     cov = paste0(
       on_off(x$cov_step),
       " in the round fits, ",
-      on_off(x$forward_final_cov_step %||% TRUE),
+      on_off(x$working_full_cov_step %||% TRUE),
       " in the working full model's re-fit, ",
-      on_off(x$final_cov_step %||% TRUE),
+      on_off(x$reduced_covariate_cov_step %||% TRUE),
       " in the reduced covariate model's re-fit"
     ),
     rounds = if (rounds > 0) paste0("pause after ", rounds) else "all",

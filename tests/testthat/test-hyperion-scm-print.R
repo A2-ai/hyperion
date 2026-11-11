@@ -63,7 +63,7 @@ running_scm_status <- function() {
   status$rounds[[3]]$candidates[[2]]$status <- "unusable"
   status$rounds[[3]]$candidates[[2]][c("ofv", "delta_ofv", "p_value", "significant")] <- NULL
   status$rounds[[5]]$complete <- FALSE
-  status$final_model <- NULL
+  status$reduced_covariate_model <- NULL
   lines <- strsplit(attr(status, "text"), "\n", fixed = TRUE)[[1]]
   open <- grep("^backward_round1", lines)
   attr(status, "text") <- paste(

@@ -1,7 +1,7 @@
 {
   "start": "2026-09-08T16:00:00+00:00",
-  "model_name": "1001_scm_final",
-  "model_path": "extdata/models/scm-complete/scm/1001/final/1001_scm_final.mod",
+  "model_name": "1001_scm_reduced_covariate",
+  "model_path": "extdata/models/scm-complete/scm/1001/reduced_covariate/1001_scm_reduced_covariate.mod",
   "dataset_path": "data.csv",
   "dataset_canonical_path": "data.csv",
   "dataset_hashes": {

@@ -2,6 +2,19 @@
 
 ## Breaking changes
 
+- The names in code follow the working full model and the reduced
+  covariate model, as pharos' do. `get_scm_model()`'s stages are
+  `"working_full"` and `"reduced_covariate"`, in place of `"forward_final"`
+  and `"final"`; so are the tags `get_scm_lineage()` gives those fits.
+  `update_scm_settings()` takes `working_full_cov_step` and
+  `reduced_covariate_cov_step`, in place of `forward_final_cov_step` and
+  `final_cov_step`, and an SCM config that still has the old keys is an
+  error. A process record has `working_full`, `reduced_covariate_model` and
+  `reduced_covariate_ofv`. pharos writes those fits to `working_full/` and
+  `reduced_covariate/`, as `<stem>_scm_working_full.mod` and
+  `<stem>_scm_reduced_covariate.mod`, so an SCM process run before this
+  change cannot be resumed and its forward and final models are not read:
+  run it again.
 - `init_scm()` returns the path to the config instead of the
   `hyperion_nonmem_scm` object, and a config that already exists is reported
   with its path instead of being an error, so the same call works the first
@@ -36,12 +49,10 @@
   and the model the process ends with the reduced covariate model, in
   place of "forward model" and "final model": in what the SCM objects
   print, in the descriptions `get_scm_lineage()` gives, and in the messages
-  of `get_scm_model()`. The names in code are unchanged: the
-  `"forward_final"` and `"final"` stages and tags, the directories and
-  files of the same names, and the `forward_final_cov_step` and
-  `final_cov_step` settings.
+  of `get_scm_model()`.
 - `get_scm_model()` reads a model the SCM process fitted, by round and
-  candidate, or by stage (`"reference"`, `"forward_final"`, `"final"`), as a
+  candidate, or by stage (`"reference"`, `"working_full"`,
+  `"reduced_covariate"`), as a
   `hyperion_nonmem_model` for `summary()`.
 - `get_scm_lineage()` builds the lineage tree of an SCM process's fits from
   its record: the `hyperion_nonmem_tree` that `get_model_lineage()` gives,

@@ -12,13 +12,13 @@ get_scm_model(scm, round, candidate = NULL)
 \item{round}{Which fit: a selection round by name (\code{"forward_round1"},
 \code{"backward_round2"}) or by its number (\code{2}, \code{"round 2"}), as
 \code{summary()} takes it; \code{"reference"} for the reference fit the forward or
-backward phase started from; \code{"forward_final"} for the working full model's
-re-fit; or \code{"final"} for the reduced covariate model.}
+backward phase started from; \code{"working_full"} for the working full model's
+re-fit; or \code{"reduced_covariate"} for the reduced covariate model.}
 
 \item{candidate}{In a selection round, the effect whose fit to get: the
 one tested in a forward round, or held out in a backward round. \code{NULL},
 the default, gives the round's winner, the model that was added or
-dropped. Ignored for \code{"reference"}, \code{"forward_final"} and \code{"final"}.}
+dropped. Ignored for \code{"reference"}, \code{"working_full"} and \code{"reduced_covariate"}.}
 }
 \value{
 A \code{hyperion_nonmem_model} of the attempt that counted: the retry
@@ -34,7 +34,7 @@ pharos has recorded it.
 \examples{
 \dontrun{
 scm <- read_scm("model/nonmem/scm/run001scm.toml")
-final <- get_scm_model(scm, "final")
+final <- get_scm_model(scm, "reduced_covariate")
 summary(final)
 get_scm_model(scm, "forward_round2")                   # the round's winner
 get_scm_model(scm, "forward_round2", candidate = "WT_V")

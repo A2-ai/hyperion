@@ -10,19 +10,19 @@
 #' @param round Which fit: a selection round by name (`"forward_round1"`,
 #'   `"backward_round2"`) or by its number (`2`, `"round 2"`), as
 #'   `summary()` takes it; `"reference"` for the reference fit the forward or
-#'   backward phase started from; `"forward_final"` for the working full model's
-#'   re-fit; or `"final"` for the reduced covariate model.
+#'   backward phase started from; `"working_full"` for the working full model's
+#'   re-fit; or `"reduced_covariate"` for the reduced covariate model.
 #' @param candidate In a selection round, the effect whose fit to get: the
 #'   one tested in a forward round, or held out in a backward round. `NULL`,
 #'   the default, gives the round's winner, the model that was added or
-#'   dropped. Ignored for `"reference"`, `"forward_final"` and `"final"`.
+#'   dropped. Ignored for `"reference"`, `"working_full"` and `"reduced_covariate"`.
 #' @return A `hyperion_nonmem_model` of the attempt that counted: the retry
 #'   that succeeded when a fit was retried.
 #' @export
 #'
 #' @examples \dontrun{
 #' scm <- read_scm("model/nonmem/scm/run001scm.toml")
-#' final <- get_scm_model(scm, "final")
+#' final <- get_scm_model(scm, "reduced_covariate")
 #' summary(final)
 #' get_scm_model(scm, "forward_round2")                   # the round's winner
 #' get_scm_model(scm, "forward_round2", candidate = "WT_V")
@@ -35,12 +35,12 @@ get_scm_model <- function(scm, round, candidate = NULL) {
   read_model(file.path(attr(record, "out_dir"), rel))
 }
 
-SCM_STAGES <- c("reference", "forward_final", "final")
+SCM_STAGES <- c("reference", "working_full", "reduced_covariate")
 
 # The model `round` and `candidate` name, relative to the out_dir.
 scm_model_in_record <- function(record, round, candidate = NULL) {
   if (!(is.character(round) || is.numeric(round)) || length(round) != 1 || is.na(round)) {
-    rlang::abort("`round` must be a round name or number, \"reference\", \"forward_final\" or \"final\"")
+    rlang::abort("`round` must be a round name or number, \"reference\", \"working_full\" or \"reduced_covariate\"")
   }
   if (!is.null(candidate) && (!is.character(candidate) || length(candidate) != 1 || is.na(candidate))) {
     rlang::abort("`candidate` must be a single effect name")
@@ -50,15 +50,15 @@ scm_model_in_record <- function(record, round, candidate = NULL) {
     rlang::abort("the SCM process has not started; no models to get")
   }
   key <- tolower(trimws(as.character(round)))
-  if (key == "final") {
-    path <- record$final_model
+  if (key == "reduced_covariate") {
+    path <- record$reduced_covariate_model
     if (is.null(path)) {
       rlang::abort(paste0("no reduced covariate model yet; the SCM process is ", record$status))
     }
     return(path)
   }
-  if (key == "forward_final") {
-    path <- record$forward_final$model
+  if (key == "working_full") {
+    path <- record$working_full$model
     if (is.null(path)) {
       rlang::abort(paste0("no working full model yet; the SCM process is ", record$status))
     }

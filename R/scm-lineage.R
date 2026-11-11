@@ -12,7 +12,7 @@
 #' The tree holds the base fit, in every round the attempt that counted for
 #' each candidate, the working full model's re-fit and the reduced covariate model. Each node
 #' is tagged `"scm"` and with its round (`"reference"`, `"forward_round1"`,
-#' ..., `"forward_final"`, `"final"`); a round's winner is also tagged
+#' ..., `"working_full"`, `"reduced_covariate"`); a round's winner is also tagged
 #' `"selected"`, and a fit that was retried `"retry"`. Its description is
 #' the fit's action, then the covariates its model has, such as
 #' `"add CRCL_CL; covariates: WT_CL, CRCL_CL"`, the shape pharos writes to
@@ -91,22 +91,22 @@ scm_lineage_nodes <- function(record) {
       )
     }
     # The working full model's re-fit follows the last forward round.
-    ff <- record$forward_final
+    ff <- record$working_full
     if (i == last_forward && !is.null(ff$model)) {
       nodes[[length(nodes) + 1]] <- node(
         ff$model,
         scm_reference_fit_model(record),
         paste0("working full model; covariates: ", scm_retained_text(ff$retained)),
-        c("scm", "forward_final")
+        c("scm", "working_full")
       )
     }
   }
-  if (!is.null(record$final_model)) {
+  if (!is.null(record$reduced_covariate_model)) {
     nodes[[length(nodes) + 1]] <- node(
-      record$final_model,
+      record$reduced_covariate_model,
       scm_reference_fit_model(record),
       paste0("reduced covariate model; covariates: ", scm_retained_text(record$retained)),
-      c("scm", "final")
+      c("scm", "reduced_covariate")
     )
   }
   nodes

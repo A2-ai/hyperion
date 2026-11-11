@@ -1,5 +1,5 @@
 {
-  "run_name": "1001_scm_final",
+  "run_name": "1001_scm_working_full",
   "lst": {
     "run_details": {
       "problem": "scm template",
@@ -27,7 +27,7 @@
   },
   "minimization_results": [
     {
-      "ofv": 979.5,
+      "ofv": 973.8,
       "condition_number": null,
       "termination_code": null
     }

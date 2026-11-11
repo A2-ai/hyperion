@@ -106,7 +106,7 @@ read_scm(config)$covariates$effects
 ```
 
 `update_scm_settings()` writes the settings it is given, `direction` through
-`final_cov_step`, and leaves the others. The `[covariates]` defaults
+`reduced_covariate_cov_step`, and leaves the others. The `[covariates]` defaults
 (`fixed`, `continuous`, `categorical`) are edited in the file.
 
 ```{r settings}
@@ -182,13 +182,13 @@ summary(done, round = "forward_round1", long = TRUE)
 
 `get_scm_model()` reads one of the process's fits as a `hyperion_nonmem_model`,
 the object `read_model()` gives for any run, so `summary()` and the parameter
-functions work on it. `round` names a stage, `"reference"`, `"forward_final"`
-or `"final"`, or a selection round as `summary()` takes it; in a round,
+functions work on it. `round` names a stage, `"reference"`, `"working_full"`
+or `"reduced_covariate"`, or a selection round as `summary()` takes it; in a round,
 `candidate` picks one effect's fit, and left out gives the round's winner.
 A fit that was retried comes back as the attempt that counted.
 
 ```{r model-final, results='asis'}
-final <- get_scm_model(done, "final")
+final <- get_scm_model(done, "reduced_covariate")
 final
 ```
 

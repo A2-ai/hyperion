@@ -26,7 +26,7 @@ theirs are against it.
 The tree holds the base fit, in every round the attempt that counted for
 each candidate, the working full model's re-fit and the reduced covariate model. Each node
 is tagged \code{"scm"} and with its round (\code{"reference"}, \code{"forward_round1"},
-..., \code{"forward_final"}, \code{"final"}); a round's winner is also tagged
+..., \code{"working_full"}, \code{"reduced_covariate"}); a round's winner is also tagged
 \code{"selected"}, and a fit that was retried \code{"retry"}. Its description is
 the fit's action, then the covariates its model has, such as
 \code{"add CRCL_CL; covariates: WT_CL, CRCL_CL"}, the shape pharos writes to

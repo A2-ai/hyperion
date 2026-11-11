@@ -76,11 +76,11 @@
       
       -- Models --
       
-      Model                    File                                      OFV       Covariates    
-      ───────────────────────  ────────────────────────────────────────  ────────  ──────────────
-      Base model               base/1001_base.mod                        1000.000  none          
-      Working full model       forward_final/1001_scm_forward_final.mod  973.800   WT_CL, CRCL_CL
-      Reduced covariate model  final/1001_scm_final.mod                  979.500   WT_CL         
+      Model                    File                                              OFV       Covariates    
+      ───────────────────────  ────────────────────────────────────────────────  ────────  ──────────────
+      Base model               base/1001_base.mod                                1000.000  none          
+      Working full model       working_full/1001_scm_working_full.mod            973.800   WT_CL, CRCL_CL
+      Reduced covariate model  reduced_covariate/1001_scm_reduced_covariate.mod  979.500   WT_CL         
       
       -- Forward round 1 --
       
@@ -155,11 +155,11 @@
       
       -- Models --
       
-      Model                    File                                      OFV       Covariates    
-      ───────────────────────  ────────────────────────────────────────  ────────  ──────────────
-      Base model               base/1001_base.mod                        1000.000  none          
-      Working full model       forward_final/1001_scm_forward_final.mod  973.800   WT_CL, CRCL_CL
-      Reduced covariate model  final/1001_scm_final.mod                  979.500   WT_CL         
+      Model                    File                                              OFV       Covariates    
+      ───────────────────────  ────────────────────────────────────────────────  ────────  ──────────────
+      Base model               base/1001_base.mod                                1000.000  none          
+      Working full model       working_full/1001_scm_working_full.mod            973.800   WT_CL, CRCL_CL
+      Reduced covariate model  reduced_covariate/1001_scm_reduced_covariate.mod  979.500   WT_CL         
       
       -- Forward round 1 --
       
@@ -248,7 +248,7 @@
       
       Progress: completed — 5 rounds complete (updated [TIMESTAMP])
       Selected: WT_CL
-      Reduced covariate model: final/1001_scm_final.mod
+      Reduced covariate model: reduced_covariate/1001_scm_reduced_covariate.mod
       Changes: none — identical to the config the SCM process was submitted under
       
       ! cov_step is off: the initial model's $COVARIANCE record will be removed from the round models
@@ -306,11 +306,11 @@
       
       -- Models --
       
-      Model                    File                                      OFV       Covariates    
-      ───────────────────────  ────────────────────────────────────────  ────────  ──────────────
-      Base model               base/1001_base.mod                        1000.000  none          
-      Working full model       forward_final/1001_scm_forward_final.mod  973.800   WT_CL, CRCL_CL
-      Reduced covariate model  final/1001_scm_final.mod                  979.500   WT_CL         
+      Model                    File                                              OFV       Covariates    
+      ───────────────────────  ────────────────────────────────────────────────  ────────  ──────────────
+      Base model               base/1001_base.mod                                1000.000  none          
+      Working full model       working_full/1001_scm_working_full.mod            973.800   WT_CL, CRCL_CL
+      Reduced covariate model  reduced_covariate/1001_scm_reduced_covariate.mod  979.500   WT_CL         
       
       -- Forward round 2 --
       
@@ -354,10 +354,10 @@
       
       -- Models --
       
-      Model               File                                      OFV       Covariates    
-      ──────────────────  ────────────────────────────────────────  ────────  ──────────────
-      Base model          base/1001_base.mod                        1000.000  none          
-      Working full model  forward_final/1001_scm_forward_final.mod  973.800   WT_CL, CRCL_CL
+      Model               File                                    OFV       Covariates    
+      ──────────────────  ──────────────────────────────────────  ────────  ──────────────
+      Base model          base/1001_base.mod                      1000.000  none          
+      Working full model  working_full/1001_scm_working_full.mod  973.800   WT_CL, CRCL_CL
       
       -- Forward round 1 --
       

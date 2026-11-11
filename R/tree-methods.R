@@ -75,6 +75,13 @@ print.hyperion_nonmem_tree <- function(
   invisible(x)
 }
 
+# The tree's lines, each a branch prefix and a node's name, whole: cli::tree()
+# cuts a line at the console's width by default, and the printers read each
+# node's name back off its line.
+tree_lines <- function(tree_data, root) {
+  cli::tree(tree_data, root = root, width = 10000L)
+}
+
 # Look up a node's model record by stripped name.
 tree_node_model <- function(parts, node_name) {
   mod_key <- paste0(node_name, ".mod")
@@ -89,7 +96,7 @@ print_tree_compact <- function(parts) {
 
   for (root_idx in seq_along(parts$root_nodes)) {
     root_node <- parts$root_nodes[root_idx]
-    tree_output <- cli::tree(parts$tree_data, root = root_node)
+    tree_output <- tree_lines(parts$tree_data, root_node)
 
     for (i in seq_along(tree_output)) {
       line <- tree_output[i]
@@ -166,7 +173,7 @@ print_tree_table <- function(parts) {
   # tree view. Parent column preserves lineage info that the flat layout loses.
   rows <- list()
   for (root_node in parts$root_nodes) {
-    tree_output <- cli::tree(parts$tree_data, root = root_node)
+    tree_output <- tree_lines(parts$tree_data, root_node)
     for (line in tree_output) {
       node_name <- gsub("^[^a-zA-Z0-9._]*", "", line)
       node <- tree_node_record(parts, node_name)
@@ -385,7 +392,7 @@ knit_print.hyperion_nonmem_tree <- function(x, ...) {
 knit_print_tree_table <- function(parts) {
   rows <- list()
   for (root_node in parts$root_nodes) {
-    tree_output <- cli::tree(parts$tree_data, root = root_node)
+    tree_output <- tree_lines(parts$tree_data, root_node)
     for (line in tree_output) {
       node_name <- gsub("^[^a-zA-Z0-9._]*", "", line)
       node <- tree_node_record(parts, node_name)

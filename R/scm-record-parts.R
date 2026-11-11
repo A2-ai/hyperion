@@ -257,12 +257,12 @@ scm_models_section <- function(x) {
       fit$status
     )
   }
-  forward <- x$forward_final
+  forward <- x$working_full
   if (!is.null(forward)) {
     add("Working full model", forward$model, forward$ofv, forward$retained, forward$status)
   }
-  if (!is.null(x$final_model)) {
-    add("Reduced covariate model", x$final_model, x$final_ofv, x$retained, "")
+  if (!is.null(x$reduced_covariate_model)) {
+    add("Reduced covariate model", x$reduced_covariate_model, x$reduced_covariate_ofv, x$retained, "")
   }
   if (length(rows) == 0) {
     return(NULL)

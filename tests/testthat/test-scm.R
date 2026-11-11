@@ -346,10 +346,10 @@ test_that("summary() and get_scm_status() read a completed process", {
   expect_equal(s$totals$rounds_complete, 5)
   expect_equal(s$totals$models_fitted, 11)
   expect_equal(s$totals$retries, 1)
-  expect_equal(s$final_model, "final/1001_scm_final.mod")
-  expect_equal(s$final_ofv, 979.5)
+  expect_equal(s$reduced_covariate_model, "reduced_covariate/1001_scm_reduced_covariate.mod")
+  expect_equal(s$reduced_covariate_ofv, 979.5)
   expect_equal(unlist(s$retained), "WT_CL")
-  expect_equal(s$forward_final$model, "forward_final/1001_scm_forward_final.mod")
+  expect_equal(s$working_full$model, "working_full/1001_scm_working_full.mod")
   expect_equal(
     vapply(s$rounds, function(r) r$round, character(1)),
     c("reference", "forward_round1", "forward_round2", "forward_round3", "backward_round1", "backward_round2")
@@ -385,12 +385,12 @@ test_that("get_scm_model() reads a fitted model by stage, round and candidate", 
   comp <- read_scm(scm_complete_fixture("scm", "1001scm.toml"))
   stem <- function(m) attr(m, "filename")
 
-  final <- get_scm_model(comp, "final")
+  final <- get_scm_model(comp, "reduced_covariate")
   expect_s3_class(final, "hyperion_nonmem_model")
-  expect_equal(stem(final), "1001_scm_final")
+  expect_equal(stem(final), "1001_scm_reduced_covariate")
   expect_no_error(summary(final))
 
-  expect_equal(stem(get_scm_model(comp, "forward_final")), "1001_scm_forward_final")
+  expect_equal(stem(get_scm_model(comp, "working_full")), "1001_scm_working_full")
   expect_equal(stem(get_scm_model(comp, "reference")), "1001_base")
   expect_equal(stem(get_scm_model(comp, "reference", candidate = "ignored")), "1001_base")
   expect_equal(stem(get_scm_model(comp, "forward_round2")), "1001_crcl_cl")
@@ -399,7 +399,7 @@ test_that("get_scm_model() reads a fitted model by stage, round and candidate", 
   expect_equal(stem(get_scm_model(comp, "forward_round2", candidate = "WT_V")), "1001_wt_v_try2")
   expect_equal(stem(get_scm_model(comp, 2, candidate = "wt_v")), "1001_wt_v_try2")
   expect_equal(stem(get_scm_model(comp, "round 2", candidate = "WT_V")), "1001_wt_v_try2")
-  expect_equal(stem(get_scm_model(scm_complete_fixture("scm", "1001scm.toml"), "FINAL")), "1001_scm_final")
+  expect_equal(stem(get_scm_model(scm_complete_fixture("scm", "1001scm.toml"), "REDUCED_COVARIATE")), "1001_scm_reduced_covariate")
 
   expect_error(get_scm_model(comp, "forward_round3"), "forward_round3 has no winner: no candidate significant")
   expect_error(
@@ -407,10 +407,10 @@ test_that("get_scm_model() reads a fitted model by stage, round and candidate", 
     "no candidate named AGE_CL in forward_round2; it has: CRCL_CL, WT_V"
   )
   expect_error(get_scm_model(comp, "9"), "no round matching '9'; rounds so far: reference, forward_round1")
-  expect_error(get_scm_model(comp, c("final", "reference")), "`round` must be")
-  expect_error(get_scm_model(comp, "final", candidate = 1), "`candidate` must be")
-  expect_error(get_scm_model(read_scm(scm_fixture("scm", "1001scm.toml")), "final"), "has not started")
-  expect_error(get_scm_model(scm_fixture("1001.mod"), "final"), "named <stem>scm.toml")
+  expect_error(get_scm_model(comp, c("reduced_covariate", "reference")), "`round` must be")
+  expect_error(get_scm_model(comp, "reduced_covariate", candidate = 1), "`candidate` must be")
+  expect_error(get_scm_model(read_scm(scm_fixture("scm", "1001scm.toml")), "reduced_covariate"), "has not started")
+  expect_error(get_scm_model(scm_fixture("1001.mod"), "reduced_covariate"), "named <stem>scm.toml")
 })
 
 test_that("submit_scm_to_slurm() checks its arguments and the pharos CLI first", {
@@ -507,10 +507,10 @@ test_that("get_scm_lineage() builds the tree of the process's fits from its reco
     "forward_round1/1001_wt_cl.mod", "forward_round1/1001_crcl_cl.mod", "forward_round1/1001_wt_v.mod",
     "forward_round2/1001_crcl_cl.mod", "forward_round2/1001_wt_v_try2.mod",
     "forward_round3/1001_wt_v.mod",
-    "forward_final/1001_scm_forward_final.mod",
+    "working_full/1001_scm_working_full.mod",
     "backward_round1/1001_wt_cl.mod", "backward_round1/1001_crcl_cl.mod",
     "backward_round2/1001_wt_cl.mod",
-    "final/1001_scm_final.mod"
+    "reduced_covariate/1001_scm_reduced_covariate.mod"
   ))
   # Every fit is based on the model its round tested against; the working
   # full model and the reduced covariate model on the reference fit.
@@ -538,10 +538,10 @@ test_that("get_scm_lineage() builds the tree of the process's fits from its reco
     "scm,forward_round1,selected", "scm,forward_round1", "scm,forward_round1",
     "scm,forward_round2,selected", "scm,forward_round2,retry",
     "scm,forward_round3",
-    "scm,forward_final",
+    "scm,working_full",
     "scm,backward_round1", "scm,backward_round1,selected",
     "scm,backward_round2",
-    "scm,final"
+    "scm,reduced_covariate"
   ))
   expect_true(all(file.exists(file.path(attr(summary(comp), "project_root"), vapply(tree$nodes, `[[`, "", "name")))))
   expect_snapshot(print(tree))

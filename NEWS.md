@@ -15,6 +15,22 @@
 
 ## New features
 
+- `check_scm()`, `get_scm_status()` and `summary()` of an SCM process print
+  the way `summary()` of a model does, instead of showing pharos' text under
+  a title: the process facts as `Label: value` lines with the status in
+  color, then tables of hyperion's own. A summary and a status show the
+  base, forward and final models with their OFV and covariates, then each
+  round with its decision, its reference and its candidates, the one the
+  round added or dropped in green and an unusable fit in red; a status
+  shows its open round fit by fit and closes with the driver's state; a
+  plan shows its candidate effects and the process already in its output
+  directory. `summary()`'s `round`, `candidate`, `long`, `timing` and
+  `files` arguments add the same detail as before, as columns and tables.
+  Rendered documents get the same layout as HTML tables. The objects are
+  unchanged, pharos' own rendering still in their `text` attribute.
+- Printing an SCM config spells out where the covariance step runs: in the
+  round fits, in the forward model's re-fit and in the final model's
+  re-fit.
 - `get_scm_model()` reads a model the SCM process fitted, by round and
   candidate, or by stage (`"reference"`, `"forward_final"`, `"final"`), as a
   `hyperion_nonmem_model` for `summary()`.

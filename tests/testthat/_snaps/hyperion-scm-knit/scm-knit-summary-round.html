@@ -1,27 +1,131 @@
 
 <strong>SCM Summary: extdata/models/scm-complete/scm/1001</strong>
 
-<pre class="hyperion-scm" style="white-space: pre; overflow-x: auto;">
-model        : extdata/models/scm-complete/1001.mod
-status       : completed · 5 rounds complete
-direction    : forward -&gt; backward
-alphas       : forward = 0.05, backward = 0.001
-cov step     : off
-candidates   : WT_CL, CRCL_CL, WT_V
-path         : +WT_CL (forward 1) -&gt; +CRCL_CL (forward 2) -&gt; -CRCL_CL (backward 1) =&gt; WT_CL
-forward model: forward_final/1001_scm_forward_final.mod (OFV 973.800)  covariates retained: WT_CL, CRCL_CL
-final model  : final/1001_scm_final.mod (OFV 979.500)  covariates retained: WT_CL
+<strong>Model:</strong> extdata/models/scm-complete/1001.mod
 
-forward_round1   added WT_CL (p = 7.744e-6, dOFV = -20.000)
-                 retained before this round: none
-                 retained after this round: WT_CL
-  candidate             OFV       dOFV         p
-  reference        1000.000                          base/1001_base.mod
-  WT_CL             980.000    -20.000    7.7e-6 *   &lt;- added
-      forward_round1/1001_wt_cl.mod                succeeded
-  CRCL_CL           996.000     -4.000     0.046 *
-      forward_round1/1001_crcl_cl.mod              succeeded
-  WT_V              999.000     -1.000     0.317
-      forward_round1/1001_wt_v.mod                 succeeded
-</pre>
+<strong>Status:</strong> <span style="color: #1A7F37;">completed</span> · 5 rounds complete
+
+<strong>Direction:</strong> forward -&gt; backward
+
+<strong>Alphas:</strong> forward = 0.05, backward = 0.001
+
+<strong>Covariance step:</strong> off in the round fits
+
+<strong>Candidates:</strong> WT_CL, CRCL_CL, WT_V
+
+<strong>Path:</strong> +WT_CL (forward 1) -&gt; +CRCL_CL (forward 2) -&gt; -CRCL_CL (backward 1) =&gt; WT_CL
+
+
+<strong>Models</strong>
+
+<table class="table table-striped">
+ <thead>
+  <tr>
+   <th style="text-align:left;"> Model </th>
+   <th style="text-align:left;"> File </th>
+   <th style="text-align:right;"> OFV </th>
+   <th style="text-align:left;"> Covariates </th>
+  </tr>
+ </thead>
+<tbody>
+  <tr>
+   <td style="text-align:left;"> Base model </td>
+   <td style="text-align:left;"> base/1001_base.mod </td>
+   <td style="text-align:right;"> 1000.000 </td>
+   <td style="text-align:left;"> none </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> Forward model </td>
+   <td style="text-align:left;"> forward_final/1001_scm_forward_final.mod </td>
+   <td style="text-align:right;"> 973.800 </td>
+   <td style="text-align:left;"> WT_CL, CRCL_CL </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> Final model </td>
+   <td style="text-align:left;"> final/1001_scm_final.mod </td>
+   <td style="text-align:right;"> 979.500 </td>
+   <td style="text-align:left;"> WT_CL </td>
+  </tr>
+</tbody>
+</table>
+
+
+<strong>Forward round 1</strong>
+
+<span style="color: #1A7F37;">&#x2714;</span> added WT_CL (p = 7.744e-6, dOFV = -20.000)
+
+<strong>Reference:</strong> base/1001_base.mod (OFV 1000.000)
+
+<strong>Retained before:</strong> none
+
+<strong>Retained after:</strong> WT_CL
+
+<table class="table table-striped">
+ <thead>
+  <tr>
+   <th style="text-align:left;"> Candidate </th>
+   <th style="text-align:right;"> OFV </th>
+   <th style="text-align:right;"> dOFV </th>
+   <th style="text-align:right;"> p-value </th>
+   <th style="text-align:left;"> Significant </th>
+   <th style="text-align:left;"> Result </th>
+  </tr>
+ </thead>
+<tbody>
+  <tr>
+   <td style="text-align:left;"> WT_CL </td>
+   <td style="text-align:right;"> 980.000 </td>
+   <td style="text-align:right;"> -20.000 </td>
+   <td style="text-align:right;"> 7.74e-06 </td>
+   <td style="text-align:left;"> Yes </td>
+   <td style="text-align:left;"> <span style="color: #1A7F37;">added</span> </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> CRCL_CL </td>
+   <td style="text-align:right;"> 996.000 </td>
+   <td style="text-align:right;"> -4.000 </td>
+   <td style="text-align:right;"> 0.046 </td>
+   <td style="text-align:left;"> Yes </td>
+   <td style="text-align:left;">  </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> WT_V </td>
+   <td style="text-align:right;"> 999.000 </td>
+   <td style="text-align:right;"> -1.000 </td>
+   <td style="text-align:right;"> 0.317 </td>
+   <td style="text-align:left;"> No </td>
+   <td style="text-align:left;">  </td>
+  </tr>
+</tbody>
+</table>
+
+
+<strong>Attempts</strong>
+
+<table class="table table-striped">
+ <thead>
+  <tr>
+   <th style="text-align:left;"> Candidate </th>
+   <th style="text-align:left;"> Model </th>
+   <th style="text-align:left;"> Outcome </th>
+  </tr>
+ </thead>
+<tbody>
+  <tr>
+   <td style="text-align:left;"> WT_CL </td>
+   <td style="text-align:left;"> forward_round1/1001_wt_cl.mod </td>
+   <td style="text-align:left;"> succeeded </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> CRCL_CL </td>
+   <td style="text-align:left;"> forward_round1/1001_crcl_cl.mod </td>
+   <td style="text-align:left;"> succeeded </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> WT_V </td>
+   <td style="text-align:left;"> forward_round1/1001_wt_v.mod </td>
+   <td style="text-align:left;"> succeeded </td>
+  </tr>
+</tbody>
+</table>
 

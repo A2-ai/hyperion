@@ -43,14 +43,13 @@
       
       
       -- SCM Status: extdata/models/scm/scm/1001 -------------------------------------
-    Output
-      model        : extdata/models/scm/1001.mod
-      status       : planned · no rounds complete
-      direction    : forward -> backward
-      alphas       : forward = 0.05, backward = 0.001
-      cov step     : off
-      candidates   : WT_CL, CRCL_CL, WT_V
-      note         : the SCM process has not started; submit its config to start it
+      Model: extdata/models/scm/1001.mod
+      Status: planned · no rounds complete
+      Direction: forward -> backward
+      Alphas: forward = 0.05, backward = 0.001
+      Covariance step: off in the round fits
+      Candidates: WT_CL, CRCL_CL, WT_V
+      Note: the SCM process has not started; submit its config to start it
 
 # summary() renders the long, timing and files views
 
@@ -60,24 +59,62 @@
       
       
       -- SCM Summary: extdata/models/scm-complete/scm/1001 ---------------------------
-    Output
-      model        : extdata/models/scm-complete/1001.mod
-      status       : completed · 5 rounds complete
-      direction    : forward -> backward
-      alphas       : forward = 0.05, backward = 0.001
-      cov step     : off
-      candidates   : WT_CL, CRCL_CL, WT_V
-      path         : +WT_CL (forward 1) -> +CRCL_CL (forward 2) -> -CRCL_CL (backward 1) => WT_CL
-      forward model: forward_final/1001_scm_forward_final.mod (OFV 973.800)  covariates retained: WT_CL, CRCL_CL
-      final model  : final/1001_scm_final.mod (OFV 979.500)  covariates retained: WT_CL
+      Model: extdata/models/scm-complete/1001.mod
+      Status: completed · 5 rounds complete
+      Direction: forward -> backward
+      Alphas: forward = 0.05, backward = 0.001
+      Covariance step: off in the round fits
+      Candidates: WT_CL, CRCL_CL, WT_V
+      Path: +WT_CL (forward 1) -> +CRCL_CL (forward 2) -> -CRCL_CL (backward 1) =>
+      WT_CL
       
-      forward_round2   added CRCL_CL (p = 1.431e-2, dOFV = -6.000) [1 retry]
-                       retained before this round: WT_CL
-                       retained after this round: WT_CL, CRCL_CL
-        candidate             OFV       dOFV         p
-        reference         980.000                          forward_round1/1001_wt_cl.mod
-        WT_V              978.500     -1.500     0.221     [2 attempts]
-            est 0.050 (N/A) · CI95 N/A · df 1 · tries 2
-            forward_round2/1001_wt_v.mod                 no ofv
-            forward_round2/1001_wt_v_try2.mod            succeeded
+      -- Models --
+      
+      Model          File                                      OFV       Covariates    
+      ─────────────  ────────────────────────────────────────  ────────  ──────────────
+      Base model     base/1001_base.mod                        1000.000  none          
+      Forward model  forward_final/1001_scm_forward_final.mod  973.800   WT_CL, CRCL_CL
+      Final model    final/1001_scm_final.mod                  979.500   WT_CL         
+      
+      -- Forward round 2 --
+      
+      v added CRCL_CL (p = 1.431e-2, dOFV = -6.000) [1 retry]
+      Reference: forward_round1/1001_wt_cl.mod (OFV 980.000)
+      Retained before: WT_CL
+      Retained after: WT_CL, CRCL_CL
+      
+      Candidate  OFV      dOFV    p-value  Significant  Estimate     95% CI  df   Attempts
+      ─────────  ───────  ──────  ───────  ───────────  ───────────  ──────  ───  ────────
+      WT_V       978.500  -1.500  0.221    No           0.050 (N/A)  N/A     1    2       
+      
+      -- Attempts 
+      
+      Candidate  Model                              Outcome  
+      ─────────  ─────────────────────────────────  ─────────
+      WT_V       forward_round2/1001_wt_v.mod       no ofv   
+      WT_V       forward_round2/1001_wt_v_try2.mod  succeeded
+
+# get_scm_lineage() builds the tree of the process's fits from its record
+
+    Code
+      print(tree)
+    Message
+      
+      
+      -- Hyperion Model Tree ---------------------------------------------------------
+      i Models: 12
+      
+    Output
+      extdata/models/scm-complete/scm/1001/base/1001_base base model; covariates: none
+      +-extdata/models/scm-complete/scm/1001/forward_round1/1001_wt_cl add WT_CL; covariates: WT_CL
+      | +-extdata/models/scm-complete/scm/1001/forward_round2/1001_crcl_cl add CRCL_CL; covariates: WT...
+      | | +-extdata/models/scm-complete/scm/1001/forward_round3/1001_wt_v add WT_V; covariates: WT_CL...
+      | | +-extdata/models/scm-complete/scm/1001/backward_round1/1001_wt_cl drop WT_CL; covariates: CRC...
+      | | \-extdata/models/scm-complete/scm/1001/backward_round1/1001_crcl_cl drop CRCL_CL; covariates: W...
+      | |   \-extdata/models/scm-complete/scm/1001/backward_round2/1001_wt_cl drop WT_CL; covariates: none
+      | \-extdata/models/scm-complete/scm/1001/forward_round2/1001_wt_v_try2 add WT_V; covariates: WT_CL...
+      +-extdata/models/scm-complete/scm/1001/forward_round1/1001_crcl_cl add CRCL_CL; covariates: CR...
+      +-extdata/models/scm-complete/scm/1001/forward_round1/1001_wt_v add WT_V; covariates: WT_V
+      +-extdata/models/scm-complete/scm/1001/forward_final/1001_scm_forward_final forward model; covariates: ...
+      \-extdata/models/scm-complete/scm/1001/final/1001_scm_final final model; covariates: WT_CL
 

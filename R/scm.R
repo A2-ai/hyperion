@@ -269,6 +269,11 @@ warn_scm_effects_differ <- function(current, given) {
 
 #' Check an SCM config: the plan it resolves to and its warnings
 #'
+#' The plan prints as its facts (the model, the direction and alphas, what
+#' a failed fit gets, where the covariance step runs, the most models it
+#' can fit), a table of its candidate effects, the SCM process already in
+#' its output directory with what the plan changes about it, and its
+#' warnings.
 #'
 #' @param scm A `hyperion_nonmem_scm` object from [read_scm()], or the path
 #'   to the SCM config (`<stem>scm.toml`).
@@ -444,12 +449,13 @@ stop_scm <- function(scm) {
 
 #' Get the status of an SCM process
 #'
-#' Where the SCM process stands, as its driver's terminal would show it now:
-#' the process facts, each decided round's decision and table, the open
-#' round fit by fit (its slurm job, how long it has run, the latest
-#' iteration and OFV read off its `.ext` file), and the driver's own state
-#' (running, exited, or gone while the process still says running, with its
-#' log). Mirrors `pharos nonmem scm status`.
+#' Where the SCM process stands now: the process facts, the base, forward
+#' and final models it has so far, each decided round's decision with a
+#' table of its candidates, the open round fit by fit (its slurm job, how
+#' long it has run, the latest iteration and OFV read off its `.ext` file),
+#' and the driver's own state (running, exited, or gone while the process
+#' still says running, with its log). It holds what `pharos nonmem scm
+#' status` shows.
 #'
 #' @param scm A `hyperion_nonmem_scm` object or the SCM config (`<stem>scm.toml`).
 #'

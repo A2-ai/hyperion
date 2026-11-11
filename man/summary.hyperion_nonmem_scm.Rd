@@ -21,17 +21,23 @@
 
 \item{candidate}{Show one candidate only.}
 
-\item{long, timing, files}{Add the corresponding detail to the printed text.}
+\item{long, timing, files}{Add the corresponding detail to what prints:
+each candidate's estimate, degrees of freedom and attempts; the time
+the fits took; the files each run left.}
 
 \item{...}{Unused.}
 }
 \value{
 A \code{hyperion_nonmem_scm_summary} S3 object (also of class
-\code{hyperion_nonmem_scm_record}) with attributes \code{text}, \code{out_dir} and
-\code{project_root}.
+\code{hyperion_nonmem_scm_record}) with attributes \code{text} (the summary as
+pharos renders it), \code{view} (the arguments above, which its print
+method follows), \code{out_dir} and \code{project_root}.
 }
 \description{
-Summarize an SCM process
+The summary prints the process facts with the covariates' path, the
+base, forward and final models, and each round: its decision, its
+reference, and a table of its candidates with their OFV, dOFV against
+the reference, p-value, and which one the round added or dropped.
 }
 \examples{
 \dontrun{

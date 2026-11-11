@@ -40,12 +40,12 @@ build_scm_display_parts <- function(x) {
       "%"
     ),
     cov = paste0(
-      "rounds ",
       on_off(x$cov_step),
-      ", forward model ",
+      " in the round fits, ",
       on_off(x$forward_final_cov_step %||% TRUE),
-      ", final model ",
-      on_off(x$final_cov_step %||% TRUE)
+      " in the forward model's re-fit, ",
+      on_off(x$final_cov_step %||% TRUE),
+      " in the final model's re-fit"
     ),
     rounds = if (rounds > 0) paste0("pause after ", rounds) else "all",
     effects = effects_df
@@ -108,19 +108,11 @@ knit_print.hyperion_nonmem_scm <- function(x, ...) {
   knitr::asis_output(paste(output, collapse = "\n"))
 }
 
-# pharos' text without its own headline; the cli title replaces it.
+# pharos' text without its own headline (`<scm plan> ...`); the cli title
+# replaces it.
 scm_text_lines <- function(x) {
   lines <- strsplit(attr(x, "text") %||% "", "\n", fixed = TRUE)[[1]]
-  if (length(lines) && startsWith(lines[1], "<scm ")) {
-    lines <- lines[-1]
-  }
-  lines
-}
-
-# The record's kind, from its class: "Plan", "Status" or "Summary".
-scm_title <- function(x) {
-  what <- sub("^hyperion_nonmem_scm_", "", class(x)[1])
-  paste0("SCM ", tools::toTitleCase(what), ": ", x$out_dir %||% "")
+  lines[!startsWith(lines, "<scm ")]
 }
 
 html_escape <- function(s) {
@@ -129,51 +121,165 @@ html_escape <- function(s) {
   gsub(">", "&gt;", s, fixed = TRUE)
 }
 
+# A fact's value with its opening word in the fact's color.
+scm_toned_value <- function(value, tone, colorize) {
+  if (is.na(tone)) {
+    return(value)
+  }
+  word <- regmatches(value, regexpr("^[A-Za-z]+", value))
+  if (length(word) == 0) {
+    return(value)
+  }
+  paste0(colorize(word, tone), substring(value, nchar(word) + 1))
+}
+
+print_scm_facts <- function(facts) {
+  for (i in seq_len(nrow(facts %||% data.frame()))) {
+    label <- facts$label[i]
+    value <- scm_toned_value(facts$value[i], facts$tone[i], display_color_console)
+    if (nzchar(label)) {
+      cli::cli_text("{.strong {label}:} {value}")
+    } else {
+      cli::cli_text("{value}")
+    }
+  }
+}
+
+print_scm_alert <- function(alert) {
+  text <- alert$text
+  switch(
+    alert$type,
+    success = cli::cli_alert_success("{text}"),
+    warning = cli::cli_alert_warning("{text}"),
+    danger = cli::cli_alert_danger("{text}"),
+    cli::cli_alert_info("{text}")
+  )
+}
+
 #' Print method for SCM records
 #'
-#' Prints pharos' rendering of a plan, status or summary under a title, then
-#' a plan's warnings and whether the process can resume under it, or a
-#' summary's count of unusable fits.
+#' Prints a plan, status or summary the way a model summary prints: the
+#' process facts under a title, then sections with tables. A summary and a
+#' status show the base, forward and final models, then each round with its
+#' decision and its candidates, the one the round added or dropped in
+#' green and an unusable fit in red; a status shows its open round fit by
+#' fit and closes with the driver's state. A plan shows its candidate
+#' effects, the process already in its output directory, its warnings, and
+#' whether that process can resume under it.
 #'
 #' @param x A hyperion_nonmem_scm_plan, _status or _summary object
 #' @param ... Additional arguments (ignored)
 #' @return Invisible copy of x
 #' @exportS3Method base::print hyperion_nonmem_scm_record
 print.hyperion_nonmem_scm_record <- function(x, ...) {
+  parts <- build_scm_record_parts(x)
   cli::cli_text("")
-  cli::cli_h1(scm_title(x))
-  cat(scm_text_lines(x), sep = "\n")
-  for (w in attr(x, "warnings") %||% character()) {
-    cli::cli_alert_warning(w)
+  cli::cli_h1(parts$title)
+  for (alert in parts$top) {
+    print_scm_alert(alert)
   }
-  if (isFALSE(attr(x, "resumable"))) {
-    cli::cli_alert_danger(
-      "The SCM process in {.path {x$out_dir}} cannot resume under this plan; submit with {.code overwrite = TRUE} to discard it."
-    )
+  print_scm_facts(parts$facts)
+  for (section in parts$sections) {
+    cli::cli_h2(section$title)
+    for (alert in section$alerts) {
+      print_scm_alert(alert)
+    }
+    print_scm_facts(section$facts)
+    # A table goes through cli, like the lines around it, so the headings'
+    # margins fall where they should.
+    above <- length(section$alerts) > 0 || nrow(section$facts %||% data.frame()) > 0
+    for (table in section$tables) {
+      if (!is.null(table$title)) {
+        cli::cli_h3(table$title)
+      }
+      if (above || !is.null(table$title)) {
+        cli::cli_verbatim("")
+      }
+      cli::cli_verbatim(data_table_console_lines(table$data))
+      above <- TRUE
+    }
+    if (length(section$notes)) {
+      cli::cli_verbatim("")
+    }
+    for (note in section$notes) {
+      cli::cli_text("{.emph {note}}")
+    }
   }
-  n <- x$totals$unusable %||% 0
-  if (n > 0) {
-    cli::cli_alert_warning(
-      "{n} candidate fit{?s} {?was/were} unusable; see the round tables above."
-    )
+  if (length(parts$alerts)) {
+    cli::cli_verbatim("")
+  }
+  for (alert in parts$alerts) {
+    print_scm_alert(alert)
   }
   invisible(x)
+}
+
+knit_scm_facts <- function(facts) {
+  output <- character()
+  for (i in seq_len(nrow(facts %||% data.frame()))) {
+    label <- facts$label[i]
+    value <- scm_toned_value(html_escape(facts$value[i]), facts$tone[i], display_color_html)
+    output <- c(
+      output,
+      if (nzchar(label)) paste0("<strong>", label, ":</strong> ", value) else value,
+      ""
+    )
+  }
+  output
+}
+
+knit_scm_alerts <- function(alerts) {
+  output <- character()
+  for (alert in alerts) {
+    mark <- switch(
+      alert$type,
+      success = display_color_html("&#x2714;", "green"),
+      warning = display_color_html("&#x26A0;", "yellow"),
+      danger = display_color_html("&#x2716;", "red"),
+      display_color_html("&#x2139;", "blue")
+    )
+    output <- c(output, paste0(mark, " ", html_escape(alert$text)), "")
+  }
+  output
+}
+
+# The table with its text escaped for HTML, its colors and alignment kept.
+knit_scm_table <- function(data) {
+  escaped <- data
+  escaped[] <- lapply(data, html_escape)
+  attr(escaped, "cell_colors") <- attr(data, "cell_colors")
+  attr(escaped, "numeric_cols") <- attr(data, "numeric_cols")
+  escaped
 }
 
 #' @rdname print.hyperion_nonmem_scm_record
 #' @exportS3Method knitr::knit_print
 knit_print.hyperion_nonmem_scm_record <- function(x, ...) {
-  w <- attr(x, "warnings") %||% character()
+  parts <- build_scm_record_parts(x)
   output <- c(
     "",
-    paste0("<strong>", scm_title(x), "</strong>"),
+    paste0("<strong>", html_escape(parts$title), "</strong>"),
     "",
-    '<pre class="hyperion-scm" style="white-space: pre; overflow-x: auto;">',
-    html_escape(scm_text_lines(x)),
-    "</pre>",
-    if (length(w)) c("<ul>", paste0("<li>&#x26A0; ", html_escape(w), "</li>"), "</ul>"),
-    ""
+    knit_scm_alerts(parts$top),
+    knit_scm_facts(parts$facts)
   )
+  for (section in parts$sections) {
+    output <- c(
+      output,
+      "",
+      paste0("<strong>", section$title, "</strong>"),
+      "",
+      knit_scm_alerts(section$alerts),
+      knit_scm_facts(section$facts)
+    )
+    for (table in section$tables) {
+      output <- c(output, print_data_table_knit(knit_scm_table(table$data), table$title))
+    }
+    for (note in section$notes) {
+      output <- c(output, paste0("<em>", html_escape(note), "</em>"), "")
+    }
+  }
+  output <- c(output, knit_scm_alerts(parts$alerts))
   knitr::asis_output(paste(output, collapse = "\n"))
 }
 
@@ -189,14 +295,22 @@ str.hyperion_nonmem_scm_record <- function(object, ...) {
 
 #' Summarize an SCM process
 #'
+#' The summary prints the process facts with the covariates' path, the
+#' base, forward and final models, and each round: its decision, its
+#' reference, and a table of its candidates with their OFV, dOFV against
+#' the reference, p-value, and which one the round added or dropped.
+#'
 #' @param object A `hyperion_nonmem_scm` object.
 #' @param round Show one round only.
 #' @param candidate Show one candidate only.
-#' @param long,timing,files Add the corresponding detail to the printed text.
+#' @param long,timing,files Add the corresponding detail to what prints:
+#'   each candidate's estimate, degrees of freedom and attempts; the time
+#'   the fits took; the files each run left.
 #' @param ... Unused.
 #' @return A `hyperion_nonmem_scm_summary` S3 object (also of class
-#'   `hyperion_nonmem_scm_record`) with attributes `text`, `out_dir` and
-#'   `project_root`.
+#'   `hyperion_nonmem_scm_record`) with attributes `text` (the summary as
+#'   pharos renders it), `view` (the arguments above, which its print
+#'   method follows), `out_dir` and `project_root`.
 #' @exportS3Method base::summary hyperion_nonmem_scm
 #'
 #' @examples \dontrun{
@@ -213,5 +327,13 @@ summary.hyperion_nonmem_scm <- function(
   files = FALSE,
   ...
 ) {
-  get_scm_summary(object, round, candidate, long, timing, files)
+  res <- get_scm_summary(object, round, candidate, long, timing, files)
+  attr(res, "view") <- list(
+    round = round,
+    candidate = candidate,
+    long = isTRUE(long),
+    timing = isTRUE(timing),
+    files = isTRUE(files)
+  )
+  res
 }

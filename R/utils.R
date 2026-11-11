@@ -272,6 +272,119 @@ build_display_table_model <- function(formatted_data, title) {
   )
 }
 
+#' Per-cell colors a table carries for its printers
+#'
+#' A display table may carry a `cell_colors` attribute: a character matrix
+#' the shape of the table, naming a color ("green", "red", "yellow", "blue"
+#' or "grey") for the cells to color and `NA` for the rest. The threshold
+#' rules that turn a cell red still win over it.
+#'
+#' @param formatted_data Data frame handed to a table printer
+#' @return The matrix, or NULL when the table carries none of its shape
+#' @keywords internal
+#' @noRd
+display_cell_colors <- function(formatted_data) {
+  colors <- attr(formatted_data, "cell_colors")
+  if (
+    is.null(colors) ||
+      !identical(dim(colors), dim(formatted_data)) ||
+      all(is.na(colors))
+  ) {
+    return(NULL)
+  }
+  colors
+}
+
+#' @keywords internal
+#' @noRd
+display_color_console <- function(text, color) {
+  switch(
+    color,
+    green = cli::col_green(text),
+    red = cli::col_red(text),
+    yellow = cli::col_yellow(text),
+    blue = cli::col_blue(text),
+    grey = cli::col_grey(text),
+    text
+  )
+}
+
+#' @keywords internal
+#' @noRd
+display_color_html <- function(text, color) {
+  hex <- switch(
+    color,
+    green = "#1A7F37",
+    red = "#DD0000",
+    yellow = "#9A6700",
+    blue = "#0969DA",
+    grey = "#6E7781",
+    NULL
+  )
+  if (is.null(hex)) {
+    return(text)
+  }
+  paste0('<span style="color: ', hex, ';">', text, "</span>")
+}
+
+#' The lines of a data table for the console
+#'
+#' The header in bold, a rule under it, then a line per row, padded into
+#' columns and colored by the shared styling rules and the table's own
+#' `cell_colors`.
+#'
+#' @param formatted_data Data frame with all numbers pre-formatted as characters
+#' @return Character vector of lines; empty for a table with no rows
+#' @keywords internal
+#' @noRd
+data_table_console_lines <- function(formatted_data) {
+  if (nrow(formatted_data) == 0) {
+    return(character())
+  }
+
+  model <- build_display_table_model(formatted_data, NULL)
+  display_data <- model$data
+  col_widths <- model$col_widths
+  red_flags <- model$style_flags$red
+  cell_colors <- display_cell_colors(formatted_data)
+
+  # Create properly aligned headers - pad first, then style
+  headers <- names(display_data)
+  header_parts <- sapply(seq_len(length(headers)), function(i) {
+    padded_header <- sprintf("%-*s", col_widths[i], headers[i])
+    cli::style_bold(padded_header)
+  })
+
+  lines <- c(
+    paste(header_parts, collapse = "  "),
+    paste(
+      sapply(col_widths, function(w) paste(rep("\u2500", w), collapse = "")),
+      collapse = "  "
+    )
+  )
+
+  # Rows with proper alignment and color styling
+  for (i in seq_len(nrow(display_data))) {
+    row_parts <- sapply(seq_len(ncol(display_data)), function(j) {
+      cell_data <- as.character(display_data[i, j])
+
+      # Apply padding first (using plain text)
+      padded_cell <- sprintf("%-*s", col_widths[j], cell_data)
+
+      if (red_flags[i, j]) {
+        padded_cell <- cli::col_red(padded_cell)
+      } else if (!is.null(cell_colors) && !is.na(cell_colors[i, j])) {
+        padded_cell <- display_color_console(padded_cell, cell_colors[i, j])
+      }
+
+      return(padded_cell)
+    })
+
+    lines <- c(lines, paste(row_parts, collapse = "  "))
+  }
+  lines
+}
+
 #' Print data table to console using cli
 #'
 #' Handles console presentation for any pre-formatted data frame.
@@ -286,46 +399,14 @@ print_data_table_console <- function(formatted_data, title) {
     return()
   }
 
-  model <- build_display_table_model(formatted_data, title)
-  display_data <- model$data
-  col_widths <- model$col_widths
-  red_flags <- model$style_flags$red
-
   cli::cat_line(" ")
-  if (!is.null(model$title)) {
-    cli::cli_h2(model$title)
+  if (!is.null(title)) {
+    cli::cli_h2(title)
   }
 
-  # Create properly aligned headers - pad first, then style
-  headers <- names(display_data)
-  header_parts <- sapply(seq_len(length(headers)), function(i) {
-    padded_header <- sprintf("%-*s", col_widths[i], headers[i])
-    cli::style_bold(padded_header)
-  })
-
   cli::cat_line(" ")
-  cli::cat_line(paste(header_parts, collapse = "  "))
-  cli::cat_line(paste(
-    sapply(col_widths, function(w) paste(rep("\u2500", w), collapse = "")),
-    collapse = "  "
-  ))
-
-  # Print rows with proper alignment and color styling
-  for (i in seq_len(nrow(display_data))) {
-    row_parts <- sapply(seq_len(ncol(display_data)), function(j) {
-      cell_data <- as.character(display_data[i, j])
-
-      # Apply padding first (using plain text)
-      padded_cell <- sprintf("%-*s", col_widths[j], cell_data)
-
-      if (red_flags[i, j]) {
-        padded_cell <- cli::col_red(padded_cell)
-      }
-
-      return(padded_cell)
-    })
-
-    cli::cat_line(paste(row_parts, collapse = "  "))
+  for (line in data_table_console_lines(formatted_data)) {
+    cli::cat_line(line)
   }
 }
 
@@ -358,6 +439,7 @@ print_data_table_knit <- function(formatted_data, title) {
   model <- build_display_table_model(formatted_data, title)
   display_data <- model$data
   red_flags <- model$style_flags$red
+  cell_colors <- display_cell_colors(formatted_data)
 
   # Apply HTML styling for coloring (same logic as console output)
   for (i in seq_len(nrow(display_data))) {
@@ -368,6 +450,11 @@ print_data_table_knit <- function(formatted_data, title) {
           '<span style="color: #DD0000;">',
           cell_data,
           '</span>'
+        )
+      } else if (!is.null(cell_colors) && !is.na(cell_colors[i, j])) {
+        display_data[i, j] <- display_color_html(
+          as.character(display_data[i, j]),
+          cell_colors[i, j]
         )
       }
     }

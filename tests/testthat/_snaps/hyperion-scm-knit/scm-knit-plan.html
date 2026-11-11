@@ -1,24 +1,65 @@
 
 <strong>SCM Plan: extdata/models/scm/scm/1001</strong>
 
-<pre class="hyperion-scm" style="white-space: pre; overflow-x: auto;">
-model      : extdata/models/scm/1001.mod
-direction  : forward -&gt; backward
-forward    : alpha = 0.05
-backward   : alpha = 0.001
-on failure : retry up to 3x from the previous attempt's estimates, jittered 5%
-cov step   : off
-forward fit: re-fit the forward model with the cov step on
-final fit  : re-fit the final model with the cov step on
-candidates :
-  name         theta     type          initial  FIXED
-  WT_CL        THETA(4)  continuous        0.1      0
-  CRCL_CL      THETA(5)  continuous        0.1      0
-  WT_V         THETA(6)  continuous        0.1      0
-             (initial: the effect's initial estimate the first time it is tested; FIXED: what it is fixed at when held out)
-max models : 13 (incl. reference fit, excl. retries)
-</pre>
-<ul>
-<li>&#x26A0; cov_step is off: the initial model's $COVARIANCE record will be removed from the round models</li>
-</ul>
+<strong>Model:</strong> extdata/models/scm/1001.mod
+
+<strong>Direction:</strong> forward -&gt; backward
+
+<strong>Alphas:</strong> forward = 0.05, backward = 0.001
+
+<strong>Retries:</strong> 3 per failed fit, jittered 5%
+
+<strong>Covariance step:</strong> off in the round fits
+
+<strong>Forward fit:</strong> re-fit the forward model with the cov step on
+
+<strong>Final fit:</strong> re-fit the final model with the cov step on
+
+<strong>Rounds:</strong> all
+
+<strong>Max models:</strong> 13 (incl. reference fit, excl. retries)
+
+
+<strong>Candidates</strong>
+
+<table class="table table-striped">
+ <thead>
+  <tr>
+   <th style="text-align:left;"> Effect </th>
+   <th style="text-align:left;"> Theta </th>
+   <th style="text-align:left;"> Type </th>
+   <th style="text-align:right;"> Initial </th>
+   <th style="text-align:right;"> Fixed </th>
+  </tr>
+ </thead>
+<tbody>
+  <tr>
+   <td style="text-align:left;"> WT_CL </td>
+   <td style="text-align:left;"> THETA(4) </td>
+   <td style="text-align:left;"> continuous </td>
+   <td style="text-align:right;"> 0.1 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> CRCL_CL </td>
+   <td style="text-align:left;"> THETA(5) </td>
+   <td style="text-align:left;"> continuous </td>
+   <td style="text-align:right;"> 0.1 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> WT_V </td>
+   <td style="text-align:left;"> THETA(6) </td>
+   <td style="text-align:left;"> continuous </td>
+   <td style="text-align:right;"> 0.1 </td>
+   <td style="text-align:right;"> 0 </td>
+  </tr>
+</tbody>
+</table>
+
+<em>Initial: the effect's initial estimate the first time it is tested.</em>
+
+<em>Fixed: what the effect is fixed at when it is held out.</em>
+
+<span style="color: #9A6700;">&#x26A0;</span> cov_step is off: the initial model's $COVARIANCE record will be removed from the round models
 

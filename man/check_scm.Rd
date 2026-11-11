@@ -22,7 +22,11 @@ as pharos renders it), \code{warnings}, \code{resumable}, \code{out_dir} and
 \code{project_root}.
 }
 \description{
-Check an SCM config: the plan it resolves to and its warnings
+The plan prints as its facts (the model, the direction and alphas, what
+a failed fit gets, where the covariance step runs, the most models it
+can fit), a table of its candidate effects, the SCM process already in
+its output directory with what the plan changes about it, and its
+warnings.
 }
 \examples{
 \dontrun{

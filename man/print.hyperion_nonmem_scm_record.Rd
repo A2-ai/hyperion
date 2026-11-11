@@ -24,7 +24,12 @@ without the rendered \code{text} attribute.}
 Invisible copy of x
 }
 \description{
-Prints pharos' rendering of a plan, status or summary under a title, then
-a plan's warnings and whether the process can resume under it, or a
-summary's count of unusable fits.
+Prints a plan, status or summary the way a model summary prints: the
+process facts under a title, then sections with tables. A summary and a
+status show the base, forward and final models, then each round with its
+decision and its candidates, the one the round added or dropped in
+green and an unusable fit in red; a status shows its open round fit by
+fit and closes with the driver's state. A plan shows its candidate
+effects, the process already in its output directory, its warnings, and
+whether that process can resume under it.
 }

@@ -664,7 +664,7 @@ submit_model_to_sge <- function(model, overwrite = FALSE, dry_run = FALSE, run_i
 #'
 #' @keywords internal
 #' @noRd
-check_scm_impl <- function(scm, num_rounds = NULL, overwrite = FALSE) .Call(wrap__check_scm_wrap, scm, num_rounds, overwrite)
+check_scm_impl <- function(scm, num_rounds = NULL) .Call(wrap__check_scm_wrap, scm, num_rounds)
 
 #' Get the status of an SCM process (internal implementation)
 #'

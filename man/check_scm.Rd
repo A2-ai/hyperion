@@ -4,7 +4,7 @@
 \alias{check_scm}
 \title{Check an SCM config: the plan it resolves to and its warnings}
 \usage{
-check_scm(scm, num_rounds = NULL, overwrite = FALSE)
+check_scm(scm, num_rounds = NULL)
 }
 \arguments{
 \item{scm}{A \code{hyperion_nonmem_scm} object from \code{\link[=read_scm]{read_scm()}}, or the path
@@ -12,8 +12,6 @@ to the SCM config (\verb{<stem>scm.toml}).}
 
 \item{num_rounds}{Pause after this many rounds; \code{NULL} uses the config's
 \code{num_rounds}, \code{0L} runs all rounds.}
-
-\item{overwrite}{Show the plan as a submit with \code{overwrite = TRUE} would run it.}
 }
 \value{
 A \code{hyperion_nonmem_scm_plan} S3 object: the plan (\code{model},

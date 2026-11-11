@@ -28,9 +28,15 @@ each candidate, the working full model's re-fit and the reduced covariate model.
 is tagged \code{"scm"} and with its round (\code{"reference"}, \code{"forward_round1"},
 ..., \code{"working_full"}, \code{"reduced_covariate"}); a round's winner is also tagged
 \code{"selected"}, and a fit that was retried \code{"retry"}. Its description is
-the fit's action, then the covariates its model has, such as
-\code{"add CRCL_CL; covariates: WT_CL, CRCL_CL"}, the shape pharos writes to
-the fits' metadata.
+the fit's step alone, as pharos writes it to the fits' metadata: what a
+candidate adds or drops, such as \code{"add CRCL_CL"}, or the name of a fit
+that is not a candidate, such as \code{"base model"}.
+
+Each node also carries \code{covariates}, the covariates its model has, from
+the process record: what the round started with, plus the candidate it
+adds or without the one it drops. The fits' metadata does not hold these,
+so a lineage from \code{\link[=get_model_lineage]{get_model_lineage()}} has none;
+\code{hyperion.tables::scm_summary_spec(description = "verbose")} shows them.
 
 Unlike \code{\link[=get_model_lineage]{get_model_lineage()}}, this does not need the fits' metadata files,
 so it works wherever the process ran.

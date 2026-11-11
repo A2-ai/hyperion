@@ -694,8 +694,7 @@ build_scm_plan_parts <- function(x) {
   if (is.na(main)) {
     main <- length(blocks) + 1L
   }
-  # What comes before the plan is a note about it: the process a submit
-  # with `overwrite = TRUE` would discard.
+  # What comes before the plan is a note about it.
   top <- lapply(blocks[seq_len(main - 1)], function(b) {
     scm_alert("warning", paste(trimws(b), collapse = " "))
   })

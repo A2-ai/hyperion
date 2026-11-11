@@ -491,7 +491,7 @@
         "retries": 0
       },
       "winner": null,
-      "decision": "no candidate significant at alpha = 0.05; forward selection stopped",
+      "decision": "no covariate candidate significant at alpha = 0.05; forward selection stopped",
       "timing": {
         "started": "2026-09-08T16:00:00+00:00",
         "ended": "2026-09-08T16:01:30+00:00",
@@ -695,7 +695,7 @@
         "retries": 0
       },
       "winner": null,
-      "decision": "every covariate significant at alpha = 0.001; backward elimination stopped",
+      "decision": "every covariate candidate significant at alpha = 0.001; backward elimination stopped",
       "timing": {
         "started": "2026-09-08T16:00:00+00:00",
         "ended": "2026-09-08T16:01:30+00:00",

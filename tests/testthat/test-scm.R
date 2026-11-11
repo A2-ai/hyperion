@@ -275,8 +275,8 @@ test_that("check_scm() reports a started process", {
   plan <- check_scm(comp)
   expect_true(attr(plan, "resumable"))
   expect_match(attr(plan, "text"), "changes      : none")
-  plan <- check_scm(comp, overwrite = TRUE)
-  expect_match(attr(plan, "text"), "overwrite = TRUE: submit discards the SCM process")
+  # A check discards nothing, so it takes no `overwrite`.
+  expect_error(check_scm(comp, overwrite = TRUE), "unused argument")
 })
 
 test_that("check_scm() errors as pharos does, with the dialect hint", {
@@ -401,7 +401,7 @@ test_that("get_scm_model() reads a fitted model by stage, round and candidate", 
   expect_equal(stem(get_scm_model(comp, "round 2", candidate = "WT_V")), "1001_wt_v_try2")
   expect_equal(stem(get_scm_model(scm_complete_fixture("scm", "1001scm.toml"), "REDUCED_COVARIATE")), "1001_scm_reduced_covariate")
 
-  expect_error(get_scm_model(comp, "forward_round3"), "forward_round3 has no winner: no candidate significant")
+  expect_error(get_scm_model(comp, "forward_round3"), "forward_round3 has no winner: no covariate candidate significant")
   expect_error(
     get_scm_model(comp, "forward_round2", candidate = "AGE_CL"),
     "no candidate named AGE_CL in forward_round2; it has: CRCL_CL, WT_V"
@@ -499,6 +499,7 @@ test_that("get_scm_lineage() builds the tree of the process's fits from its reco
     name = vapply(tree$nodes, name, ""),
     parent = vapply(tree$nodes, parent, ""),
     description = vapply(tree$nodes, function(n) n$model$description, ""),
+    covariates = vapply(tree$nodes, function(n) paste(unlist(n$model$covariates), collapse = ","), ""),
     tags = vapply(tree$nodes, tags, ""),
     stringsAsFactors = FALSE
   )
@@ -522,16 +523,27 @@ test_that("get_scm_lineage() builds the tree of the process's fits from its reco
     "backward_round1/1001_crcl_cl.mod",
     "base/1001_base.mod"
   ))
-  # The action, then the covariates the model has.
+  # The step alone: what a candidate adds or drops, or the fit's name.
   expect_equal(nodes$description, c(
-    "base model; covariates: none",
-    "add WT_CL; covariates: WT_CL", "add CRCL_CL; covariates: CRCL_CL", "add WT_V; covariates: WT_V",
-    "add CRCL_CL; covariates: WT_CL, CRCL_CL", "add WT_V; covariates: WT_CL, WT_V",
-    "add WT_V; covariates: WT_CL, CRCL_CL, WT_V",
-    "working full model; covariates: WT_CL, CRCL_CL",
-    "drop WT_CL; covariates: CRCL_CL", "drop CRCL_CL; covariates: WT_CL",
-    "drop WT_CL; covariates: none",
-    "reduced covariate model; covariates: WT_CL"
+    "base model",
+    "add WT_CL", "add CRCL_CL", "add WT_V",
+    "add CRCL_CL", "add WT_V",
+    "add WT_V",
+    "working full model",
+    "drop WT_CL", "drop CRCL_CL",
+    "drop WT_CL",
+    "reduced covariate model"
+  ))
+  # The covariates each model has are a field of their own.
+  expect_equal(nodes$covariates, c(
+    "",
+    "WT_CL", "CRCL_CL", "WT_V",
+    "WT_CL,CRCL_CL", "WT_CL,WT_V",
+    "WT_CL,CRCL_CL,WT_V",
+    "WT_CL,CRCL_CL",
+    "CRCL_CL", "WT_CL",
+    "",
+    "WT_CL"
   ))
   expect_equal(nodes$tags, c(
     "scm,reference",

@@ -59,10 +59,11 @@
   with each fit based on the model its round tested against, the working
   full model and the reduced covariate model based on the reference fit,
   each tagged with
-  its round and described by its action and the covariates its model has,
-  as pharos writes to the fits' metadata, so
+  its round and described by its step alone ("add CRCL_CL"), as pharos
+  writes to the fits' metadata, so
   `hyperion.tables::apply_summary_spec()` makes a run summary table of the
-  process.
+  process. Each node also carries `covariates`, the covariates its model
+  has, from the process record.
 
 # hyperion 0.7.0
 
@@ -80,7 +81,8 @@
   place, and `add_scm_effect()`, `update_scm_effect()` and
   `remove_scm_effect()` its effects (`ScmEffect()` builds one).
 - `check_scm()` shows the plan a config resolves to and whether a started
-  process can resume under it; `submit_scm_to_slurm()` starts or resumes the
+  process can resume under it. It only reads the output directory, so it
+  takes no `overwrite`; `submit_scm_to_slurm()` starts or resumes the
   process as a SLURM driver job and `stop_scm()` pauses it.
 - `get_scm_status()` and `summary()` return the process record and print
   pharos' rendering. `pharos nonmem scm run` is not wrapped.

@@ -23,8 +23,6 @@ test_that("print methods for the SCM records lay them out as facts and tables", 
   plan <- check_scm(comp)
   attr(plan, "resumable") <- FALSE
   expect_snapshot(print(plan), transform = scrub_scm)
-  # The process a submit would discard is a note above the plan.
-  expect_snapshot(print(check_scm(comp, overwrite = TRUE)))
   expect_false(any(grepl('"text"', capture.output(str(s, max.level = 1)), fixed = TRUE)))
 })
 

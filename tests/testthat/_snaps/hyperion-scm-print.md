@@ -18,7 +18,7 @@
        
     Message
       
-      -- Effects --
+      -- Candidates --
       
     Output
        
@@ -107,7 +107,7 @@
       
       -- Forward round 3 --
       
-      i no candidate significant at alpha = 0.05; forward selection stopped
+      i no covariate candidate significant at alpha = 0.05; forward selection stopped
       Reference: forward_round2/1001_crcl_cl.mod (OFV 974.000)
       Retained: WT_CL, CRCL_CL
       
@@ -128,7 +128,7 @@
       
       -- Backward round 2 --
       
-      i every covariate significant at alpha = 0.001; backward elimination stopped
+      i every covariate candidate significant at alpha = 0.001; backward elimination stopped
       Reference: backward_round1/1001_crcl_cl.mod (OFV 980.000)
       Retained: WT_CL
       
@@ -186,7 +186,7 @@
       
       -- Forward round 3 --
       
-      i no candidate significant at alpha = 0.05; forward selection stopped
+      i no covariate candidate significant at alpha = 0.05; forward selection stopped
       Reference: forward_round2/1001_crcl_cl.mod (OFV 974.000)
       Retained: WT_CL, CRCL_CL
       
@@ -207,7 +207,7 @@
       
       -- Backward round 2 --
       
-      i every covariate significant at alpha = 0.001; backward elimination stopped
+      i every covariate candidate significant at alpha = 0.001; backward elimination stopped
       Reference: backward_round1/1001_crcl_cl.mod (OFV 980.000)
       Retained: WT_CL
       
@@ -253,38 +253,6 @@
       
       ! cov_step is off: the initial model's $COVARIANCE record will be removed from the round models
       x The SCM process in 'extdata/models/scm-complete/scm/1001' cannot resume under this plan; submit with `overwrite = TRUE` to discard it.
-
----
-
-    Code
-      print(check_scm(comp, overwrite = TRUE))
-    Message
-      
-      
-      -- SCM Plan: extdata/models/scm-complete/scm/1001 ------------------------------
-      ! overwrite = TRUE: submit discards the SCM process in extdata/models/scm-complete/scm/1001 (completed, 5 rounds complete) and starts fresh
-      Model: extdata/models/scm-complete/1001.mod
-      Direction: forward -> backward
-      Alphas: forward = 0.05, backward = 0.001
-      Retries: 3 per failed fit, jittered 5%
-      Covariance step: off in the round fits
-      Working full fit: re-fit the working full model with the cov step on
-      Reduced covariate fit: re-fit the reduced covariate model with the cov step on
-      Rounds: all
-      Max models: 13 (incl. reference fit, excl. retries)
-      
-      -- Candidates --
-      
-      Effect   Theta     Type        Initial  Fixed
-      ───────  ────────  ──────────  ───────  ─────
-      WT_CL    THETA(4)  continuous  0.1      0    
-      CRCL_CL  THETA(5)  continuous  0.1      0    
-      WT_V     THETA(6)  continuous  0.1      0    
-      
-      Initial: the effect's initial estimate the first time it is tested.
-      Fixed: what the effect is fixed at when it is held out.
-      
-      ! cov_step is off: the initial model's $COVARIANCE record will be removed from the round models
 
 # a summary prints the view it was asked for
 
@@ -391,7 +359,7 @@
       
       -- Forward round 3 --
       
-      i no candidate significant at alpha = 0.05; forward selection stopped
+      i no covariate candidate significant at alpha = 0.05; forward selection stopped
       Reference: forward_round2/1001_crcl_cl.mod (OFV 974.000)
       Retained: WT_CL, CRCL_CL
       

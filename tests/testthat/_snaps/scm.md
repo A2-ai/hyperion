@@ -105,16 +105,16 @@
       i Models: 12
       
     Output
-      extdata/models/scm-complete/scm/1001/base/1001_base base model; covariates: none
-      +-extdata/models/scm-complete/scm/1001/forward_round1/1001_wt_cl add WT_CL; covariates: WT_CL
-      | +-extdata/models/scm-complete/scm/1001/forward_round2/1001_crcl_cl add CRCL_CL; covariates: WT...
-      | | +-extdata/models/scm-complete/scm/1001/forward_round3/1001_wt_v add WT_V; covariates: WT_CL...
-      | | +-extdata/models/scm-complete/scm/1001/backward_round1/1001_wt_cl drop WT_CL; covariates: CRC...
-      | | \-extdata/models/scm-complete/scm/1001/backward_round1/1001_crcl_cl drop CRCL_CL; covariates: W...
-      | |   \-extdata/models/scm-complete/scm/1001/backward_round2/1001_wt_cl drop WT_CL; covariates: none
-      | \-extdata/models/scm-complete/scm/1001/forward_round2/1001_wt_v_try2 add WT_V; covariates: WT_CL...
-      +-extdata/models/scm-complete/scm/1001/forward_round1/1001_crcl_cl add CRCL_CL; covariates: CR...
-      +-extdata/models/scm-complete/scm/1001/forward_round1/1001_wt_v add WT_V; covariates: WT_V
-      +-extdata/models/scm-complete/scm/1001/working_full/1001_scm_working_full working full model; covaria...
-      \-extdata/models/scm-complete/scm/1001/reduced_covariate/1001_scm_reduced_covariate reduced covariate model; co...
+      extdata/models/scm-complete/scm/1001/base/1001_base base model
+      +-extdata/models/scm-complete/scm/1001/forward_round1/1001_wt_cl add WT_CL
+      | +-extdata/models/scm-complete/scm/1001/forward_round2/1001_crcl_cl add CRCL_CL
+      | | +-extdata/models/scm-complete/scm/1001/forward_round3/1001_wt_v add WT_V
+      | | +-extdata/models/scm-complete/scm/1001/backward_round1/1001_wt_cl drop WT_CL
+      | | \-extdata/models/scm-complete/scm/1001/backward_round1/1001_crcl_cl drop CRCL_CL
+      | |   \-extdata/models/scm-complete/scm/1001/backward_round2/1001_wt_cl drop WT_CL
+      | \-extdata/models/scm-complete/scm/1001/forward_round2/1001_wt_v_try2 add WT_V
+      +-extdata/models/scm-complete/scm/1001/forward_round1/1001_crcl_cl add CRCL_CL
+      +-extdata/models/scm-complete/scm/1001/forward_round1/1001_wt_v add WT_V
+      +-extdata/models/scm-complete/scm/1001/working_full/1001_scm_working_full working full model
+      \-extdata/models/scm-complete/scm/1001/reduced_covariate/1001_scm_reduced_covariate reduced covariate model
 

@@ -253,7 +253,7 @@
         }
       ],
       "winner": null,
-      "decision": "no candidate significant at alpha = 0.05; forward selection stopped",
+      "decision": "no covariate candidate significant at alpha = 0.05; forward selection stopped",
       "complete": true
     },
     {
@@ -332,7 +332,7 @@
         }
       ],
       "winner": null,
-      "decision": "every covariate significant at alpha = 0.001; backward elimination stopped",
+      "decision": "every covariate candidate significant at alpha = 0.001; backward elimination stopped",
       "complete": true
     }
   ],

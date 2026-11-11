@@ -14,9 +14,15 @@
 #' is tagged `"scm"` and with its round (`"reference"`, `"forward_round1"`,
 #' ..., `"working_full"`, `"reduced_covariate"`); a round's winner is also tagged
 #' `"selected"`, and a fit that was retried `"retry"`. Its description is
-#' the fit's action, then the covariates its model has, such as
-#' `"add CRCL_CL; covariates: WT_CL, CRCL_CL"`, the shape pharos writes to
-#' the fits' metadata.
+#' the fit's step alone, as pharos writes it to the fits' metadata: what a
+#' candidate adds or drops, such as `"add CRCL_CL"`, or the name of a fit
+#' that is not a candidate, such as `"base model"`.
+#'
+#' Each node also carries `covariates`, the covariates its model has, from
+#' the process record: what the round started with, plus the candidate it
+#' adds or without the one it drops. The fits' metadata does not hold these,
+#' so a lineage from [get_model_lineage()] has none;
+#' `hyperion.tables::scm_summary_spec(description = "verbose")` shows them.
 #'
 #' Unlike [get_model_lineage()], this does not need the fits' metadata files,
 #' so it works wherever the process ran.
@@ -52,14 +58,15 @@ get_scm_lineage <- function(scm) {
 # The tree's nodes, in the order the process fitted them.
 scm_lineage_nodes <- function(record) {
   out_dir <- record$out_dir
-  node <- function(model, based_on, description, tags) {
+  node <- function(model, based_on, description, tags, covariates) {
     list(
       name = file.path(out_dir, model),
       model = list(
         based_on = if (is.null(based_on)) list() else list(file.path(out_dir, based_on)),
         copied_from = "",
         description = description,
-        tags = as.list(tags)
+        tags = as.list(tags),
+        covariates = as.list(as.character(unlist(covariates)))
       )
     )
   }
@@ -77,17 +84,19 @@ scm_lineage_nodes <- function(record) {
       tags <- c("scm", r$round)
       if (isTRUE(cnd$selected)) tags <- c(tags, "selected")
       if (length(cnd$attempts %||% list()) > 1) tags <- c(tags, "retry")
-      action <- if (is_reference) "base model" else cnd$action %||% cnd$candidate
-      description <- paste0(
-        action,
-        "; covariates: ",
-        scm_retained_text(scm_model_covariates(r, cnd, is_reference))
-      )
+      # The reference fit is the base model, or the full model of a
+      # backward-first process: its candidate is named "base" or "full".
+      description <- if (is_reference) {
+        paste(cnd$candidate %||% "base", "model")
+      } else {
+        cnd$action %||% cnd$candidate
+      }
       nodes[[length(nodes) + 1]] <- node(
         cnd$model,
         if (is_reference) NULL else r$reference_model,
         description,
-        tags
+        tags,
+        scm_model_covariates(r, cnd, is_reference)
       )
     }
     # The working full model's re-fit follows the last forward round.
@@ -96,8 +105,9 @@ scm_lineage_nodes <- function(record) {
       nodes[[length(nodes) + 1]] <- node(
         ff$model,
         scm_reference_fit_model(record),
-        paste0("working full model; covariates: ", scm_retained_text(ff$retained)),
-        c("scm", "working_full")
+        "working full model",
+        c("scm", "working_full"),
+        ff$retained
       )
     }
   }
@@ -105,8 +115,9 @@ scm_lineage_nodes <- function(record) {
     nodes[[length(nodes) + 1]] <- node(
       record$reduced_covariate_model,
       scm_reference_fit_model(record),
-      paste0("reduced covariate model; covariates: ", scm_retained_text(record$retained)),
-      c("scm", "reduced_covariate")
+      "reduced covariate model",
+      c("scm", "reduced_covariate"),
+      record$retained
     )
   }
   nodes
@@ -138,9 +149,4 @@ scm_model_covariates <- function(r, cnd, is_reference) {
   before <- as.character(unlist(r$retained_before))
   name <- cnd$candidate %||% ""
   if (identical(r$direction, "backward")) setdiff(before, name) else union(before, name)
-}
-
-scm_retained_text <- function(retained) {
-  retained <- unlist(retained)
-  if (length(retained) == 0) "none" else paste(retained, collapse = ", ")
 }

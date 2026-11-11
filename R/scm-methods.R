@@ -72,7 +72,7 @@ print.hyperion_nonmem_scm <- function(x, ...) {
   if (is.null(parts$effects)) {
     cli::cli_alert_warning(SCM_NO_EFFECTS)
   } else {
-    print_data_table_console(parts$effects, "Effects")
+    print_data_table_console(parts$effects, "Candidates")
   }
   invisible(x)
 }
@@ -103,7 +103,7 @@ knit_print.hyperion_nonmem_scm <- function(x, ...) {
   if (is.null(parts$effects)) {
     output <- c(output, "No effects yet.", "")
   } else {
-    output <- c(output, print_data_table_knit(parts$effects, "Effects"))
+    output <- c(output, print_data_table_knit(parts$effects, "Candidates"))
   }
   knitr::asis_output(paste(output, collapse = "\n"))
 }

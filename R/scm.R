@@ -279,7 +279,6 @@ warn_scm_effects_differ <- function(current, given) {
 #'   to the SCM config (`<stem>scm.toml`).
 #' @param num_rounds Pause after this many rounds; `NULL` uses the config's
 #'   `num_rounds`, `0L` runs all rounds.
-#' @param overwrite Show the plan as a submit with `overwrite = TRUE` would run it.
 #'
 #' @return A `hyperion_nonmem_scm_plan` S3 object: the plan (`model`,
 #'   `out_dir`, `candidates`, `options`, ...) with attributes `text` (the plan
@@ -292,8 +291,8 @@ warn_scm_effects_differ <- function(current, given) {
 #' check_scm(scm)
 #' check_scm(scm, num_rounds = 2)
 #' }
-check_scm <- function(scm, num_rounds = NULL, overwrite = FALSE) {
-  check_scm_impl(scm, num_rounds, overwrite)
+check_scm <- function(scm, num_rounds = NULL) {
+  check_scm_impl(scm, num_rounds)
 }
 
 #' Submit an SCM process to slurm

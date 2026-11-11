@@ -3,7 +3,7 @@ use extendr_api::prelude::*;
 use std::path::Path;
 use which::which;
 
-use nonmem::scm::{self, PlanContext};
+use nonmem::scm;
 use scheduler::{
     DriverRecord, Liveness, ScmHints, ScmJob, ScmSubmitArgs, cancel_recorded_fits, fit_place_lookup,
 };
@@ -74,26 +74,17 @@ fn opt_robj<T: Into<Robj>>(value: Option<T>) -> Robj {
 pub fn check_scm_wrap(
     scm: Robj,
     #[extendr(default = "NULL")] num_rounds: Option<usize>,
-    #[extendr(default = "FALSE")] overwrite: bool,
 ) -> Result<Robj> {
     let config = scm_config_path(&scm)?;
+    // A check only reads the out_dir: it reports what a submit would do
+    // with the SCM process already there, and discards nothing.
     let args = ScmSubmitArgs {
         config,
         num_rounds,
-        overwrite,
         ..Default::default()
     };
     let job = load_job(&args)?;
-    let mut text = String::new();
-    if overwrite {
-        // The process in the out_dir is gone before the plan meets it.
-        if let Some(note) = job.discard_note("submit") {
-            text.push_str(&format!("{note}\n\n"));
-        }
-        text.push_str(&job.built.plan.render_text(&PlanContext::default()));
-    } else {
-        text.push_str(&job.built.render_text());
-    }
+    let text = job.built.render_text();
     let mut robj = scm_obj(
         &job.built.plan,
         text,

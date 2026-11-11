@@ -67,10 +67,10 @@ SCM_FACT_LABELS <- c(
   "path" = "Path",
   "removed" = "Removed",
   "retuned" = "Retuned",
-  "forward model" = "Forward model",
-  "forward fit" = "Forward fit",
-  "final model" = "Final model",
-  "final fit" = "Final fit",
+  "working full model" = "Working full model",
+  "working full fit" = "Working full fit",
+  "reduced covariate model" = "Reduced covariate model",
+  "reduced covariate fit" = "Reduced covariate fit",
   "time" = "Time",
   "selected" = "Selected",
   "changes" = "Changes",
@@ -225,7 +225,7 @@ scm_reference_round <- function(x) {
   NULL
 }
 
-# The base (or full) model, the forward model and the final model, with
+# The base (or full) model, the working full model and the reduced covariate model, with
 # their OFV and the covariates each holds.
 scm_models_section <- function(x) {
   rows <- list()
@@ -259,10 +259,10 @@ scm_models_section <- function(x) {
   }
   forward <- x$forward_final
   if (!is.null(forward)) {
-    add("Forward model", forward$model, forward$ofv, forward$retained, forward$status)
+    add("Working full model", forward$model, forward$ofv, forward$retained, forward$status)
   }
   if (!is.null(x$final_model)) {
-    add("Final model", x$final_model, x$final_ofv, x$retained, "")
+    add("Reduced covariate model", x$final_model, x$final_ofv, x$retained, "")
   }
   if (length(rows) == 0) {
     return(NULL)
@@ -599,7 +599,7 @@ build_scm_summary_parts <- function(x) {
   facts <- scm_record_facts(
     x,
     if (length(blocks)) blocks[[1]] else character(),
-    drop = if (is.null(models)) character() else c("forward model", "final model")
+    drop = if (is.null(models)) character() else c("working full model", "reduced covariate model")
   )
 
   rounds <- x$rounds %||% list()
@@ -645,7 +645,7 @@ build_scm_status_parts <- function(x) {
   facts <- scm_record_facts(
     x,
     if (length(blocks)) blocks[[1]] else character(),
-    drop = if (is.null(models)) character() else c("forward model", "final model")
+    drop = if (is.null(models)) character() else c("working full model", "reduced covariate model")
   )
 
   sections <- list(models)
@@ -720,8 +720,8 @@ build_scm_plan_parts <- function(x) {
       paste0(o$max_retries %||% 3, " per failed fit, jittered ", 100 * (o$retry_jitter %||% 0.05), "%")
     ),
     scm_facts("Covariance step", paste0(scm_on_off(o$cov_step), " in the round fits")),
-    from_text("forward fit"),
-    from_text("final fit"),
+    from_text("working full fit"),
+    from_text("reduced covariate fit"),
     scm_facts("Rounds", if (is.null(o$num_rounds)) "all" else paste0("pause after ", o$num_rounds, " (resumable)")),
     from_text("max models")
   )

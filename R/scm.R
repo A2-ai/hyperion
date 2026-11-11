@@ -139,8 +139,8 @@ scm_setting <- function(key, value) {
 #'   as a fraction.
 #' @param num_rounds Pause after this many rounds; `0` runs all rounds.
 #' @param cov_step Whether the generated models run `$COVARIANCE`.
-#' @param forward_final_cov_step,final_cov_step Whether the forward model and
-#'   the final model are re-fitted with `$COVARIANCE` on.
+#' @param forward_final_cov_step,final_cov_step Whether the working full model and
+#'   the reduced covariate model are re-fitted with `$COVARIANCE` on.
 #' @return The config path, invisibly.
 #' @export
 #'
@@ -449,8 +449,8 @@ stop_scm <- function(scm) {
 
 #' Get the status of an SCM process
 #'
-#' Where the SCM process stands now: the process facts, the base, forward
-#' and final models it has so far, each decided round's decision with a
+#' Where the SCM process stands now: the process facts, the base, working
+#' full and reduced covariate models it has so far, each decided round's decision with a
 #' table of its candidates, the open round fit by fit (its slurm job, how
 #' long it has run, the latest iteration and OFV read off its `.ext` file),
 #' and the driver's own state (running, exited, or gone while the process

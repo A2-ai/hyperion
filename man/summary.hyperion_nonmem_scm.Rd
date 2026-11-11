@@ -35,7 +35,7 @@ method follows), \code{out_dir} and \code{project_root}.
 }
 \description{
 The summary prints the process facts with the covariates' path, the
-base, forward and final models, and each round: its decision, its
+base, working full and reduced covariate models, and each round: its decision, its
 reference, and a table of its candidates with their OFV, dOFV against
 the reference, p-value, and which one the round added or dropped.
 }

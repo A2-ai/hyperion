@@ -6,11 +6,11 @@
 #' makes a run summary table of the process from it, one row per fit, and
 #' its tags give the sections. Every fit is based on the model its round
 #' tested against, so the summary's dOFV and p-value are the round's; the
-#' forward model and the final model are based on the reference fit, so
+#' working full model and the reduced covariate model are based on the reference fit, so
 #' theirs are against it.
 #'
 #' The tree holds the base fit, in every round the attempt that counted for
-#' each candidate, the forward model's re-fit and the final model. Each node
+#' each candidate, the working full model's re-fit and the reduced covariate model. Each node
 #' is tagged `"scm"` and with its round (`"reference"`, `"forward_round1"`,
 #' ..., `"forward_final"`, `"final"`); a round's winner is also tagged
 #' `"selected"`, and a fit that was retried `"retry"`. Its description is
@@ -90,13 +90,13 @@ scm_lineage_nodes <- function(record) {
         tags
       )
     }
-    # The forward model's re-fit follows the last forward round.
+    # The working full model's re-fit follows the last forward round.
     ff <- record$forward_final
     if (i == last_forward && !is.null(ff$model)) {
       nodes[[length(nodes) + 1]] <- node(
         ff$model,
         scm_reference_fit_model(record),
-        paste0("forward model; covariates: ", scm_retained_text(ff$retained)),
+        paste0("working full model; covariates: ", scm_retained_text(ff$retained)),
         c("scm", "forward_final")
       )
     }
@@ -105,7 +105,7 @@ scm_lineage_nodes <- function(record) {
     nodes[[length(nodes) + 1]] <- node(
       record$final_model,
       scm_reference_fit_model(record),
-      paste0("final model; covariates: ", scm_retained_text(record$retained)),
+      paste0("reduced covariate model; covariates: ", scm_retained_text(record$retained)),
       c("scm", "final")
     )
   }
@@ -113,7 +113,7 @@ scm_lineage_nodes <- function(record) {
 }
 
 # The reference fit's model: the base, or the full model of a backward-first
-# process. The forward model and the final model are based on it.
+# process. The working full model and the reduced covariate model are based on it.
 scm_reference_fit_model <- function(record) {
   for (r in record$rounds %||% list()) {
     if (!identical(r$round, "reference")) {

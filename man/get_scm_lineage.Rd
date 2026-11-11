@@ -19,12 +19,12 @@ so it goes where a lineage goes: \code{hyperion.tables::apply_summary_spec()}
 makes a run summary table of the process from it, one row per fit, and
 its tags give the sections. Every fit is based on the model its round
 tested against, so the summary's dOFV and p-value are the round's; the
-forward model and the final model are based on the reference fit, so
+working full model and the reduced covariate model are based on the reference fit, so
 theirs are against it.
 }
 \details{
 The tree holds the base fit, in every round the attempt that counted for
-each candidate, the forward model's re-fit and the final model. Each node
+each candidate, the working full model's re-fit and the reduced covariate model. Each node
 is tagged \code{"scm"} and with its round (\code{"reference"}, \code{"forward_round1"},
 ..., \code{"forward_final"}, \code{"final"}); a round's winner is also tagged
 \code{"selected"}, and a fit that was retried \code{"retry"}. Its description is

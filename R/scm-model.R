@@ -10,8 +10,8 @@
 #' @param round Which fit: a selection round by name (`"forward_round1"`,
 #'   `"backward_round2"`) or by its number (`2`, `"round 2"`), as
 #'   `summary()` takes it; `"reference"` for the reference fit the forward or
-#'   backward phase started from; `"forward_final"` for the forward model's
-#'   re-fit; or `"final"` for the final model.
+#'   backward phase started from; `"forward_final"` for the working full model's
+#'   re-fit; or `"final"` for the reduced covariate model.
 #' @param candidate In a selection round, the effect whose fit to get: the
 #'   one tested in a forward round, or held out in a backward round. `NULL`,
 #'   the default, gives the round's winner, the model that was added or
@@ -53,14 +53,14 @@ scm_model_in_record <- function(record, round, candidate = NULL) {
   if (key == "final") {
     path <- record$final_model
     if (is.null(path)) {
-      rlang::abort(paste0("no final model yet; the SCM process is ", record$status))
+      rlang::abort(paste0("no reduced covariate model yet; the SCM process is ", record$status))
     }
     return(path)
   }
   if (key == "forward_final") {
     path <- record$forward_final$model
     if (is.null(path)) {
-      rlang::abort(paste0("no forward final model yet; the SCM process is ", record$status))
+      rlang::abort(paste0("no working full model yet; the SCM process is ", record$status))
     }
     return(path)
   }

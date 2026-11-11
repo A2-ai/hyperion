@@ -12,8 +12,8 @@ get_scm_model(scm, round, candidate = NULL)
 \item{round}{Which fit: a selection round by name (\code{"forward_round1"},
 \code{"backward_round2"}) or by its number (\code{2}, \code{"round 2"}), as
 \code{summary()} takes it; \code{"reference"} for the reference fit the forward or
-backward phase started from; \code{"forward_final"} for the forward model's
-re-fit; or \code{"final"} for the final model.}
+backward phase started from; \code{"forward_final"} for the working full model's
+re-fit; or \code{"final"} for the reduced covariate model.}
 
 \item{candidate}{In a selection round, the effect whose fit to get: the
 one tested in a forward round, or held out in a backward round. \code{NULL},

@@ -19,7 +19,8 @@
   the way `summary()` of a model does, instead of showing pharos' text under
   a title: the process facts as `Label: value` lines with the status in
   color, then tables of hyperion's own. A summary and a status show the
-  base, forward and final models with their OFV and covariates, then each
+  base, working full and reduced covariate models with their OFV and
+  covariates, then each
   round with its decision, its reference and its candidates, the one the
   round added or dropped in green and an unusable fit in red; a status
   shows its open round fit by fit and closes with the driver's state; a
@@ -29,15 +30,24 @@
   Rendered documents get the same layout as HTML tables. The objects are
   unchanged, pharos' own rendering still in their `text` attribute.
 - Printing an SCM config spells out where the covariance step runs: in the
-  round fits, in the forward model's re-fit and in the final model's
-  re-fit.
+  round fits, in the working full model's re-fit and in the reduced
+  covariate model's re-fit.
+- The model forward selection ends with is called the working full model,
+  and the model the process ends with the reduced covariate model, in
+  place of "forward model" and "final model": in what the SCM objects
+  print, in the descriptions `get_scm_lineage()` gives, and in the messages
+  of `get_scm_model()`. The names in code are unchanged: the
+  `"forward_final"` and `"final"` stages and tags, the directories and
+  files of the same names, and the `forward_final_cov_step` and
+  `final_cov_step` settings.
 - `get_scm_model()` reads a model the SCM process fitted, by round and
   candidate, or by stage (`"reference"`, `"forward_final"`, `"final"`), as a
   `hyperion_nonmem_model` for `summary()`.
 - `get_scm_lineage()` builds the lineage tree of an SCM process's fits from
   its record: the `hyperion_nonmem_tree` that `get_model_lineage()` gives,
-  with each fit based on the model its round tested against, the forward
-  model and the final model based on the reference fit, each tagged with
+  with each fit based on the model its round tested against, the working
+  full model and the reduced covariate model based on the reference fit,
+  each tagged with
   its round and described by its action and the covariates its model has,
   as pharos writes to the fits' metadata, so
   `hyperion.tables::apply_summary_spec()` makes a run summary table of the

@@ -70,11 +70,11 @@
       
       -- Models --
       
-      Model          File                                      OFV       Covariates    
-      ─────────────  ────────────────────────────────────────  ────────  ──────────────
-      Base model     base/1001_base.mod                        1000.000  none          
-      Forward model  forward_final/1001_scm_forward_final.mod  973.800   WT_CL, CRCL_CL
-      Final model    final/1001_scm_final.mod                  979.500   WT_CL         
+      Model                    File                                      OFV       Covariates    
+      ───────────────────────  ────────────────────────────────────────  ────────  ──────────────
+      Base model               base/1001_base.mod                        1000.000  none          
+      Working full model       forward_final/1001_scm_forward_final.mod  973.800   WT_CL, CRCL_CL
+      Reduced covariate model  final/1001_scm_final.mod                  979.500   WT_CL         
       
       -- Forward round 2 --
       
@@ -115,6 +115,6 @@
       | \-extdata/models/scm-complete/scm/1001/forward_round2/1001_wt_v_try2 add WT_V; covariates: WT_CL...
       +-extdata/models/scm-complete/scm/1001/forward_round1/1001_crcl_cl add CRCL_CL; covariates: CR...
       +-extdata/models/scm-complete/scm/1001/forward_round1/1001_wt_v add WT_V; covariates: WT_V
-      +-extdata/models/scm-complete/scm/1001/forward_final/1001_scm_forward_final forward model; covariates: ...
-      \-extdata/models/scm-complete/scm/1001/final/1001_scm_final final model; covariates: WT_CL
+      +-extdata/models/scm-complete/scm/1001/forward_final/1001_scm_forward_final working full model; covaria...
+      \-extdata/models/scm-complete/scm/1001/final/1001_scm_final reduced covariate model; co...
 

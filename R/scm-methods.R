@@ -43,9 +43,9 @@ build_scm_display_parts <- function(x) {
       on_off(x$cov_step),
       " in the round fits, ",
       on_off(x$forward_final_cov_step %||% TRUE),
-      " in the forward model's re-fit, ",
+      " in the working full model's re-fit, ",
       on_off(x$final_cov_step %||% TRUE),
-      " in the final model's re-fit"
+      " in the reduced covariate model's re-fit"
     ),
     rounds = if (rounds > 0) paste0("pause after ", rounds) else "all",
     effects = effects_df
@@ -160,7 +160,7 @@ print_scm_alert <- function(alert) {
 #'
 #' Prints a plan, status or summary the way a model summary prints: the
 #' process facts under a title, then sections with tables. A summary and a
-#' status show the base, forward and final models, then each round with its
+#' status show the base, working full and reduced covariate models, then each round with its
 #' decision and its candidates, the one the round added or dropped in
 #' green and an unusable fit in red; a status shows its open round fit by
 #' fit and closes with the driver's state. A plan shows its candidate
@@ -296,7 +296,7 @@ str.hyperion_nonmem_scm_record <- function(object, ...) {
 #' Summarize an SCM process
 #'
 #' The summary prints the process facts with the covariates' path, the
-#' base, forward and final models, and each round: its decision, its
+#' base, working full and reduced covariate models, and each round: its decision, its
 #' reference, and a table of its candidates with their OFV, dOFV against
 #' the reference, p-value, and which one the round added or dropped.
 #'

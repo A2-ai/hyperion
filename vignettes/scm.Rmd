@@ -38,8 +38,8 @@ process starts from an **initial model** whose `$THETA` records already declare
 every covariate effect to be tested, runs forward selection (each round fits
 one model per untested candidate and adds the best significant one) and
 backward elimination (each round refits with one retained effect fixed and
-drops the least significant), and writes a final model with exactly the
-retained effects. Scoring is a likelihood-ratio test on the change in OFV.
+drops the least significant), and writes a reduced covariate model with exactly
+the retained effects. Scoring is a likelihood-ratio test on the change in OFV.
 Every fit runs on slurm; a one-CPU driver job submits and waits for them.
 
 The pieces mirror the model workflow: `read_scm()` reads the process's config

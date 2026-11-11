@@ -34,8 +34,8 @@ as a fraction.}
 
 \item{cov_step}{Whether the generated models run \verb{$COVARIANCE}.}
 
-\item{forward_final_cov_step, final_cov_step}{Whether the forward model and
-the final model are re-fitted with \verb{$COVARIANCE} on.}
+\item{forward_final_cov_step, final_cov_step}{Whether the working full model and
+the reduced covariate model are re-fitted with \verb{$COVARIANCE} on.}
 }
 \value{
 The config path, invisibly.

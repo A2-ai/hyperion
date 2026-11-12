@@ -740,17 +740,9 @@ build_scm_plan_parts <- function(x) {
       )
     })
     table <- scm_display_table(rows, numeric = c("Initial", "Fixed", "Lower", "Upper"))
-    notes <- c(
-      "Initial: the effect's initial estimate the first time it is tested.",
-      "Fixed: what the effect is fixed at when it is held out.",
-      if (any(c("Lower", "Upper") %in% names(table))) {
-        "Lower, Upper: the $THETA bounds the effect is estimated under while it is in the model."
-      }
-    )
     sections[[1]] <- scm_section(
       "Candidates",
-      tables = list(list(title = NULL, data = table)),
-      notes = notes
+      tables = list(list(title = NULL, data = table))
     )
   }
 

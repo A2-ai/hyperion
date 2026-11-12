@@ -241,9 +241,6 @@
       CRCL_CL  THETA(5)  continuous  0.1      0    
       WT_V     THETA(6)  continuous  0.1      0    
       
-      Initial: the effect's initial estimate the first time it is tested.
-      Fixed: what the effect is fixed at when it is held out.
-      
       -- Process in the output directory --
       
       Progress: completed — 5 rounds complete (updated [TIMESTAMP])

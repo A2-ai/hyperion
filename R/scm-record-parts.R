@@ -183,7 +183,16 @@ scm_display_table <- function(rows, colors = NULL, numeric = character()) {
 }
 
 scm_section <- function(title, alerts = list(), facts = NULL, tables = list(), notes = character()) {
-  list(title = title, alerts = alerts, facts = facts, tables = tables, notes = notes)
+  list(title = title, alerts = alerts, facts = facts, tables = tables, notes = notes, rule = FALSE)
+}
+
+# A round's section, set off from what is above it by a rule: one round is
+# told from the next at a glance.
+scm_ruled <- function(section) {
+  if (!is.null(section)) {
+    section$rule <- TRUE
+  }
+  section
 }
 
 scm_alert <- function(type, text) {
@@ -615,7 +624,7 @@ build_scm_summary_parts <- function(x) {
     } else {
       scm_round_section(r, view, scm_round_block(blocks, r$round))
     }
-    sections[[length(sections) + 1]] <- section
+    sections[[length(sections) + 1]] <- scm_ruled(section)
   }
 
   alerts <- list()
@@ -660,7 +669,7 @@ build_scm_status_parts <- function(x) {
     } else {
       scm_open_round_section(r, scm_round_block(blocks, r$round))
     }
-    sections[[length(sections) + 1]] <- section
+    sections[[length(sections) + 1]] <- scm_ruled(section)
   }
 
   # The driver's state closes the status: an alert in the color of its news.

@@ -82,6 +82,8 @@
       Working full model       working_full/1001_scm_working_full.mod            973.800   WT_CL, CRCL_CL
       Reduced covariate model  reduced_covariate/1001_scm_reduced_covariate.mod  979.500   WT_CL         
       
+      --------------------------------------------------------------------------------
+      
       -- Forward round 1 --
       
       v added WT_CL (p = 7.744e-6, dOFV = -20.000)
@@ -94,6 +96,8 @@
       CRCL_CL    996.000  -4.000   0.046     Yes                
       WT_V       999.000  -1.000   0.317     No                 
       
+      --------------------------------------------------------------------------------
+      
       -- Forward round 2 --
       
       v added CRCL_CL (p = 1.431e-2, dOFV = -6.000) [1 retry]
@@ -105,6 +109,8 @@
       CRCL_CL    974.000  -6.000  0.014    Yes          added           
       WT_V       978.500  -1.500  0.221    No                   2       
       
+      --------------------------------------------------------------------------------
+      
       -- Forward round 3 --
       
       i no covariate candidate significant at alpha = 0.05; forward selection stopped
@@ -114,6 +120,8 @@
       Candidate  OFV      dOFV    p-value  Significant
       ─────────  ───────  ──────  ───────  ───────────
       WT_V       973.000  -1.000  0.317    No         
+      
+      --------------------------------------------------------------------------------
       
       -- Backward round 1 --
       
@@ -125,6 +133,8 @@
       ─────────  ───────  ───────  ────────  ───────────  ───────
       CRCL_CL    980.000  +6.000   0.014     No           dropped
       WT_CL      995.000  +21.000  4.59e-06  Yes          kept   
+      
+      --------------------------------------------------------------------------------
       
       -- Backward round 2 --
       
@@ -161,6 +171,8 @@
       Working full model       working_full/1001_scm_working_full.mod            973.800   WT_CL, CRCL_CL
       Reduced covariate model  reduced_covariate/1001_scm_reduced_covariate.mod  979.500   WT_CL         
       
+      --------------------------------------------------------------------------------
+      
       -- Forward round 1 --
       
       v added WT_CL (p = 7.744e-6, dOFV = -20.000)
@@ -173,6 +185,8 @@
       CRCL_CL    996.000  -4.000   0.046     Yes                
       WT_V       999.000  -1.000   0.317     No                 
       
+      --------------------------------------------------------------------------------
+      
       -- Forward round 2 --
       
       v added CRCL_CL (p = 1.431e-2, dOFV = -6.000) [1 retry]
@@ -184,6 +198,8 @@
       CRCL_CL    974.000  -6.000  0.014    Yes          added           
       WT_V       978.500  -1.500  0.221    No                   2       
       
+      --------------------------------------------------------------------------------
+      
       -- Forward round 3 --
       
       i no covariate candidate significant at alpha = 0.05; forward selection stopped
@@ -193,6 +209,8 @@
       Candidate  OFV      dOFV    p-value  Significant
       ─────────  ───────  ──────  ───────  ───────────
       WT_V       973.000  -1.000  0.317    No         
+      
+      --------------------------------------------------------------------------------
       
       -- Backward round 1 --
       
@@ -204,6 +222,8 @@
       ─────────  ───────  ───────  ────────  ───────────  ───────
       CRCL_CL    980.000  +6.000   0.014     No           dropped
       WT_CL      995.000  +21.000  4.59e-06  Yes          kept   
+      
+      --------------------------------------------------------------------------------
       
       -- Backward round 2 --
       
@@ -277,6 +297,8 @@
       Working full model       working_full/1001_scm_working_full.mod            973.800   WT_CL, CRCL_CL
       Reduced covariate model  reduced_covariate/1001_scm_reduced_covariate.mod  979.500   WT_CL         
       
+      --------------------------------------------------------------------------------
+      
       -- Forward round 2 --
       
       v added CRCL_CL (p = 1.431e-2, dOFV = -6.000) [1 retry]
@@ -324,6 +346,8 @@
       Base model          base/1001_base.mod                      1000.000  none          
       Working full model  working_full/1001_scm_working_full.mod  973.800   WT_CL, CRCL_CL
       
+      --------------------------------------------------------------------------------
+      
       -- Forward round 1 --
       
       v added WT_CL (p = 7.744e-6, dOFV = -20.000)
@@ -335,6 +359,8 @@
       WT_CL      980.000  -20.000  7.74e-06  Yes          added 
       CRCL_CL    996.000  -4.000   0.046     Yes                
       WT_V       999.000  -1.000   0.317     No                 
+      
+      --------------------------------------------------------------------------------
       
       -- Forward round 2 --
       
@@ -354,6 +380,8 @@
       WT_V       forward_round2/1001_wt_v.mod       no ofv   
       WT_V       forward_round2/1001_wt_v_try2.mod  succeeded
       
+      --------------------------------------------------------------------------------
+      
       -- Forward round 3 --
       
       i no covariate candidate significant at alpha = 0.05; forward selection stopped
@@ -363,6 +391,8 @@
       Candidate  OFV      dOFV    p-value  Significant
       ─────────  ───────  ──────  ───────  ───────────
       WT_V       973.000  -1.000  0.317    No         
+      
+      --------------------------------------------------------------------------------
       
       -- Backward round 1 (open) --
       

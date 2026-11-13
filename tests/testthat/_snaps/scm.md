@@ -76,6 +76,8 @@
       Working full model       working_full/1001_scm_working_full.mod            973.800   WT_CL, CRCL_CL
       Reduced covariate model  reduced_covariate/1001_scm_reduced_covariate.mod  979.500   WT_CL         
       
+      --------------------------------------------------------------------------------
+      
       -- Forward round 2 --
       
       v added CRCL_CL (p = 1.431e-2, dOFV = -6.000) [1 retry]

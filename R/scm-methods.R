@@ -162,7 +162,7 @@ print_scm_alert <- function(alert) {
 #' process facts under a title, then sections with tables. A summary and a
 #' status show the base, working full and reduced covariate models, then each round with its
 #' decision and its candidates, the one the round added or dropped in
-#' green and an unusable fit in red; a status shows its open round fit by
+#' green and an unusable fit in red, with a rule between the rounds; a status shows its open round fit by
 #' fit and closes with the driver's state. A plan shows its candidate
 #' effects, the process already in its output directory, its warnings, and
 #' whether that process can resume under it.
@@ -180,6 +180,10 @@ print.hyperion_nonmem_scm_record <- function(x, ...) {
   }
   print_scm_facts(parts$facts)
   for (section in parts$sections) {
+    if (isTRUE(section$rule)) {
+      cli::cli_verbatim("")
+      cli::cli_rule()
+    }
     cli::cli_h2(section$title)
     for (alert in section$alerts) {
       print_scm_alert(alert)
@@ -266,6 +270,7 @@ knit_print.hyperion_nonmem_scm_record <- function(x, ...) {
   for (section in parts$sections) {
     output <- c(
       output,
+      if (isTRUE(section$rule)) c("", "<hr>"),
       "",
       paste0("<strong>", section$title, "</strong>"),
       "",

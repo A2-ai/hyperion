@@ -7,13 +7,16 @@
 stop_scm(scm)
 }
 \arguments{
-\item{scm}{A \code{hyperion_nonmem_scm} object or the SCM config (\verb{<stem>scm.toml}).}
+\item{scm}{A \code{hyperion_nonmem_scm} object from \code{\link[=read_scm]{read_scm()}}, or the path
+to the SCM config (\verb{<stem>scm.toml}).}
 }
 \value{
 \code{NULL}, after printing what was stopped and cancelled.
 }
 \description{
-Stops the driver of a stepwise covariate modeling process
+Stops the driver of an SCM process and cancels its fits that are still in
+the SLURM queue. The process is recorded as paused; submit its config
+again with \code{\link[=submit_scm_to_slurm]{submit_scm_to_slurm()}} to resume it.
 }
 \examples{
 \dontrun{

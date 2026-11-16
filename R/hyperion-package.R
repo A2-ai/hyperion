@@ -104,21 +104,22 @@
 #' }
 #'
 #' @section Stepwise Covariate Modeling:
-#' Functions for writing, editing, and submitting an SCM process:
+#' Functions for configuring, submitting, and summarizing an SCM process:
 #' \itemize{
-#'   \item [init_scm()] - Write the SCM config for a model and its candidate effects
-#'   \item [read_scm()] - Read an SCM config as a `hyperion_nonmem_scm` object
-#'   \item [update_scm_settings()] - Edit the settings for an SCM process
-#'   \item [add_scm_effect()] - Add a candidate effect, by name or as an [ScmEffect()]
-#'   \item [update_scm_effect()] - Edit a candidate effect's settings
-#'   \item [remove_scm_effect()] - Remove a candidate effect
-#'   \item [check_scm()] - Prints the plan a config resolves to, and its warnings
-#'   \item [submit_scm_to_slurm()] - Start or resume the process as a SLURM driver job
-#'   \item [get_scm_status()] - Current status of scm process as of function call
-#'   \item [summary()] - Generate a summary of SCM results
-#'   \item [get_scm_model()] - Read a fitted model from the process by round and candidate
-#'   \item [get_scm_lineage()] - Lineage tree of the process's fits, for a run summary table
-#'   \item [stop_scm()] - Stop an SCM process. Submitting the process again resumes it
+#'   \item [init_scm()] - Initialize an SCM config for a model
+#'   \item [read_scm()] - Read an SCM config
+#'   \item [update_scm_settings()] - Update the settings of an SCM config
+#'   \item [ScmEffect] - SCM candidate effect class
+#'   \item [add_scm_effect()] - Add a candidate effect to an SCM config
+#'   \item [update_scm_effect()] - Update a candidate effect in an SCM config
+#'   \item [remove_scm_effect()] - Remove a candidate effect from an SCM config
+#'   \item [check_scm()] - Check an SCM config and show its plan
+#'   \item [submit_scm_to_slurm()] - Submit or resume an SCM process on SLURM
+#'   \item [get_scm_status()] - Get the current status of an SCM process
+#'   \item [summary()] - Get a summary of an SCM process
+#'   \item [get_scm_model()] - Get a model fitted by an SCM process
+#'   \item [get_scm_lineage()] - Get the lineage tree of an SCM process's fits
+#'   \item [stop_scm()] - Stop an SCM process
 #' }
 #'
 ## usethis namespace: start

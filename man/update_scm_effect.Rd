@@ -15,23 +15,24 @@ update_scm_effect(
 )
 }
 \arguments{
-\item{path}{The SCM config (\verb{<stem>scm.toml}), as \code{\link[=init_scm]{init_scm()}} returns it.}
+\item{path}{Path to the SCM config (\verb{<stem>scm.toml}), as returned by
+\code{\link[=init_scm]{init_scm()}}.}
 
-\item{name}{The effect to update: its name, or an \code{\link[=ScmEffect]{ScmEffect()}} that
-replaces the effect of that name whole.}
+\item{name}{Effect to update: its name, or an \code{\link[=ScmEffect]{ScmEffect()}} that replaces
+the effect of that name entirely.}
 
-\item{type, initial, fixed, lower, upper}{The effect's settings, each
-optional: \code{"continuous"} (pharos' default) or \code{"categorical"}, the
+\item{type, initial, fixed, lower, upper}{Optional settings for the effect:
+the type (\code{"continuous"}, the pharos default, or \code{"categorical"}), the
 initial estimate while tested, the value fixed at while held out, and
 the bounds while tested.}
 }
 \value{
-The config path, invisibly.
+Invisibly returns the path to the SCM config.
 }
 \description{
-Replaces the settings given on the named effect, keeps its others, and
-writes the config. Every edit goes to the file: \code{\link[=read_scm]{read_scm()}} reads the
-result back.
+Replaces the given settings on the named effect, leaves its other
+settings unchanged, and writes the config. Edits are written to the
+file; use \code{\link[=read_scm]{read_scm()}} to read the updated config.
 }
 \examples{
 \dontrun{

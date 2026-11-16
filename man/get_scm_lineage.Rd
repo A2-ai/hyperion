@@ -2,44 +2,49 @@
 % Please edit documentation in R/scm-lineage.R
 \name{get_scm_lineage}
 \alias{get_scm_lineage}
-\title{Lineage of the models an SCM process fitted}
+\title{Get the lineage of the models fitted by an SCM process}
 \usage{
 get_scm_lineage(scm)
 }
 \arguments{
-\item{scm}{A \code{hyperion_nonmem_scm} object or the SCM config (\verb{<stem>scm.toml}).}
+\item{scm}{A \code{hyperion_nonmem_scm} object from \code{\link[=read_scm]{read_scm()}}, or the path
+to the SCM config (\verb{<stem>scm.toml}).}
 }
 \value{
-A \code{hyperion_nonmem_tree} of the fits recorded so far.
+A \code{hyperion_nonmem_tree} S3 object of the fits recorded so far.
 }
 \description{
-Builds the lineage tree of an SCM process's fits from its record, the
-same \code{hyperion_nonmem_tree} that \code{\link[=get_model_lineage]{get_model_lineage()}} gives for a project,
-so it goes where a lineage goes: \code{hyperion.tables::apply_summary_spec()}
-makes a run summary table of the process from it, one row per fit, and
-its tags give the sections. Every fit is based on the model its round
-tested against, so the summary's dOFV and p-value are the round's; the
-working full model and the reduced covariate model are based on the reference fit, so
-theirs are against it.
+Builds the lineage tree of an SCM process's fits from its process record.
+The result is the same \code{hyperion_nonmem_tree} object that
+\code{\link[=get_model_lineage]{get_model_lineage()}} returns for a project, so it can be used wherever a
+lineage is: \code{hyperion.tables::apply_summary_spec()} makes a run summary
+table of the process from it, with one row per fit and sections taken
+from the tags.
 }
 \details{
-The tree holds the base fit, in every round the attempt that counted for
-each candidate, the working full model's re-fit and the reduced covariate model. Each node
-is tagged \code{"scm"} and with its round (\code{"reference"}, \code{"forward_round1"},
-..., \code{"working_full"}, \code{"reduced_covariate"}); a round's winner is also tagged
-\code{"selected"}, and a fit that was retried \code{"retry"}. Its description is
-the fit's step alone, as pharos writes it to the fits' metadata: what a
-candidate adds or drops, such as \code{"add CRCL_CL"}, or the name of a fit
-that is not a candidate, such as \code{"base model"}.
+The tree contains the base fit, the attempt that counted for each
+candidate in every round, the re-fit of the working full model, and the
+reduced covariate model. Each fit is based on the model its round tested
+against, so the dOFV and p-value in a summary are those of the round. The
+working full model and the reduced covariate model are based on the
+reference fit.
 
-Each node also carries \code{covariates}, the covariates its model has, from
-the process record: what the round started with, plus the candidate it
-adds or without the one it drops. The fits' metadata does not hold these,
-so a lineage from \code{\link[=get_model_lineage]{get_model_lineage()}} has none;
-\code{hyperion.tables::scm_summary_spec(description = "verbose")} shows them.
+Each node is tagged \code{"scm"} and with its round (\code{"reference"},
+\code{"forward_round1"}, ..., \code{"working_full"}, \code{"reduced_covariate"}). The
+candidate a round selected is also tagged \code{"selected"}, and a fit that
+was retried is tagged \code{"retry"}. The description of a node is the step of
+its fit, as pharos writes it to the fits' metadata: what a candidate adds
+or drops (e.g., \code{"add CRCL_CL"}), or the name of a fit that is not a
+candidate (e.g., \code{"base model"}).
 
-Unlike \code{\link[=get_model_lineage]{get_model_lineage()}}, this does not need the fits' metadata files,
-so it works wherever the process ran.
+Each node also has a \code{covariates} element listing the covariates in its
+model, taken from the process record. The fits' metadata does not hold
+these, so a lineage from \code{\link[=get_model_lineage]{get_model_lineage()}} has none. Use
+\code{hyperion.tables::scm_summary_spec(show_all_covariates = TRUE)} to show
+them.
+
+Unlike \code{\link[=get_model_lineage]{get_model_lineage()}}, this function does not need the fits'
+metadata files, so it works wherever the process ran.
 }
 \examples{
 \dontrun{
@@ -49,7 +54,7 @@ get_scm_lineage(scm)
 library(hyperion.tables)
 scm |>
   get_scm_lineage() |>
-  apply_summary_spec(scm_summary_spec(scm)) |>
+  apply_summary_spec(scm_summary_spec()) |>
   make_summary_table()
 }
 }

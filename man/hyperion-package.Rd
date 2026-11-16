@@ -130,21 +130,22 @@ Functions for submitting models to compute clusters:
 
 \section{Stepwise Covariate Modeling}{
 
-Functions for writing, editing, and submitting an SCM process:
+Functions for configuring, submitting, and summarizing an SCM process:
 \itemize{
-\item \code{\link[=init_scm]{init_scm()}} - Write the SCM config for a model and its candidate effects
-\item \code{\link[=read_scm]{read_scm()}} - Read an SCM config as a \code{hyperion_nonmem_scm} object
-\item \code{\link[=update_scm_settings]{update_scm_settings()}} - Edit the settings for an SCM process
-\item \code{\link[=add_scm_effect]{add_scm_effect()}} - Add a candidate effect, by name or as an \code{\link[=ScmEffect]{ScmEffect()}}
-\item \code{\link[=update_scm_effect]{update_scm_effect()}} - Edit a candidate effect's settings
-\item \code{\link[=remove_scm_effect]{remove_scm_effect()}} - Remove a candidate effect
-\item \code{\link[=check_scm]{check_scm()}} - Prints the plan a config resolves to, and its warnings
-\item \code{\link[=submit_scm_to_slurm]{submit_scm_to_slurm()}} - Start or resume the process as a SLURM driver job
-\item \code{\link[=get_scm_status]{get_scm_status()}} - Current status of scm process as of function call
-\item \code{\link[=summary]{summary()}} - Generate a summary of SCM results
-\item \code{\link[=get_scm_model]{get_scm_model()}} - Read a fitted model from the process by round and candidate
-\item \code{\link[=get_scm_lineage]{get_scm_lineage()}} - Lineage tree of the process's fits, for a run summary table
-\item \code{\link[=stop_scm]{stop_scm()}} - Stop an SCM process. Submitting the process again resumes it
+\item \code{\link[=init_scm]{init_scm()}} - Initialize an SCM config for a model
+\item \code{\link[=read_scm]{read_scm()}} - Read an SCM config
+\item \code{\link[=update_scm_settings]{update_scm_settings()}} - Update the settings of an SCM config
+\item \link{ScmEffect} - SCM candidate effect class
+\item \code{\link[=add_scm_effect]{add_scm_effect()}} - Add a candidate effect to an SCM config
+\item \code{\link[=update_scm_effect]{update_scm_effect()}} - Update a candidate effect in an SCM config
+\item \code{\link[=remove_scm_effect]{remove_scm_effect()}} - Remove a candidate effect from an SCM config
+\item \code{\link[=check_scm]{check_scm()}} - Check an SCM config and show its plan
+\item \code{\link[=submit_scm_to_slurm]{submit_scm_to_slurm()}} - Submit or resume an SCM process on SLURM
+\item \code{\link[=get_scm_status]{get_scm_status()}} - Get the current status of an SCM process
+\item \code{\link[=summary]{summary()}} - Get a summary of an SCM process
+\item \code{\link[=get_scm_model]{get_scm_model()}} - Get a model fitted by an SCM process
+\item \code{\link[=get_scm_lineage]{get_scm_lineage()}} - Get the lineage tree of an SCM process's fits
+\item \code{\link[=stop_scm]{stop_scm()}} - Stop an SCM process
 }
 }
 

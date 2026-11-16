@@ -16,10 +16,11 @@ use hyperion_nonmem::scm::{
 };
 use hyperion_nonmem::utils::load_nonmem_config;
 
-/// How hyperion's user does what a refusal asks for next. pharos's
-/// [`ScmJob`] decides what a submit checks and refuses; its hints name the
-/// CLI's commands, and these name the R functions instead, with the project
-/// chosen through `options(hyperion.config_dir)`.
+/// Hints naming the R functions a user runs after an SCM submit is refused.
+///
+/// pharos' [`ScmJob`] decides what a submit checks and refuses. Its default
+/// hints name the CLI's commands; these name hyperion's functions instead,
+/// with the project chosen through `options(hyperion.config_dir)`.
 struct RHints;
 
 impl ScmHints for RHints {
@@ -43,10 +44,11 @@ impl ScmHints for RHints {
     }
 }
 
-/// Resolve an SCM config as hyperion does: under the pharos version the
-/// package was built against, with the R functions as the hints, and the
-/// pharos.toml hyperion finds. The error shows paths relative to the
-/// config's project, as every SCM message does.
+/// Resolve an SCM config to its plan.
+///
+/// Uses the pharos version hyperion was built for, the R functions as
+/// hints, and the pharos.toml hyperion finds. Errors show paths relative to
+/// the config's project, like every other SCM message.
 fn load_job(args: &ScmSubmitArgs) -> Result<ScmJob> {
     let near = args
         .config
@@ -60,8 +62,10 @@ fn load_job(args: &ScmSubmitArgs) -> Result<ScmJob> {
     .map_scm_err(&near)
 }
 
-/// An optional value as R sees it: the value, or NULL. (`list!` turns a
-/// `None` into `NA`, which `is.null()` on the R side does not catch.)
+/// Convert an optional value to an R value, with `None` as `NULL`.
+///
+/// `list!` turns a `None` into `NA`, which `is.null()` on the R side does
+/// not catch.
 fn opt_robj<T: Into<Robj>>(value: Option<T>) -> Robj {
     value.map(Into::into).unwrap_or_else(|| Robj::from(()))
 }
@@ -76,8 +80,7 @@ pub fn check_scm_wrap(
     #[extendr(default = "NULL")] num_rounds: Option<usize>,
 ) -> Result<Robj> {
     let config = scm_config_path(&scm)?;
-    // A check only reads the out_dir: it reports what a submit would do
-    // with the SCM process already there, and discards nothing.
+    // A check only reads the output directory and discards nothing.
     let args = ScmSubmitArgs {
         config,
         num_rounds,
@@ -98,6 +101,7 @@ pub fn check_scm_wrap(
     Ok(robj)
 }
 
+/// Convert a driver record to an R list.
 fn driver_robj(record: &DriverRecord) -> Robj {
     let liveness = match record.liveness() {
         Liveness::Alive => "alive".to_string(),
@@ -138,7 +142,7 @@ pub fn get_scm_status_wrap(scm: Robj) -> Result<Robj> {
         // elsewhere): pharos cannot read the process from the out_dir alone.
         Err(e) if record.is_some() && !out_dir.join(scm::STATE_FILENAME).exists() => {
             return Err(extendr_err!(
-                "{e}\nThe SCM process in {} has a driver that has not written its state yet; try again once it has",
+                "{e}\nThe SCM process in {} has a driver that has not written its state yet. Try again once it has.",
                 scm::shown(&out_dir)
             ));
         }
@@ -149,7 +153,7 @@ pub fn get_scm_status_wrap(scm: Robj) -> Result<Robj> {
     let mut warnings: Vec<String> = Vec::new();
     if record.is_none() && DriverRecord::path(&out_dir).exists() {
         warnings.push(format!(
-            "{} is unreadable; the driver is treated as never started",
+            "{} is unreadable. The driver is treated as never started.",
             scm::shown(&DriverRecord::path(&out_dir))
         ));
     }
@@ -179,7 +183,7 @@ pub fn get_scm_status_wrap(scm: Robj) -> Result<Robj> {
     Ok(list!(status = status, warnings = warnings).into_robj())
 }
 
-/// Submit an SCM process to slurm (internal implementation)
+/// Submit an SCM process to SLURM (internal implementation)
 ///
 /// @keywords internal
 /// @noRd
@@ -196,7 +200,7 @@ pub fn submit_scm_to_slurm_wrap(
     #[extendr(default = "FALSE")] overwrite: bool,
     #[extendr(default = "FALSE")] verbose: bool,
 ) -> Result<Robj> {
-    // Everything that can refuse the submit, before anything is written.
+    // Run every check that can refuse the submit before anything is written.
     let pharos_exe = which("pharos").map_to_extendr_err("Failed to locate pharos executable")?;
     let config = scm_config_path(&scm)?;
     let args = ScmSubmitArgs {
@@ -225,7 +229,7 @@ pub fn submit_scm_to_slurm_wrap(
         call!(
             "stop",
             format!(
-                "each fit needs {cpus_per_fit} CPUs ([nonmem.parallel] in pharos.toml) but partition `{fits_partition}` has {} per node. {advice}",
+                "Each fit needs {cpus_per_fit} CPUs ([nonmem.parallel] in pharos.toml) but partition `{fits_partition}` has {} per node. {advice}",
                 active.cpus
             )
         )?;
@@ -256,12 +260,12 @@ pub fn stop_scm_wrap(scm: Robj) -> Result<Robj> {
     let shown = scm::shown(&out_dir);
     let Some(record) = DriverRecord::read(&out_dir) else {
         return Err(extendr_err!(
-            "no driver has been started for the SCM process in {shown}"
+            "No driver has been started for the SCM process in {shown}"
         ));
     };
     let was_alive = record.liveness() == Liveness::Alive;
-    // The driver first, so it submits nothing more; then every fit still
-    // in the queue; then a node allocation a gone driver left held.
+    // Stop the driver first so it submits nothing more, then cancel the
+    // fits still in the queue and release a node allocation left held.
     record.stop().map_scm_err(&out_dir)?;
     let cancelled: Vec<f64> = cancel_recorded_fits(&out_dir)
         .map_scm_err(&out_dir)?

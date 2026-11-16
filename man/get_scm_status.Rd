@@ -7,25 +7,27 @@
 get_scm_status(scm)
 }
 \arguments{
-\item{scm}{A \code{hyperion_nonmem_scm} object or the SCM config (\verb{<stem>scm.toml}).}
+\item{scm}{A \code{hyperion_nonmem_scm} object from \code{\link[=read_scm]{read_scm()}}, or the path
+to the SCM config (\verb{<stem>scm.toml}).}
 }
 \value{
 A \code{hyperion_nonmem_scm_status} S3 object (also of class
 \code{hyperion_nonmem_scm_record}): the process record (\code{status}, \code{phase},
 \code{candidates}, \code{retained}, \code{rounds}, \code{totals}, \code{models_running}, ...) as
 pharos writes it to \code{scm_summary.json}, plus a \code{driver} element, with
-attributes \code{text} (the status as pharos renders it), \code{out_dir} and
-\code{project_root}. Every path in the record is relative to \code{out_dir}.
-An unreadable \code{scm_driver.json} is a warning: the driver is read as
-never started.
+attributes \code{text} (the status as rendered by pharos), \code{out_dir} and
+\code{project_root}. Every path in the record is relative to \code{out_dir}. An
+unreadable \code{scm_driver.json} raises a warning, and the driver is
+treated as never started.
 }
 \description{
-Where the SCM process stands now: the process facts, the base, working
-full and reduced covariate models it has so far, each decided round's decision with a
-table of its candidates, the open round fit by fit (its slurm job, how
-long it has run, the latest iteration and OFV read off its \code{.ext} file),
-and the driver's own state (running, exited, or gone while the process
-still says running, with its log). It holds what \verb{pharos nonmem scm status} shows.
+Reads where an SCM process stands now: the process facts; the base,
+working full and reduced covariate models fitted so far; each decided
+round with its decision and a table of its candidates; the open round
+fit by fit (its SLURM job, how long it has run, and the latest iteration
+and OFV from its \code{.ext} file); and the state of the driver (running,
+exited, or gone while the process is still recorded as running, with its
+log). It holds what \verb{pharos nonmem scm status} shows.
 }
 \examples{
 \dontrun{

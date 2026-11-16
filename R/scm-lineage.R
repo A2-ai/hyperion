@@ -1,34 +1,39 @@
-#' Lineage of the models an SCM process fitted
+#' Get the lineage of the models fitted by an SCM process
 #'
-#' Builds the lineage tree of an SCM process's fits from its record, the
-#' same `hyperion_nonmem_tree` that [get_model_lineage()] gives for a project,
-#' so it goes where a lineage goes: `hyperion.tables::apply_summary_spec()`
-#' makes a run summary table of the process from it, one row per fit, and
-#' its tags give the sections. Every fit is based on the model its round
-#' tested against, so the summary's dOFV and p-value are the round's; the
-#' working full model and the reduced covariate model are based on the reference fit, so
-#' theirs are against it.
+#' Builds the lineage tree of an SCM process's fits from its process record.
+#' The result is the same `hyperion_nonmem_tree` object that
+#' [get_model_lineage()] returns for a project, so it can be used wherever a
+#' lineage is: `hyperion.tables::apply_summary_spec()` makes a run summary
+#' table of the process from it, with one row per fit and sections taken
+#' from the tags.
 #'
-#' The tree holds the base fit, in every round the attempt that counted for
-#' each candidate, the working full model's re-fit and the reduced covariate model. Each node
-#' is tagged `"scm"` and with its round (`"reference"`, `"forward_round1"`,
-#' ..., `"working_full"`, `"reduced_covariate"`); a round's winner is also tagged
-#' `"selected"`, and a fit that was retried `"retry"`. Its description is
-#' the fit's step alone, as pharos writes it to the fits' metadata: what a
-#' candidate adds or drops, such as `"add CRCL_CL"`, or the name of a fit
-#' that is not a candidate, such as `"base model"`.
+#' The tree contains the base fit, the attempt that counted for each
+#' candidate in every round, the re-fit of the working full model, and the
+#' reduced covariate model. Each fit is based on the model its round tested
+#' against, so the dOFV and p-value in a summary are those of the round. The
+#' working full model and the reduced covariate model are based on the
+#' reference fit.
 #'
-#' Each node also carries `covariates`, the covariates its model has, from
-#' the process record: what the round started with, plus the candidate it
-#' adds or without the one it drops. The fits' metadata does not hold these,
-#' so a lineage from [get_model_lineage()] has none;
-#' `hyperion.tables::scm_summary_spec(description = "verbose")` shows them.
+#' Each node is tagged `"scm"` and with its round (`"reference"`,
+#' `"forward_round1"`, ..., `"working_full"`, `"reduced_covariate"`). The
+#' candidate a round selected is also tagged `"selected"`, and a fit that
+#' was retried is tagged `"retry"`. The description of a node is the step of
+#' its fit, as pharos writes it to the fits' metadata: what a candidate adds
+#' or drops (e.g., `"add CRCL_CL"`), or the name of a fit that is not a
+#' candidate (e.g., `"base model"`).
 #'
-#' Unlike [get_model_lineage()], this does not need the fits' metadata files,
-#' so it works wherever the process ran.
+#' Each node also has a `covariates` element listing the covariates in its
+#' model, taken from the process record. The fits' metadata does not hold
+#' these, so a lineage from [get_model_lineage()] has none. Use
+#' `hyperion.tables::scm_summary_spec(show_all_covariates = TRUE)` to show
+#' them.
 #'
-#' @param scm A `hyperion_nonmem_scm` object or the SCM config (`<stem>scm.toml`).
-#' @return A `hyperion_nonmem_tree` of the fits recorded so far.
+#' Unlike [get_model_lineage()], this function does not need the fits'
+#' metadata files, so it works wherever the process ran.
+#'
+#' @param scm A `hyperion_nonmem_scm` object from [read_scm()], or the path
+#'   to the SCM config (`<stem>scm.toml`).
+#' @return A `hyperion_nonmem_tree` S3 object of the fits recorded so far.
 #' @export
 #'
 #' @examples \dontrun{
@@ -38,14 +43,14 @@
 #' library(hyperion.tables)
 #' scm |>
 #'   get_scm_lineage() |>
-#'   apply_summary_spec(scm_summary_spec(scm)) |>
+#'   apply_summary_spec(scm_summary_spec()) |>
 #'   make_summary_table()
 #' }
 get_scm_lineage <- function(scm) {
   record <- get_scm_summary(scm, NULL, NULL, FALSE, FALSE, FALSE)
   nodes <- scm_lineage_nodes(record)
   if (length(nodes) == 0) {
-    rlang::abort("the SCM process has not started; no models to get")
+    rlang::abort("The SCM process has not started, so it has no models yet")
   }
   structure(
     list(nodes = nodes),
@@ -55,14 +60,23 @@ get_scm_lineage <- function(scm) {
   )
 }
 
-# The tree's nodes, in the order the process fitted them.
+#' Build the lineage nodes of an SCM process
+#'
+#' @param record A hyperion_nonmem_scm_summary object
+#' @return List of tree nodes, in the order the process fitted them
+#' @keywords internal
+#' @noRd
 scm_lineage_nodes <- function(record) {
   out_dir <- record$out_dir
   node <- function(model, based_on, description, tags, covariates) {
     list(
       name = file.path(out_dir, model),
       model = list(
-        based_on = if (is.null(based_on)) list() else list(file.path(out_dir, based_on)),
+        based_on = if (is.null(based_on)) {
+          list()
+        } else {
+          list(file.path(out_dir, based_on))
+        },
         copied_from = "",
         description = description,
         tags = as.list(tags),
@@ -82,10 +96,13 @@ scm_lineage_nodes <- function(record) {
         next
       }
       tags <- c("scm", r$round)
-      if (isTRUE(cnd$selected)) tags <- c(tags, "selected")
-      if (length(cnd$attempts %||% list()) > 1) tags <- c(tags, "retry")
-      # The reference fit is the base model, or the full model of a
-      # backward-first process: its candidate is named "base" or "full".
+      if (isTRUE(cnd$selected)) {
+        tags <- c(tags, "selected")
+      }
+      if (length(cnd$attempts %||% list()) > 1) {
+        tags <- c(tags, "retry")
+      }
+      # The reference fit's candidate is named "base" or "full"
       description <- if (is_reference) {
         paste(cnd$candidate %||% "base", "model")
       } else {
@@ -99,7 +116,7 @@ scm_lineage_nodes <- function(record) {
         scm_model_covariates(r, cnd, is_reference)
       )
     }
-    # The working full model's re-fit follows the last forward round.
+    # The working full model's re-fit follows the last forward round
     ff <- record$working_full
     if (i == last_forward && !is.null(ff$model)) {
       nodes[[length(nodes) + 1]] <- node(
@@ -123,8 +140,15 @@ scm_lineage_nodes <- function(record) {
   nodes
 }
 
-# The reference fit's model: the base, or the full model of a backward-first
-# process. The working full model and the reduced covariate model are based on it.
+#' Get the model of the reference fit
+#'
+#' The reference fit is the base model, or the full model of a process that
+#' starts with backward elimination.
+#'
+#' @param record A hyperion_nonmem_scm_summary object
+#' @return Path to the model relative to the output directory, or NULL
+#' @keywords internal
+#' @noRd
 scm_reference_fit_model <- function(record) {
   for (r in record$rounds %||% list()) {
     if (!identical(r$round, "reference")) {
@@ -139,14 +163,27 @@ scm_reference_fit_model <- function(record) {
   NULL
 }
 
-# The covariates a candidate's model has: what its round started with, plus
-# the candidate's (forward) or without it (backward). The reference fit has
-# what its round left: none for a base model, all for a full one.
+#' Get the covariates in a candidate's model
+#'
+#' A candidate's model has the covariates its round started with, plus the
+#' candidate (forward) or without it (backward). The reference fit has none
+#' for a base model and all of them for a full model.
+#'
+#' @param r A round from the process record
+#' @param cnd A candidate of the round
+#' @param is_reference Whether the round is the reference fit
+#' @return Character vector of covariate names
+#' @keywords internal
+#' @noRd
 scm_model_covariates <- function(r, cnd, is_reference) {
   if (is_reference) {
     return(as.character(unlist(r$retained_after)))
   }
   before <- as.character(unlist(r$retained_before))
   name <- cnd$candidate %||% ""
-  if (identical(r$direction, "backward")) setdiff(before, name) else union(before, name)
+  if (identical(r$direction, "backward")) {
+    setdiff(before, name)
+  } else {
+    union(before, name)
+  }
 }

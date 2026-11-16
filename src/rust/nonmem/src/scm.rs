@@ -31,9 +31,11 @@ impl<T> ScmResultExt<T> for std::result::Result<T, anyhow::Error> {
     }
 }
 
-/// pharos names candidates by their `$THETA` comment under the project's
-/// comment dialect; a name that does not resolve is most often a comment
-/// the dialect does not parse as a name.
+/// Append a hint about the project's comment dialect when a candidate name
+/// did not resolve.
+///
+/// pharos names candidates by their `$THETA` comment, so an unresolved name
+/// is most often a comment the dialect does not parse as a name.
 fn dialect_hint(text: String) -> String {
     if text.contains("no theta named")
         && let Some(ct) = get_comment_type()
@@ -46,8 +48,10 @@ fn dialect_hint(text: String) -> String {
     text
 }
 
-/// The `Config/PharosVersion` field of hyperion's DESCRIPTION: the pharos
-/// version recorded in the plans and summaries hyperion writes or reads.
+/// Get the pharos version hyperion was built for.
+///
+/// Reads the `Config/PharosVersion` field of hyperion's DESCRIPTION, which
+/// is recorded in the plans and summaries hyperion writes or reads.
 pub fn pharos_version() -> Result<String> {
     let v = R!(r#"utils::packageDescription("hyperion", fields = "Config/PharosVersion")"#)?;
     Ok(v.as_str()
@@ -56,9 +60,10 @@ pub fn pharos_version() -> Result<String> {
         .unwrap_or_default())
 }
 
-/// Resolve the `scm` argument every SCM function takes: the SCM config
-/// (`<stem>scm.toml`), as a path or as the `config_source` of a
-/// `hyperion_nonmem_scm` object.
+/// Resolve the `scm` argument of an SCM function to its config path.
+///
+/// Accepts the path to an SCM config (`<stem>scm.toml`) or a
+/// `hyperion_nonmem_scm` object, whose `config_source` attribute is used.
 pub fn scm_config_path(input: &Robj) -> Result<PathBuf> {
     let path = if input.inherits(SCM_CLASS) {
         source_attr(input, "config_source")?
@@ -81,12 +86,13 @@ pub fn scm_config_path(input: &Robj) -> Result<PathBuf> {
     Ok(path)
 }
 
-/// The output directory of `input`'s SCM process.
+/// Get the output directory of the SCM process for `input`.
 pub fn scm_out_dir(input: &Robj) -> Result<PathBuf> {
     let config = scm_config_path(input)?;
     scm::out_dir_named(&config).map_scm_err(&config)
 }
 
+/// Convert a path to an absolute path string.
 fn absolute_string(path: &Path) -> String {
     std::path::absolute(path)
         .unwrap_or_else(|_| path.to_path_buf())
@@ -94,9 +100,10 @@ fn absolute_string(path: &Path) -> String {
         .into_owned()
 }
 
-/// Turn an already serialized record into an SCM object: pharos' rendering
-/// in `text`, the absolute `out_dir` every record path is relative to, the
-/// project root, and the S3 class.
+/// Turn a serialized record into an SCM object.
+///
+/// Sets pharos' rendering as `text`, the absolute `out_dir` every record
+/// path is relative to, the project root, and the S3 classes.
 pub fn scm_obj_from_robj(
     mut robj: Robj,
     text: String,
@@ -117,7 +124,8 @@ pub fn scm_obj_from_robj(
     Ok(result.to_owned())
 }
 
-/// `scm_obj_from_robj` for a pharos record.
+/// Serialize a pharos record and turn it into an SCM object (see
+/// [`scm_obj_from_robj`]).
 pub fn scm_obj(
     value: &impl Serialize,
     text: String,
@@ -128,9 +136,10 @@ pub fn scm_obj(
     scm_obj_from_robj(robj, text, out_dir, classes)
 }
 
-/// Read the SCM process in an out_dir, with the pharos version hyperion
-/// records on a process that has not started (pharos reports its crate
-/// version there).
+/// Read the status of the SCM process in an output directory.
+///
+/// For a process that has not started, pharos reports its crate version,
+/// so the version hyperion was built for is recorded instead.
 pub fn read_scm_status(out_dir: &Path) -> Result<ScmStatus> {
     let mut status = ScmStatus::read(out_dir).map_scm_err(out_dir)?;
     if !status.process.started {
@@ -139,8 +148,10 @@ pub fn read_scm_status(out_dir: &Path) -> Result<ScmStatus> {
     Ok(status)
 }
 
-/// A TOML value as an R value. (`tomledit::from_toml()` panics on an effects
-/// array that mixes names and inline tables.)
+/// Convert a TOML value to an R value.
+///
+/// `tomledit::from_toml()` panics on an effects array that mixes names and
+/// inline tables, so the conversion is done here.
 fn toml_to_robj(value: &toml::Value) -> Robj {
     use toml::Value;
     match value {
@@ -163,7 +174,10 @@ fn toml_to_robj(value: &toml::Value) -> Robj {
             List::from_values(values).into_robj()
         }
         Value::Table(table) => {
-            let pairs: Vec<(&str, Robj)> = table.iter().map(|(k, v)| (k.as_str(), toml_to_robj(v))).collect();
+            let pairs: Vec<(&str, Robj)> = table
+                .iter()
+                .map(|(k, v)| (k.as_str(), toml_to_robj(v)))
+                .collect();
             List::from_pairs(pairs).into_robj()
         }
     }
@@ -176,17 +190,18 @@ fn toml_to_robj(value: &toml::Value) -> Robj {
 #[extendr(r_name = "read_scm_toml_impl")]
 pub fn read_scm_toml_wrap(path: &str) -> Result<Robj> {
     let text = std::fs::read_to_string(path)
-        .map_err(|e| extendr_err!("cannot read the SCM config {path}: {e}"))?;
+        .map_err(|e| extendr_err!("Failed to read the SCM config {path}: {e}"))?;
     // The whole document (`str::parse` would read a single value).
     let value: toml::Value = toml::from_str(&text)
-        .map_err(|e| extendr_err!("cannot parse the SCM config {path}: {e}"))?;
+        .map_err(|e| extendr_err!("Failed to parse the SCM config {path}: {e}"))?;
     Ok(toml_to_robj(&value))
 }
 
-/// Where `scm init` puts the config for `model`, when it is already there:
-/// `<stem>scm.toml` beside the out_dir the project's `[nonmem.scm] out_dir`
-/// template names, as `scm::init_scm` places it. A missing model is left
-/// for pharos to report.
+/// Find the SCM config `scm init` would write for `model`, if it exists.
+///
+/// The config is `<stem>scm.toml` beside the output directory named by the
+/// project's `[nonmem.scm] out_dir` template, as `scm::init_scm` places it.
+/// A missing model is left for pharos to report.
 fn existing_scm_config(model: &Path) -> std::result::Result<Option<scm::ScmInit>, anyhow::Error> {
     if !model.exists() {
         return Ok(None);
@@ -200,13 +215,16 @@ fn existing_scm_config(model: &Path) -> std::result::Result<Option<scm::ScmInit>
         .parent()
         .ok_or_else(|| anyhow::anyhow!("{} has no parent directory", out_dir.display()))?
         .join(format!("{}{}", layout.stem(), scm::CONFIG_SUFFIX));
-    Ok(config_path
-        .exists()
-        .then(|| scm::ScmInit { config_path, out_dir }))
+    Ok(config_path.exists().then(|| scm::ScmInit {
+        config_path,
+        out_dir,
+    }))
 }
 
-/// Write the starter SCM config and output directory for a model, or find
-/// the config already there: `existed` says which.
+/// Initialize an SCM config for a model (internal implementation)
+///
+/// Writes the starter SCM config and output directory, or finds the config
+/// already there. `existed` in the result says which.
 ///
 /// @keywords internal
 /// @noRd
@@ -217,10 +235,13 @@ pub fn init_scm_wrap(model: Robj, #[extendr(default = "FALSE")] overwrite: bool)
         .parent()
         .map(Path::to_path_buf)
         .unwrap_or_default();
-    // Look before writing: a config already there is reported, not replaced.
+    // An existing config is reported, not replaced.
     let (init, existed) = match existing_scm_config(&model_path).map_scm_err(&near)? {
         Some(existing) if !overwrite => (existing, true),
-        _ => (scm::init_scm(&model_path, overwrite).map_scm_err(&near)?, false),
+        _ => (
+            scm::init_scm(&model_path, overwrite).map_scm_err(&near)?,
+            false,
+        ),
     };
     Ok(list!(
         config_path = absolute_string(&init.config_path),

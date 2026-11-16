@@ -2,7 +2,7 @@
 % Please edit documentation in R/scm.R
 \name{check_scm}
 \alias{check_scm}
-\title{Check an SCM config: the plan it resolves to and its warnings}
+\title{Check an SCM config}
 \usage{
 check_scm(scm, num_rounds = NULL)
 }
@@ -10,21 +10,22 @@ check_scm(scm, num_rounds = NULL)
 \item{scm}{A \code{hyperion_nonmem_scm} object from \code{\link[=read_scm]{read_scm()}}, or the path
 to the SCM config (\verb{<stem>scm.toml}).}
 
-\item{num_rounds}{Pause after this many rounds; \code{NULL} uses the config's
-\code{num_rounds}, \code{0L} runs all rounds.}
+\item{num_rounds}{Number of rounds after which to pause. \code{NULL} uses the
+config's \code{num_rounds}; \code{0L} runs all rounds.}
 }
 \value{
 A \code{hyperion_nonmem_scm_plan} S3 object: the plan (\code{model},
 \code{out_dir}, \code{candidates}, \code{options}, ...) with attributes \code{text} (the plan
-as pharos renders it), \code{warnings}, \code{resumable}, \code{out_dir} and
+as rendered by pharos), \code{warnings}, \code{resumable}, \code{out_dir} and
 \code{project_root}.
 }
 \description{
-The plan prints as its facts (the model, the direction and alphas, what
-a failed fit gets, where the covariance step runs, the most models it
-can fit), a table of its candidate effects, the SCM process already in
-its output directory with what the plan changes about it, and its
-warnings.
+Resolves an SCM config to its plan without writing or running anything.
+The plan prints its facts (the model, the direction and alphas, the
+retries a failed fit gets, where the covariance step runs, and the
+maximum number of models it can fit), a table of its candidate effects,
+the SCM process already in its output directory with what the plan
+changes about it, and its warnings.
 }
 \examples{
 \dontrun{

@@ -2,7 +2,7 @@
 % Please edit documentation in R/scm.R
 \name{submit_scm_to_slurm}
 \alias{submit_scm_to_slurm}
-\title{Submit an SCM process to slurm}
+\title{Submit an SCM process to SLURM}
 \usage{
 submit_scm_to_slurm(
   scm,
@@ -18,34 +18,39 @@ submit_scm_to_slurm(
 )
 }
 \arguments{
-\item{scm}{A \code{hyperion_nonmem_scm} object or the SCM config (\verb{<stem>scm.toml}).}
+\item{scm}{A \code{hyperion_nonmem_scm} object from \code{\link[=read_scm]{read_scm()}}, or the path
+to the SCM config (\verb{<stem>scm.toml}).}
 
-\item{num_rounds}{Pause after this many rounds; \code{NULL} uses the config.}
+\item{num_rounds}{Number of rounds after which to pause. \code{NULL} uses the
+config's \code{num_rounds}.}
 
-\item{partition}{Slurm partition for the model fits.}
+\item{partition}{SLURM partition for the model fits.}
 
-\item{driver_partition}{Slurm partition for the driver job.}
+\item{driver_partition}{SLURM partition for the driver job.}
 
-\item{account}{Slurm account for the driver and the fits.}
+\item{account}{SLURM account for the driver job and the model fits.}
 
-\item{max_concurrent}{Cap on fits running at once.}
+\item{max_concurrent}{Maximum number of fits running at once.}
 
-\item{shared_node}{Run every fit on one whole node instead of one slurm
-job per fit. Default \code{FALSE}.}
+\item{shared_node}{Whether to run every fit on one whole node instead of
+one SLURM job per fit. Default \code{FALSE}.}
 
-\item{overwrite}{Discard the SCM process already in the output directory
-and start fresh. Default \code{FALSE}.}
+\item{overwrite}{Whether to discard the SCM process already in the output
+directory and start fresh. Default \code{FALSE}.}
 
-\item{verbose}{Include DEBUG logs in the driver's slurm log. Default \code{FALSE}.}
+\item{verbose}{Whether to include DEBUG logs in the driver's SLURM log.
+Default \code{FALSE}.}
 
-\item{allow_version_mismatch}{Submit even when the \code{pharos} on \code{PATH} is
-not the version hyperion expects. Default \code{FALSE}.}
+\item{allow_version_mismatch}{Whether to submit even when the \code{pharos} on
+\code{PATH} is not the version hyperion expects. Default \code{FALSE}.}
 }
 \value{
 \code{NULL}, after printing the driver's job id and log path.
 }
 \description{
-Submit an SCM process to slurm
+Queues the SCM driver as a SLURM job, which submits the model fits and
+waits for them. Submitting the config of a paused or stopped process
+resumes it.
 }
 \examples{
 \dontrun{

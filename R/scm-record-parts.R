@@ -1,16 +1,21 @@
-# How the SCM records (plan, status, summary) are laid out for printing.
-#
-# A record prints the way a model summary does: a title, the process facts
-# as `Label: value` lines, then sections with tables of hyperion's own. The
-# tables are built from the record itself. The facts are read off pharos'
-# rendering of the record (its `text` attribute), which spells out what the
-# record only implies (the status line, the covariates' path, what a plan
-# changes about a started process); so are the lines only a live read of the
-# process can give, a running fit's latest iteration and the driver's state.
+# ==============================================================================
+# SCM record display parts
+# ==============================================================================
+# Builds the title, facts, sections and tables that the print and knit_print
+# methods render for an SCM plan, status or summary. Tables are built from the
+# record. Facts and live progress lines are parsed from pharos' rendering of
+# the record (its `text` attribute).
 
-# ---- pharos' text, in pieces ------------------------------------------------
+# ==============================================================================
+# Parsing pharos' text
+# ==============================================================================
 
-# The text's lines, split at its blank lines.
+#' Split text lines into blocks at blank lines
+#'
+#' @param lines Character vector of lines
+#' @return List of character vectors, one per block
+#' @keywords internal
+#' @noRd
 scm_text_blocks <- function(lines) {
   if (!length(lines)) {
     return(list())
@@ -19,13 +24,22 @@ scm_text_blocks <- function(lines) {
   unname(split(lines[!blank], cumsum(blank)[!blank]))
 }
 
-# `label : value` lines as a data frame of label and value. An indented line
-# continues the fact above it; any other line is a fact with no label.
+#' Parse `label : value` lines into facts
+#'
+#' An indented line continues the fact above it. Any other line becomes a
+#' fact with no label.
+#'
+#' @param lines Character vector of lines
+#' @return Data frame with label and value columns
+#' @keywords internal
+#' @noRd
 scm_parse_facts <- function(lines) {
   label <- character()
   value <- character()
   for (line in lines) {
-    m <- regmatches(line, regexec("^([A-Za-z][A-Za-z ]*?) *: ?(.*)$", line))[[1]]
+    m <- regmatches(line, regexec("^([A-Za-z][A-Za-z ]*?) *: ?(.*)$", line))[[
+      1
+    ]]
     if (length(m) == 3) {
       label <- c(label, m[2])
       value <- c(value, trimws(m[3]))
@@ -39,8 +53,15 @@ scm_parse_facts <- function(lines) {
   data.frame(label = label, value = value, stringsAsFactors = FALSE)
 }
 
-# The driver's lines `get_scm_status()` appends to the text, apart from the
-# rest: `driver : ...` and `allocation : ...`, with the lines continuing them.
+#' Split the driver lines from a status text
+#'
+#' `get_scm_status()` appends `driver : ...` and `allocation : ...` lines,
+#' with the lines continuing them, to pharos' text.
+#'
+#' @param lines Character vector of lines
+#' @return List with the remaining `lines` and the `driver` facts
+#' @keywords internal
+#' @noRd
 scm_split_driver_lines <- function(lines) {
   starts <- grepl("^(driver|allocation) *:", lines)
   driver <- starts
@@ -81,13 +102,24 @@ SCM_FACT_LABELS <- c(
   "allocation" = "Allocation"
 )
 
+#' Get the display label for a pharos fact label
+#'
+#' @param label Character vector of labels from pharos' text
+#' @return Character vector of display labels
+#' @keywords internal
+#' @noRd
 scm_fact_label <- function(label) {
   known <- SCM_FACT_LABELS[label]
   fallback <- paste0(toupper(substr(label, 1, 1)), substring(label, 2))
   unname(ifelse(is.na(known), fallback, known))
 }
 
-# The color a process status reads in, from the word its value opens with.
+#' Get the color for a process status
+#'
+#' @param value Status value; its first word determines the color
+#' @return Color name, or NA when the status has none
+#' @keywords internal
+#' @noRd
 scm_status_tone <- function(value) {
   word <- tolower(sub("[^A-Za-z].*$", "", value))
   switch(
@@ -102,36 +134,56 @@ scm_status_tone <- function(value) {
   )
 }
 
-# ---- formatting ---------------------------------------------------------------
+# ==============================================================================
+# Formatting
+# ==============================================================================
 
+#' @keywords internal
+#' @noRd
 scm_none_or_list <- function(x) {
   x <- as.character(unlist(x))
   if (length(x) == 0) "none" else paste(x, collapse = ", ")
 }
 
+#' @keywords internal
+#' @noRd
 scm_is_missing <- function(x) {
   is.null(x) || length(x) == 0 || is.na(x)
 }
 
+#' @keywords internal
+#' @noRd
 scm_fmt_ofv <- function(x) {
   if (scm_is_missing(x)) "" else sprintf("%.3f", x)
 }
 
+#' @keywords internal
+#' @noRd
 scm_fmt_delta <- function(x) {
   if (scm_is_missing(x)) "" else sprintf("%+.3f", x)
 }
 
+#' @keywords internal
+#' @noRd
 scm_fmt_p <- function(p) {
   if (scm_is_missing(p)) {
     return("")
   }
-  if (p < 0.001) formatC(p, format = "e", digits = 2) else formatC(p, format = "f", digits = 3)
+  if (p < 0.001) {
+    formatC(p, format = "e", digits = 2)
+  } else {
+    formatC(p, format = "f", digits = 3)
+  }
 }
 
+#' @keywords internal
+#' @noRd
 scm_fmt_number <- function(x) {
   if (scm_is_missing(x)) "" else format(x, trim = TRUE)
 }
 
+#' @keywords internal
+#' @noRd
 scm_fmt_duration <- function(seconds) {
   if (scm_is_missing(seconds)) {
     return("")
@@ -146,21 +198,45 @@ scm_fmt_duration <- function(seconds) {
   }
 }
 
-# "forward_round2" -> "Forward round 2"; a stage keeps its name.
+#' Format a round name as a section title
+#'
+#' @param round Round name (e.g., "forward_round2") or stage name
+#' @return Title (e.g., "Forward round 2"); a stage name is capitalized
+#' @keywords internal
+#' @noRd
 scm_round_title <- function(round) {
-  m <- regmatches(round, regexec("^(forward|backward)_round([0-9]+)$", round))[[1]]
+  m <- regmatches(round, regexec("^(forward|backward)_round([0-9]+)$", round))[[
+    1
+  ]]
   if (length(m) == 3) {
-    return(paste0(toupper(substr(m[2], 1, 1)), substring(m[2], 2), " round ", m[3]))
+    return(paste0(
+      toupper(substr(m[2], 1, 1)),
+      substring(m[2], 2),
+      " round ",
+      m[3]
+    ))
   }
   paste0(toupper(substr(round, 1, 1)), substring(round, 2))
 }
 
+#' @keywords internal
+#' @noRd
 scm_on_off <- function(flag) {
   if (isTRUE(flag)) "on" else "off"
 }
 
-# A table for the printers: text cells, the columns nothing fills dropped,
-# and the cells to color (see `display_cell_colors()`).
+#' Build a display table from rows
+#'
+#' Converts the rows to a data frame of text cells, drops the columns that
+#' are empty in every row, and attaches the cell colors (see
+#' `display_cell_colors()`).
+#'
+#' @param rows List of named lists, one per row
+#' @param colors List of cells to color, each with row, column and color
+#' @param numeric Names of the numeric columns
+#' @return Data frame with cell_colors and numeric_cols attributes
+#' @keywords internal
+#' @noRd
 scm_display_table <- function(rows, colors = NULL, numeric = character()) {
   df <- as.data.frame(
     do.call(rbind, lapply(rows, function(r) unlist(r))),
@@ -182,12 +258,39 @@ scm_display_table <- function(rows, colors = NULL, numeric = character()) {
   df
 }
 
-scm_section <- function(title, alerts = list(), facts = NULL, tables = list(), notes = character()) {
-  list(title = title, alerts = alerts, facts = facts, tables = tables, notes = notes, gap = FALSE)
+#' Create a section of an SCM record display
+#'
+#' @param title Section title
+#' @param alerts List of alerts from scm_alert()
+#' @param facts Facts data frame from scm_facts(), or NULL
+#' @param tables List of tables, each with title and data
+#' @param notes Character vector of notes
+#' @return List describing the section
+#' @keywords internal
+#' @noRd
+scm_section <- function(
+  title,
+  alerts = list(),
+  facts = NULL,
+  tables = list(),
+  notes = character()
+) {
+  list(
+    title = title,
+    alerts = alerts,
+    facts = facts,
+    tables = tables,
+    notes = notes,
+    gap = FALSE
+  )
 }
 
-# A round's section, set off from what is above it by an extra blank line:
-# one round is told from the next at a glance.
+#' Mark a section to be separated from the one above by a blank line
+#'
+#' @param section A section from scm_section(), or NULL
+#' @return The section with its gap flag set
+#' @keywords internal
+#' @noRd
 scm_spaced <- function(section) {
   if (!is.null(section)) {
     section$gap <- TRUE
@@ -195,11 +298,25 @@ scm_spaced <- function(section) {
   section
 }
 
+#' @keywords internal
+#' @noRd
 scm_alert <- function(type, text) {
   list(type = type, text = text)
 }
 
-scm_facts <- function(label = character(), value = character(), tone = NA_character_) {
+#' Create a facts data frame
+#'
+#' @param label Character vector of labels
+#' @param value Character vector of values
+#' @param tone Color name(s) for the values, or NA for none
+#' @return Data frame with label, value and tone columns
+#' @keywords internal
+#' @noRd
+scm_facts <- function(
+  label = character(),
+  value = character(),
+  tone = NA_character_
+) {
   data.frame(
     label = label,
     value = value,
@@ -208,23 +325,49 @@ scm_facts <- function(label = character(), value = character(), tone = NA_charac
   )
 }
 
-# ---- the process facts ----------------------------------------------------------
+# ==============================================================================
+# Process facts
+# ==============================================================================
 
-# The record's header facts, from pharos' text: labeled the hyperion way,
-# the status in its color, and the covariance step spelled out.
+#' Build the header facts of an SCM record
+#'
+#' Reads the facts from pharos' text, relabels them, colors the status, and
+#' spells out the covariance step.
+#'
+#' @param x A hyperion_nonmem_scm_record object
+#' @param header Character vector of the header lines of pharos' text
+#' @param drop Labels of facts to leave out
+#' @return Facts data frame
+#' @keywords internal
+#' @noRd
 scm_record_facts <- function(x, header, drop = character()) {
   parsed <- scm_parse_facts(header)
   parsed <- parsed[!parsed$label %in% drop, , drop = FALSE]
   facts <- scm_facts(scm_fact_label(parsed$label), parsed$value)
   status <- parsed$label %in% c("status", "progress")
-  facts$tone[status] <- vapply(parsed$value[status], scm_status_tone, character(1))
+  facts$tone[status] <- vapply(
+    parsed$value[status],
+    scm_status_tone,
+    character(1)
+  )
   cov <- parsed$label == "cov step"
-  facts$value[cov] <- paste0(scm_on_off(x$options$cov_step), " in the round fits")
+  facts$value[cov] <- paste0(
+    scm_on_off(x$options$cov_step),
+    " in the round fits"
+  )
   facts
 }
 
-# ---- the models table -------------------------------------------------------------
+# ==============================================================================
+# Models table
+# ==============================================================================
 
+#' Get the reference round of an SCM record
+#'
+#' @param x A hyperion_nonmem_scm_record object
+#' @return The reference round, or NULL when there is none
+#' @keywords internal
+#' @noRd
 scm_reference_round <- function(x) {
   for (r in x$rounds %||% list()) {
     if (identical(r$reference_model, "-") || identical(r$round, "reference")) {
@@ -234,14 +377,26 @@ scm_reference_round <- function(x) {
   NULL
 }
 
-# The base (or full) model, the working full model and the reduced covariate model, with
-# their OFV and the covariates each holds.
+#' Build the models section
+#'
+#' Lists the base (or full) model, the working full model and the reduced
+#' covariate model with their OFV and covariates.
+#'
+#' @param x A hyperion_nonmem_scm_record object
+#' @return A section, or NULL when the record has no models yet
+#' @keywords internal
+#' @noRd
 scm_models_section <- function(x) {
   rows <- list()
   colors <- list()
   add <- function(label, file, ofv, covariates, status) {
     status <- status %||% ""
-    shown <- switch(status, succeeded = "", reused = "cov step already on", status)
+    shown <- switch(
+      status,
+      succeeded = "",
+      reused = "cov step already on",
+      status
+    )
     rows[[length(rows) + 1]] <<- list(
       Model = label,
       File = file %||% "",
@@ -251,7 +406,11 @@ scm_models_section <- function(x) {
     )
     tone <- switch(status, unusable = "red", running = "blue", NA_character_)
     if (!is.na(tone)) {
-      colors[[length(colors) + 1]] <<- list(row = length(rows), column = "Status", color = tone)
+      colors[[length(colors) + 1]] <<- list(
+        row = length(rows),
+        column = "Status",
+        color = tone
+      )
     }
   }
   reference <- scm_reference_round(x)
@@ -268,41 +427,88 @@ scm_models_section <- function(x) {
   }
   forward <- x$working_full
   if (!is.null(forward)) {
-    add("Working full model", forward$model, forward$ofv, forward$retained, forward$status)
+    add(
+      "Working full model",
+      forward$model,
+      forward$ofv,
+      forward$retained,
+      forward$status
+    )
   }
   if (!is.null(x$reduced_covariate_model)) {
-    add("Reduced covariate model", x$reduced_covariate_model, x$reduced_covariate_ofv, x$retained, "")
+    add(
+      "Reduced covariate model",
+      x$reduced_covariate_model,
+      x$reduced_covariate_ofv,
+      x$retained,
+      ""
+    )
   }
   if (length(rows) == 0) {
     return(NULL)
   }
   scm_section(
     "Models",
-    tables = list(list(title = NULL, data = scm_display_table(rows, colors, numeric = "OFV")))
+    tables = list(list(
+      title = NULL,
+      data = scm_display_table(rows, colors, numeric = "OFV")
+    ))
   )
 }
 
-# ---- a round ------------------------------------------------------------------------
+# ==============================================================================
+# Rounds
+# ==============================================================================
 
-SCM_DEFAULT_VIEW <- list(round = NULL, candidate = NULL, long = FALSE, timing = FALSE, files = FALSE)
+SCM_DEFAULT_VIEW <- list(
+  round = NULL,
+  candidate = NULL,
+  long = FALSE,
+  timing = FALSE,
+  files = FALSE
+)
 
-# A round's candidates as pharos lists them, the winner first, then by rank
-# or p-value; only `candidate` when one is asked for.
+#' Get a round's candidates in display order
+#'
+#' Orders the candidates as pharos lists them: the selected candidate
+#' first, then by rank or p-value.
+#'
+#' @param round A round from the process record
+#' @param candidate Name of a single candidate to keep, or NULL for all
+#' @return List of candidates
+#' @keywords internal
+#' @noRd
 scm_round_candidates <- function(round, candidate = NULL) {
   cands <- round$candidates %||% list()
-  key <- vapply(cands, function(c) {
-    as.numeric(c$rank %||% c$p_value %||% Inf)
-  }, numeric(1))
+  key <- vapply(
+    cands,
+    function(c) {
+      as.numeric(c$rank %||% c$p_value %||% Inf)
+    },
+    numeric(1)
+  )
   cands <- cands[order(key)]
   if (!is.null(candidate)) {
-    keep <- vapply(cands, function(c) identical(tolower(c$candidate), tolower(candidate)), logical(1))
+    keep <- vapply(
+      cands,
+      function(c) identical(tolower(c$candidate), tolower(candidate)),
+      logical(1)
+    )
     cands <- cands[keep]
   }
   cands
 }
 
-# pharos' `--long` line under each candidate of a round (`est 0.05 (0.01) ·
-# CI95 ... · df 1 · tries 2`), keyed by candidate, read off the round's text.
+#' Parse the long-view details of a round's candidates
+#'
+#' Reads the line pharos prints under each candidate in the `--long` view
+#' (`est 0.05 (0.01) · CI95 ... · df 1 · tries 2`).
+#'
+#' @param block Character vector of the round's text block
+#' @param names Candidate names
+#' @return Named list of details, keyed by candidate
+#' @keywords internal
+#' @noRd
 scm_round_details <- function(block, names) {
   details <- list()
   current <- NULL
@@ -315,16 +521,33 @@ scm_round_details <- function(block, names) {
     if (!is.null(current) && grepl("^ {6}(est|CI95|df|tries) ", line)) {
       items <- strsplit(trimws(line), " · ", fixed = TRUE)[[1]]
       label <- sub(" .*$", "", items)
-      details[[current]] <- stats::setNames(as.list(sub("^\\S+ ", "", items)), label)
+      details[[current]] <- stats::setNames(
+        as.list(sub("^\\S+ ", "", items)),
+        label
+      )
       current <- NULL
     }
   }
   details
 }
 
-# One round as a section: where it got to, its reference, its candidates
-# as a table, and under `long`, `timing` and `files` the detail they add.
-scm_round_section <- function(round, view = SCM_DEFAULT_VIEW, block = character()) {
+#' Build the section for a round
+#'
+#' Shows the round's decision or progress, its reference, a table of its
+#' candidates, and the detail added by the `long`, `timing` and `files`
+#' views.
+#'
+#' @param round A round from the process record
+#' @param view List of view options (see SCM_DEFAULT_VIEW)
+#' @param block Character vector of the round's text block
+#' @return A section
+#' @keywords internal
+#' @noRd
+scm_round_section <- function(
+  round,
+  view = SCM_DEFAULT_VIEW,
+  block = character()
+) {
   backward <- identical(round$direction, "backward")
   complete <- isTRUE(round$complete)
   counts <- round$counts %||% list()
@@ -337,7 +560,11 @@ scm_round_section <- function(round, view = SCM_DEFAULT_VIEW, block = character(
   } else {
     concluded <- sum(unlist(counts[c("succeeded", "unusable", "withdrawn")]))
     paste0(
-      "in progress: ", concluded, "/", counts$candidates %||% length(cands), " concluded",
+      "in progress: ",
+      concluded,
+      "/",
+      counts$candidates %||% length(cands),
+      " concluded",
       if (nzchar(decision)) paste0(" (", decision, ")")
     )
   }
@@ -350,13 +577,18 @@ scm_round_section <- function(round, view = SCM_DEFAULT_VIEW, block = character(
   if (length(extra)) {
     text <- paste0(text, " [", paste(extra, collapse = ", "), "]")
   }
-  alert <- scm_alert(if (complete && !is.null(round$winner)) "success" else "info", text)
+  alert <- scm_alert(
+    if (complete && !is.null(round$winner)) "success" else "info",
+    text
+  )
 
   facts <- scm_facts(
     "Reference",
     paste0(
       round$reference_model,
-      if (!scm_is_missing(round$reference_ofv)) paste0(" (OFV ", scm_fmt_ofv(round$reference_ofv), ")")
+      if (!scm_is_missing(round$reference_ofv)) {
+        paste0(" (OFV ", scm_fmt_ofv(round$reference_ofv), ")")
+      }
     )
   )
   add_fact <- function(label, value) {
@@ -366,16 +598,28 @@ scm_round_section <- function(round, view = SCM_DEFAULT_VIEW, block = character(
     add_fact("Retained before", scm_none_or_list(round$retained_before))
   }
   if (complete) {
-    add_fact(if (detail) "Retained after" else "Retained", scm_none_or_list(round$retained_after))
+    add_fact(
+      if (detail) "Retained after" else "Retained",
+      scm_none_or_list(round$retained_after)
+    )
   }
   if (detail && length(round$removed_before)) {
     add_fact("Removed before", scm_none_or_list(round$removed_before))
   }
   if (isTRUE(view$timing)) {
-    fits <- sum(vapply(round$candidates %||% list(), function(c) length(c$attempts), integer(1)))
+    fits <- sum(vapply(
+      round$candidates %||% list(),
+      function(c) length(c$attempts),
+      integer(1)
+    ))
     add_fact(
       "Time",
-      paste0(fits, if (fits == 1) " fit" else " fits", ", wall ", scm_fmt_duration(round$timing$wall_seconds))
+      paste0(
+        fits,
+        if (fits == 1) " fit" else " fits",
+        ", wall ",
+        scm_fmt_duration(round$timing$wall_seconds)
+      )
     )
   }
 
@@ -384,7 +628,10 @@ scm_round_section <- function(round, view = SCM_DEFAULT_VIEW, block = character(
   }
 
   details <- if (isTRUE(view$long)) {
-    scm_round_details(block, vapply(cands, function(c) c$candidate, character(1)))
+    scm_round_details(
+      block,
+      vapply(cands, function(c) c$candidate, character(1))
+    )
   } else {
     list()
   }
@@ -399,7 +646,13 @@ scm_round_section <- function(round, view = SCM_DEFAULT_VIEW, block = character(
       OFV = scm_fmt_ofv(c$ofv),
       dOFV = scm_fmt_delta(c$delta_ofv),
       `p-value` = scm_fmt_p(c$p_value),
-      Significant = if (is.null(c$significant)) "" else if (isTRUE(c$significant)) "Yes" else "No",
+      Significant = if (is.null(c$significant)) {
+        ""
+      } else if (isTRUE(c$significant)) {
+        "Yes"
+      } else {
+        "No"
+      },
       Result = if (selected) {
         if (backward) "dropped" else "added"
       } else if (backward && isTRUE(c$significant)) {
@@ -410,19 +663,46 @@ scm_round_section <- function(round, view = SCM_DEFAULT_VIEW, block = character(
       Estimate = more$est %||% "",
       `95% CI` = more$CI95 %||% "",
       df = if (isTRUE(view$long)) scm_fmt_number(c$df) else "",
-      Attempts = if (length(c$attempts) > 1 || isTRUE(view$long)) as.character(length(c$attempts)) else "",
+      Attempts = if (length(c$attempts) > 1 || isTRUE(view$long)) {
+        as.character(length(c$attempts))
+      } else {
+        ""
+      },
       `Cond. No.` = more[["cond#"]] %||% "",
-      Heuristics = if (detail) paste(unlist(c$heuristics), collapse = ", ") else "",
-      `Est. time` = if (isTRUE(view$timing)) scm_fmt_duration(c$timing$estimation_seconds) else "",
+      Heuristics = if (detail) {
+        paste(unlist(c$heuristics), collapse = ", ")
+      } else {
+        ""
+      },
+      `Est. time` = if (isTRUE(view$timing)) {
+        scm_fmt_duration(c$timing$estimation_seconds)
+      } else {
+        ""
+      },
       Status = if (status == "succeeded") "" else status
     )
     i <- length(rows)
     if (selected) {
-      colors[[length(colors) + 1]] <- list(row = i, column = "Result", color = "green")
+      colors[[length(colors) + 1]] <- list(
+        row = i,
+        column = "Result",
+        color = "green"
+      )
     }
-    tone <- switch(status, unusable = "red", withdrawn = "yellow", running = "blue", pending = "grey", NA_character_)
+    tone <- switch(
+      status,
+      unusable = "red",
+      withdrawn = "yellow",
+      running = "blue",
+      pending = "grey",
+      NA_character_
+    )
     if (!is.na(tone)) {
-      colors[[length(colors) + 1]] <- list(row = i, column = "Status", color = tone)
+      colors[[length(colors) + 1]] <- list(
+        row = i,
+        column = "Status",
+        color = tone
+      )
     }
   }
   tables <- list(list(
@@ -434,8 +714,8 @@ scm_round_section <- function(round, view = SCM_DEFAULT_VIEW, block = character(
     )
   ))
 
-  # The attempts behind a candidate: every one in a detailed view, and
-  # always those of a fit that did not succeed.
+  # Show every attempt in a detailed view, and always those of a fit that
+  # did not succeed
   attempts <- scm_attempt_rows(cands, detail, isTRUE(view$timing))
   if (length(attempts$rows)) {
     tables[[length(tables) + 1]] <- list(
@@ -444,11 +724,22 @@ scm_round_section <- function(round, view = SCM_DEFAULT_VIEW, block = character(
     )
   }
   if (isTRUE(view$files)) {
-    tables[[length(tables) + 1]] <- list(title = "Files", data = scm_file_table(cands))
+    tables[[length(tables) + 1]] <- list(
+      title = "Files",
+      data = scm_file_table(cands)
+    )
   }
   scm_section(scm_round_title(round$round), list(alert), facts, tables)
 }
 
+#' Build the rows of a round's attempts table
+#'
+#' @param cands List of candidates
+#' @param all Whether to include candidates whose fit succeeded
+#' @param timing Whether to include the estimation time
+#' @return List with rows and colors for scm_display_table()
+#' @keywords internal
+#' @noRd
 scm_attempt_rows <- function(cands, all, timing) {
   rows <- list()
   colors <- list()
@@ -465,19 +756,26 @@ scm_attempt_rows <- function(cands, all, timing) {
         `Est. time` = if (timing) scm_fmt_duration(seconds) else ""
       )
       if (!identical(outcome, "succeeded") && !identical(outcome, status)) {
-        colors[[length(colors) + 1]] <<- list(row = length(rows), column = "Outcome", color = "red")
+        colors[[length(colors) + 1]] <<- list(
+          row = length(rows),
+          column = "Outcome",
+          color = "red"
+        )
       }
     }
     for (a in c$superseded %||% list()) {
-      add(a$model, paste0(a$outcome, " (superseded)"), a$timing$estimation_seconds)
+      add(
+        a$model,
+        paste0(a$outcome, " (superseded)"),
+        a$timing$estimation_seconds
+      )
     }
     models <- character()
     for (a in c$attempts %||% list()) {
       add(a$model, a$outcome, a$timing$estimation_seconds)
       models <- c(models, a$model)
     }
-    # A dispatched model joins the attempts once it finishes; one still
-    # running is named here.
+    # A model that is still running is not among the attempts yet
     if (!is.null(c$model) && nzchar(c$model) && !c$model %in% models) {
       add(c$model, status)
     }
@@ -485,6 +783,12 @@ scm_attempt_rows <- function(cands, all, timing) {
   list(rows = rows, colors = colors)
 }
 
+#' Build the files table of a round
+#'
+#' @param cands List of candidates
+#' @return Display table of the files each candidate's run produced
+#' @keywords internal
+#' @noRd
 scm_file_table <- function(cands) {
   rows <- lapply(cands, function(c) {
     f <- c$files %||% list()
@@ -499,8 +803,16 @@ scm_file_table <- function(cands) {
   scm_display_table(rows)
 }
 
-# The reference fit has no candidates to rank: it is a row of the models
-# table. It gets a section only for what that row cannot hold.
+#' Build the section for the reference fit
+#'
+#' The reference fit is a row of the models table, so it gets a section of
+#' its own only for detail that row cannot hold.
+#'
+#' @param round The reference round from the process record
+#' @param view List of view options (see SCM_DEFAULT_VIEW)
+#' @return A section, or NULL when there is nothing more to show
+#' @keywords internal
+#' @noRd
 scm_reference_section <- function(round, view) {
   cands <- round$candidates %||% list()
   if (length(cands) == 0) {
@@ -517,17 +829,32 @@ scm_reference_section <- function(round, view) {
   }
   facts <- scm_facts()
   if (length(fit$heuristics)) {
-    facts <- rbind(facts, scm_facts("Heuristics", paste(unlist(fit$heuristics), collapse = ", ")))
+    facts <- rbind(
+      facts,
+      scm_facts("Heuristics", paste(unlist(fit$heuristics), collapse = ", "))
+    )
   }
   if (isTRUE(view$timing)) {
     n <- length(fit$attempts)
-    facts <- rbind(facts, scm_facts(
-      "Time",
-      paste0(n, if (n == 1) " fit" else " fits", ", wall ", scm_fmt_duration(round$timing$wall_seconds))
-    ))
+    facts <- rbind(
+      facts,
+      scm_facts(
+        "Time",
+        paste0(
+          n,
+          if (n == 1) " fit" else " fits",
+          ", wall ",
+          scm_fmt_duration(round$timing$wall_seconds)
+        )
+      )
+    )
   }
   tables <- list()
-  attempts <- scm_attempt_rows(cands, length(fit$attempts) > 1, isTRUE(view$timing))
+  attempts <- scm_attempt_rows(
+    cands,
+    length(fit$attempts) > 1,
+    isTRUE(view$timing)
+  )
   if (length(attempts$rows)) {
     tables[[length(tables) + 1]] <- list(
       title = "Attempts",
@@ -535,17 +862,29 @@ scm_reference_section <- function(round, view) {
     )
   }
   if (isTRUE(view$files)) {
-    tables[[length(tables) + 1]] <- list(title = "Files", data = scm_file_table(cands))
+    tables[[length(tables) + 1]] <- list(
+      title = "Files",
+      data = scm_file_table(cands)
+    )
   }
   scm_section(
     "Reference fit",
-    list(scm_alert(if (identical(fit$status, "succeeded")) "success" else "info", round$decision %||% fit$status)),
+    list(scm_alert(
+      if (identical(fit$status, "succeeded")) "success" else "info",
+      round$decision %||% fit$status
+    )),
     facts,
     tables
   )
 }
 
-# The text block of a round: the one whose first line names it.
+#' Find the text block of a round
+#'
+#' @param blocks List of text blocks from scm_text_blocks()
+#' @param round Round name
+#' @return Character vector of the block's lines; empty when not found
+#' @keywords internal
+#' @noRd
 scm_round_block <- function(blocks, round) {
   for (b in blocks) {
     if (grepl(paste0("^", round, "(\\s|:)"), b[1])) {
@@ -555,23 +894,46 @@ scm_round_block <- function(blocks, round) {
   character()
 }
 
-# An open round of a status: pharos' live line per fit (what it has done, or
-# where it is, read now), as a table under the round's progress.
+#' Build the section for an open round of a status
+#'
+#' Shows pharos' live line for each fit as a table under the round's
+#' progress.
+#'
+#' @param round A round from the process record
+#' @param block Character vector of the round's text block
+#' @return A section
+#' @keywords internal
+#' @noRd
 scm_open_round_section <- function(round, block) {
   title <- paste0(scm_round_title(round$round), " (open)")
   if (length(block) == 0) {
     return(scm_round_section(round))
   }
-  alerts <- list(scm_alert("info", sub(paste0("^", round$round, ": *"), "", block[1])))
-  names <- vapply(round$candidates %||% list(), function(c) c$candidate, character(1))
+  alerts <- list(scm_alert(
+    "info",
+    sub(paste0("^", round$round, ": *"), "", block[1])
+  ))
+  names <- vapply(
+    round$candidates %||% list(),
+    function(c) c$candidate,
+    character(1)
+  )
   rows <- list()
   colors <- list()
   for (line in block[-1]) {
     m <- regmatches(line, regexec("^\\s*(\\S)\\s+(\\S+)\\s*(.*)$", line))[[1]]
     if (length(m) == 4 && m[3] %in% names) {
-      rows[[length(rows) + 1]] <- list(` ` = m[2], Candidate = m[3], Progress = trimws(m[4]))
+      rows[[length(rows) + 1]] <- list(
+        ` ` = m[2],
+        Candidate = m[3],
+        Progress = trimws(m[4])
+      )
       tone <- switch(m[2], "✓" = "green", "✗" = "red", "●" = "blue", "grey")
-      colors[[length(colors) + 1]] <- list(row = length(rows), column = " ", color = tone)
+      colors[[length(colors) + 1]] <- list(
+        row = length(rows),
+        column = " ",
+        color = tone
+      )
     } else {
       alerts[[length(alerts) + 1]] <- scm_alert("info", trimws(line))
     }
@@ -584,13 +946,22 @@ scm_open_round_section <- function(round, block) {
   scm_section(title, alerts, NULL, tables)
 }
 
-# ---- the three records --------------------------------------------------------------
+# ==============================================================================
+# Records
+# ==============================================================================
 
+#' Build the title of an SCM record
+#'
+#' @param x A hyperion_nonmem_scm_record object
+#' @return Title (e.g., "SCM Summary: <out_dir>")
+#' @keywords internal
+#' @noRd
 scm_record_title <- function(x) {
   what <- sub("^hyperion_nonmem_scm_", "", class(x)[1])
   paste0("SCM ", tools::toTitleCase(what), ": ", x$out_dir %||% "")
 }
 
+#' @noRd
 build_scm_record_parts <- function(x) {
   if (inherits(x, "hyperion_nonmem_scm_plan")) {
     build_scm_plan_parts(x)
@@ -601,25 +972,41 @@ build_scm_record_parts <- function(x) {
   }
 }
 
+#' @noRd
 build_scm_summary_parts <- function(x) {
-  view <- utils::modifyList(SCM_DEFAULT_VIEW, attr(x, "view") %||% list(), keep.null = TRUE)
+  view <- utils::modifyList(
+    SCM_DEFAULT_VIEW,
+    attr(x, "view") %||% list(),
+    keep.null = TRUE
+  )
   blocks <- scm_text_blocks(scm_text_lines(x))
   models <- scm_models_section(x)
   facts <- scm_record_facts(
     x,
     if (length(blocks)) blocks[[1]] else character(),
-    drop = if (is.null(models)) character() else c("working full model", "reduced covariate model")
+    drop = if (is.null(models)) {
+      character()
+    } else {
+      c("working full model", "reduced covariate model")
+    }
   )
 
   rounds <- x$rounds %||% list()
   if (!is.null(view$round) && length(rounds)) {
-    rounds <- list(scm_find_round(rounds, tolower(trimws(as.character(view$round))), view$round))
+    rounds <- list(scm_find_round(
+      rounds,
+      tolower(trimws(as.character(view$round))),
+      view$round
+    ))
   }
   sections <- list(models)
   for (r in rounds) {
     section <- if (identical(r$reference_model, "-")) {
       scm_reference_section(r, view)
-    } else if (!is.null(view$candidate) && length(scm_round_candidates(r, view$candidate)) == 0) {
+    } else if (
+      !is.null(view$candidate) &&
+        length(scm_round_candidates(r, view$candidate)) == 0
+    ) {
       NULL
     } else {
       scm_round_section(r, view, scm_round_block(blocks, r$round))
@@ -633,7 +1020,8 @@ build_scm_summary_parts <- function(x) {
     alerts[[1]] <- scm_alert(
       "warning",
       paste0(
-        n, if (n == 1) " candidate fit was" else " candidate fits were",
+        n,
+        if (n == 1) " candidate fit was" else " candidate fits were",
         " unusable; see the round tables above."
       )
     )
@@ -647,6 +1035,7 @@ build_scm_summary_parts <- function(x) {
   )
 }
 
+#' @noRd
 build_scm_status_parts <- function(x) {
   split <- scm_split_driver_lines(scm_text_lines(x))
   blocks <- scm_text_blocks(split$lines)
@@ -654,12 +1043,15 @@ build_scm_status_parts <- function(x) {
   facts <- scm_record_facts(
     x,
     if (length(blocks)) blocks[[1]] else character(),
-    drop = if (is.null(models)) character() else c("working full model", "reduced covariate model")
+    drop = if (is.null(models)) {
+      character()
+    } else {
+      c("working full model", "reduced covariate model")
+    }
   )
 
   sections <- list(models)
-  # A process that has not started has its plan's rounds to come, not rounds
-  # to show: pharos prints its facts alone.
+  # A process that has not started has no rounds to show
   started <- length(blocks) > 1
   for (r in if (started) x$rounds %||% list() else list()) {
     section <- if (identical(r$reference_model, "-")) {
@@ -672,7 +1064,7 @@ build_scm_status_parts <- function(x) {
     sections[[length(sections) + 1]] <- scm_spaced(section)
   }
 
-  # The driver's state closes the status: an alert in the color of its news.
+  # Add the driver's state as closing alerts
   alerts <- list()
   for (i in seq_len(nrow(split$driver))) {
     label <- split$driver$label[i]
@@ -686,7 +1078,10 @@ build_scm_status_parts <- function(x) {
     } else {
       "info"
     }
-    alerts[[length(alerts) + 1]] <- scm_alert(type, paste0(scm_fact_label(label), ": ", value))
+    alerts[[length(alerts) + 1]] <- scm_alert(
+      type,
+      paste0(scm_fact_label(label), ": ", value)
+    )
   }
   list(
     title = scm_record_title(x),
@@ -697,22 +1092,35 @@ build_scm_status_parts <- function(x) {
   )
 }
 
+#' @noRd
 build_scm_plan_parts <- function(x) {
   blocks <- scm_text_blocks(scm_text_lines(x))
-  main <- which(vapply(blocks, function(b) grepl("^model *:", b[1]), logical(1)))[1]
+  main <- which(vapply(
+    blocks,
+    function(b) grepl("^model *:", b[1]),
+    logical(1)
+  ))[1]
   if (is.na(main)) {
     main <- length(blocks) + 1L
   }
-  # What comes before the plan is a note about it.
+  # Blocks before the plan are notes about it
   top <- lapply(blocks[seq_len(main - 1)], function(b) {
     scm_alert("warning", paste(trimws(b), collapse = " "))
   })
 
   o <- x$options %||% list()
-  parsed <- if (main <= length(blocks)) scm_parse_facts(blocks[[main]]) else scm_parse_facts(character())
+  parsed <- if (main <= length(blocks)) {
+    scm_parse_facts(blocks[[main]])
+  } else {
+    scm_parse_facts(character())
+  }
   from_text <- function(label) {
     value <- parsed$value[parsed$label == label]
-    if (length(value)) scm_facts(scm_fact_label(label), value[1]) else scm_facts()
+    if (length(value)) {
+      scm_facts(scm_fact_label(label), value[1])
+    } else {
+      scm_facts()
+    }
   }
   direction <- unlist(o$direction)
   alphas <- c(
@@ -725,12 +1133,27 @@ build_scm_plan_parts <- function(x) {
     scm_facts("Alphas", paste(alphas, collapse = ", ")),
     scm_facts(
       "Retries",
-      paste0(o$max_retries %||% 3, " per failed fit, jittered ", 100 * (o$retry_jitter %||% 0.05), "%")
+      paste0(
+        o$max_retries %||% 3,
+        " per failed fit, jittered ",
+        100 * (o$retry_jitter %||% 0.05),
+        "%"
+      )
     ),
-    scm_facts("Covariance step", paste0(scm_on_off(o$cov_step), " in the round fits")),
+    scm_facts(
+      "Covariance step",
+      paste0(scm_on_off(o$cov_step), " in the round fits")
+    ),
     from_text("working full fit"),
     from_text("reduced covariate fit"),
-    scm_facts("Rounds", if (is.null(o$num_rounds)) "all" else paste0("pause after ", o$num_rounds, " (resumable)")),
+    scm_facts(
+      "Rounds",
+      if (is.null(o$num_rounds)) {
+        "all"
+      } else {
+        paste0("pause after ", o$num_rounds, " (resumable)")
+      }
+    ),
     from_text("max models")
   )
 
@@ -748,30 +1171,47 @@ build_scm_plan_parts <- function(x) {
         Upper = scm_fmt_number(c$upper)
       )
     })
-    table <- scm_display_table(rows, numeric = c("Initial", "Fixed", "Lower", "Upper"))
+    table <- scm_display_table(
+      rows,
+      numeric = c("Initial", "Fixed", "Lower", "Upper")
+    )
     sections[[1]] <- scm_section(
       "Candidates",
       tables = list(list(title = NULL, data = table))
     )
   }
 
-  # What follows the plan is the process already in its output directory:
-  # where it got to, and what this plan changes about it.
-  after <- if (main < length(blocks)) blocks[(main + 1):length(blocks)] else list()
+  # Blocks after the plan describe the process already in the output directory
+  after <- if (main < length(blocks)) {
+    blocks[(main + 1):length(blocks)]
+  } else {
+    list()
+  }
   if (length(after)) {
     history <- scm_parse_facts(unlist(after))
     process <- scm_facts(scm_fact_label(history$label), history$value)
     progress <- history$label == "progress"
-    process$tone[progress] <- vapply(history$value[progress], scm_status_tone, character(1))
-    sections[[length(sections) + 1]] <- scm_section("Process in the output directory", facts = process)
+    process$tone[progress] <- vapply(
+      history$value[progress],
+      scm_status_tone,
+      character(1)
+    )
+    sections[[length(sections) + 1]] <- scm_section(
+      "Process in the output directory",
+      facts = process
+    )
   }
 
-  alerts <- lapply(attr(x, "warnings") %||% character(), function(w) scm_alert("warning", w))
+  alerts <- lapply(attr(x, "warnings") %||% character(), function(w) {
+    scm_alert("warning", w)
+  })
   if (isFALSE(attr(x, "resumable"))) {
     alerts[[length(alerts) + 1]] <- scm_alert(
       "danger",
       paste0(
-        "The SCM process in '", x$out_dir, "' cannot resume under this plan; ",
+        "The SCM process in '",
+        x$out_dir,
+        "' cannot resume under this plan; ",
         "submit with `overwrite = TRUE` to discard it."
       )
     )

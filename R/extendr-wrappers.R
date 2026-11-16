@@ -512,8 +512,10 @@ compute_rse <- function(estimate, se, param_type, transform = 'identity') .Call(
 #' }
 transform_value <- function(value, transform) .Call(wrap__transform_value, value, transform)
 
-#' Write the starter SCM config and output directory for a model, or find
-#' the config already there: `existed` says which.
+#' Initialize an SCM config for a model (internal implementation)
+#'
+#' Writes the starter SCM config and output directory, or finds the config
+#' already there. `existed` in the result says which.
 #'
 #' @keywords internal
 #' @noRd
@@ -678,7 +680,7 @@ check_scm_impl <- function(scm, num_rounds = NULL) .Call(wrap__check_scm_wrap, s
 #' @noRd
 get_scm_status_impl <- function(scm) .Call(wrap__get_scm_status_wrap, scm)
 
-#' Submit an SCM process to slurm (internal implementation)
+#' Submit an SCM process to SLURM (internal implementation)
 #'
 #' @keywords internal
 #' @noRd

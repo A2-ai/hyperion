@@ -14,13 +14,15 @@ ScmEffect(
 )
 }
 \arguments{
-\item{name}{The effect's \verb{$THETA} comment name in the model (e.g., \code{"WT_CL"}).}
+\item{name}{Name of the effect's \verb{$THETA} comment in the model (e.g.,
+\code{"WT_CL"}).}
 
-\item{type}{\code{"continuous"} (pharos' default when left out) or \code{"categorical"}.}
+\item{type}{Effect type: \code{"continuous"} (the pharos default when omitted)
+or \code{"categorical"}.}
 
 \item{initial}{Initial estimate of the theta while the effect is tested.}
 
-\item{fixed}{The value the theta is fixed at while the effect is held out.}
+\item{fixed}{Value the theta is fixed at while the effect is held out.}
 
 \item{lower, upper}{Bounds on the theta while the effect is tested.}
 }
@@ -28,10 +30,11 @@ ScmEffect(
 An \code{ScmEffect} object.
 }
 \description{
-One entry of an SCM config's \code{effects} array: a covariate effect named by
-its \verb{$THETA} comment in the initial model, and the optional settings
-pharos tests it with. \code{\link[=init_scm]{init_scm()}}, \code{\link[=add_scm_effect]{add_scm_effect()}} and
-\code{\link[=update_scm_effect]{update_scm_effect()}} take one in place of a name.
+Represents one entry of an SCM config's \code{effects} array: a covariate
+effect named by its \verb{$THETA} comment in the initial model, with the
+optional settings pharos uses when testing it. \code{\link[=init_scm]{init_scm()}},
+\code{\link[=add_scm_effect]{add_scm_effect()}} and \code{\link[=update_scm_effect]{update_scm_effect()}} accept an \code{ScmEffect} in
+place of a name.
 }
 \examples{
 \dontrun{

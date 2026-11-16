@@ -18,33 +18,37 @@ update_scm_settings(
 )
 }
 \arguments{
-\item{path}{The SCM config (\verb{<stem>scm.toml}), as \code{\link[=init_scm]{init_scm()}} returns it.}
+\item{path}{Path to the SCM config (\verb{<stem>scm.toml}), as returned by
+\code{\link[=init_scm]{init_scm()}}.}
 
-\item{direction}{The phases to run: \code{"forward"}, \code{"backward"}, or both.}
+\item{direction}{Phases to run: \code{"forward"}, \code{"backward"}, or both.}
 
-\item{forward_alpha, backward_alpha}{The p-value to add a covariate in
-forward selection, and to keep one in backward elimination.}
+\item{forward_alpha, backward_alpha}{P-value threshold for adding a
+covariate in forward selection, and for keeping one in backward
+elimination.}
 
-\item{max_retries}{Retries per failed fit.}
+\item{max_retries}{Number of retries for a failed fit.}
 
-\item{retry_jitter}{How far a retry perturbs the estimates it starts from,
-as a fraction.}
+\item{retry_jitter}{Fraction by which a retry perturbs the estimates it
+starts from.}
 
-\item{num_rounds}{Pause after this many rounds; \code{0} runs all rounds.}
+\item{num_rounds}{Number of rounds after which to pause. \code{0} runs all
+rounds.}
 
 \item{cov_step}{Whether the generated models run \verb{$COVARIANCE}.}
 
-\item{working_full_cov_step, reduced_covariate_cov_step}{Whether the working full model and
-the reduced covariate model are re-fitted with \verb{$COVARIANCE} on.}
+\item{working_full_cov_step, reduced_covariate_cov_step}{Whether the
+working full model and the reduced covariate model are re-fitted with
+\verb{$COVARIANCE} on.}
 }
 \value{
-The config path, invisibly.
+Invisibly returns the path to the SCM config.
 }
 \description{
-Writes the settings given into the config (\verb{<stem>scm.toml}); the others
-keep their values. The candidate effects are edited with
-\code{\link[=add_scm_effect]{add_scm_effect()}}, \code{\link[=update_scm_effect]{update_scm_effect()}} and \code{\link[=remove_scm_effect]{remove_scm_effect()}}.
-Every edit goes to the file: \code{\link[=read_scm]{read_scm()}} reads the result back.
+Writes the given settings into the SCM config (\verb{<stem>scm.toml}) and
+leaves the other settings unchanged. Edits are written to the file; use
+\code{\link[=read_scm]{read_scm()}} to read the updated config. Candidate effects are edited
+with \code{\link[=add_scm_effect]{add_scm_effect()}}, \code{\link[=update_scm_effect]{update_scm_effect()}} and \code{\link[=remove_scm_effect]{remove_scm_effect()}}.
 }
 \examples{
 \dontrun{

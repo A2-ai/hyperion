@@ -13,23 +13,25 @@
 \method{str}{hyperion_nonmem_scm_record}(object, ...)
 }
 \arguments{
-\item{x}{A hyperion_nonmem_scm_plan, _status or _summary object}
+\item{x}{A hyperion_nonmem_scm_plan, hyperion_nonmem_scm_status or
+hyperion_nonmem_scm_summary object}
 
 \item{...}{Additional arguments (ignored)}
 
-\item{object}{A hyperion_nonmem_scm_record object; \code{str()} shows it
+\item{object}{A hyperion_nonmem_scm_record object. \code{str()} shows it
 without the rendered \code{text} attribute.}
 }
 \value{
 Invisible copy of x
 }
 \description{
-Prints a plan, status or summary the way a model summary prints: the
-process facts under a title, then sections with tables. A summary and a
-status show the base, working full and reduced covariate models, then each round with its
-decision and its candidates, the one the round added or dropped in
-green and an unusable fit in red, with a blank line between the rounds; a status shows its open round fit by
-fit and closes with the driver's state. A plan shows its candidate
-effects, the process already in its output directory, its warnings, and
-whether that process can resume under it.
+Prints an SCM plan, status or summary in the same layout as a model
+summary: the process facts under a title, followed by sections with
+tables. A summary and a status show the base, working full and reduced
+covariate models, then each round with its decision and its candidates.
+The candidate a round added or dropped is shown in green and an unusable
+fit in red. A status also shows its open round fit by fit and ends with
+the state of the driver. A plan shows its candidate effects, the process
+already in its output directory, its warnings, and whether that process
+can resume under it. Rounds are separated by a blank line.
 }

@@ -138,6 +138,8 @@ reference = [
     "submit_scm_to_slurm",
     "get_scm_status",
     "summary.hyperion_nonmem_scm",
+    "get_scm_model",
+    "get_scm_lineage",
     "stop_scm",
   ] },
 ]

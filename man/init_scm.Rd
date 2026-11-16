@@ -10,24 +10,27 @@ init_scm(model, effects = NULL, overwrite = FALSE)
 \item{model}{Path to the initial model (\code{.mod}/\code{.ctl}), or a
 \code{hyperion_nonmem_model} object.}
 
-\item{effects}{The candidate effects, each named by its \verb{$THETA} comment in
-the model: a character vector of names, or a list whose elements are a
-name or a row \code{list(name = , type = , initial = , fixed = , lower = , upper = )} (\code{type} is \code{"continuous"}, the default, or
-\code{"categorical"}; the numbers are optional). \code{NULL} writes the config with
-no effects, to be added with \code{\link[=add_scm_effect]{add_scm_effect()}} or by hand. When the
-config already exists the effects are not written; names that differ
-from the file's are a warning.}
+\item{effects}{Candidate effects, each named by its \verb{$THETA} comment in
+the model. Either a character vector of names, or a list whose elements
+are a name, an \code{\link[=ScmEffect]{ScmEffect()}}, or a list of the form \code{list(name = , type = , initial = , fixed = , lower = , upper = )}, where \code{type} is
+\code{"continuous"} (the default) or \code{"categorical"} and the numeric fields
+are optional. \code{NULL} writes a config with no effects, to be added with
+\code{\link[=add_scm_effect]{add_scm_effect()}} or by hand. If the config already exists, the
+effects are not written, and a warning is raised when their names
+differ from those in the file.}
 
-\item{overwrite}{Replace an existing config. Default \code{FALSE}.}
+\item{overwrite}{Whether to replace an existing config. Default \code{FALSE}.}
 }
 \value{
-The path to the config, invisibly. \code{\link[=read_scm]{read_scm()}} reads it.
+Invisibly returns the path to the SCM config. Use \code{\link[=read_scm]{read_scm()}} to
+read it.
 }
 \description{
-Writes the starter config (\verb{<stem>scm.toml}) and the SCM directory beside
-the model, as \verb{pharos nonmem scm init} does, with the candidate effects
-filled in. A config already there is left as it is and its path returned,
-so the call is the same the first time and every time after; \code{overwrite = TRUE} replaces it.
+Writes a starter SCM config (\verb{<stem>scm.toml}) and creates the SCM
+directory beside the model, as \verb{pharos nonmem scm init} does, with the
+candidate effects filled in. If the config already exists, it is left
+unchanged and its path is returned, so the same call can be run again.
+Use \code{overwrite = TRUE} to replace it.
 }
 \examples{
 \dontrun{

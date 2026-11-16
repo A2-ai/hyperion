@@ -40,7 +40,7 @@ one model per untested candidate and adds the best significant one) and
 backward elimination (each round refits with one retained effect fixed and
 drops the least significant), and writes a reduced covariate model with exactly
 the retained effects. Scoring is a likelihood-ratio test on the change in OFV.
-Every fit runs on slurm; a one-CPU driver job submits and waits for them.
+Every fit runs on SLURM; a one-CPU driver job submits and waits for them.
 
 The pieces mirror the model workflow: `read_scm()` reads the process's config
 the way `read_model()` reads a model, `check_scm()` mirrors `check_model()`,
@@ -132,7 +132,7 @@ the error lists the names pharos did resolve.
 # Submitting, following and stopping
 
 `submit_scm_to_slurm()` queues the driver job and returns. It needs the
-`pharos` CLI on `PATH` at the version hyperion was built for, the slurm tools,
+`pharos` CLI on `PATH` at the version hyperion was built for, the SLURM tools,
 and partitions that exist; it refuses a completed process unless
 `overwrite = TRUE`, and a plan the running process cannot resume under.
 
@@ -163,7 +163,8 @@ submit_scm_to_slurm(scm, overwrite = TRUE) # starts over
 
 The package ships a completed process as a fixture. `get_scm_status()` and
 `summary()` return the process record (what pharos writes to
-`scm_summary.json`) and print pharos' own rendering.
+`scm_summary.json`) and print it as facts and tables, the way a model
+summary prints.
 
 ```{r status-complete, results='asis'}
 done <- read_scm("extdata/models/scm-complete/scm/1001scm.toml")
@@ -171,7 +172,7 @@ get_scm_status(done)
 ```
 
 `summary()` takes the same options as `pharos nonmem scm summary`: `round` and
-`candidate` narrow the text, `long`, `timing` and `files` add detail. The
+`candidate` narrow what prints, `long`, `timing` and `files` add detail. The
 returned object is always the whole record.
 
 ```{r summary-round, results='asis'}
@@ -184,7 +185,8 @@ summary(done, round = "forward_round1", long = TRUE)
 the object `read_model()` gives for any run, so `summary()` and the parameter
 functions work on it. `round` names a stage, `"reference"`, `"working_full"`
 or `"reduced_covariate"`, or a selection round as `summary()` takes it; in a round,
-`candidate` picks one effect's fit, and left out gives the round's winner.
+`candidate` picks one effect's fit, and left out gives the round's selected
+candidate.
 A fit that was retried comes back as the attempt that counted.
 
 ```{r model-final, results='asis'}
@@ -218,7 +220,7 @@ get_scm_lineage(done)
 # What stays in the CLI
 
 `pharos nonmem scm run`, which drives the process from a terminal instead of a
-slurm job, is not wrapped: it blocks until the process ends and takes over the
+SLURM job, is not wrapped: it blocks until the process ends and takes over the
 terminal. Everything else in `pharos nonmem scm` has a hyperion function.
 
 | pharos                    | hyperion                     |

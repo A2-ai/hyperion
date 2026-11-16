@@ -2,7 +2,7 @@
 % Please edit documentation in R/scm-methods.R
 \name{summary.hyperion_nonmem_scm}
 \alias{summary.hyperion_nonmem_scm}
-\title{Summarize an SCM process}
+\title{Summary method for hyperion_nonmem_scm objects}
 \usage{
 \method{summary}{hyperion_nonmem_scm}(
   object,
@@ -15,29 +15,31 @@
 )
 }
 \arguments{
-\item{object}{A \code{hyperion_nonmem_scm} object.}
+\item{object}{A hyperion_nonmem_scm object}
 
-\item{round}{Show one round only.}
+\item{round}{Round to show. Default \code{NULL} shows every round.}
 
-\item{candidate}{Show one candidate only.}
+\item{candidate}{Candidate to show. Default \code{NULL} shows every candidate.}
 
-\item{long, timing, files}{Add the corresponding detail to what prints:
-each candidate's estimate, degrees of freedom and attempts; the time
-the fits took; the files each run left.}
+\item{long, timing, files}{Logical, if TRUE adds the corresponding detail to
+the printed summary: each candidate's estimate, degrees of freedom and
+attempts; the time the fits took; the files each run produced. Default
+is FALSE.}
 
-\item{...}{Unused.}
+\item{...}{Additional arguments (currently unused)}
 }
 \value{
 A \code{hyperion_nonmem_scm_summary} S3 object (also of class
 \code{hyperion_nonmem_scm_record}) with attributes \code{text} (the summary as
-pharos renders it), \code{view} (the arguments above, which its print
+rendered by pharos), \code{view} (the arguments above, which its print
 method follows), \code{out_dir} and \code{project_root}.
 }
 \description{
-The summary prints the process facts with the covariates' path, the
-base, working full and reduced covariate models, and each round: its decision, its
-reference, and a table of its candidates with their OFV, dOFV against
-the reference, p-value, and which one the round added or dropped.
+Summarizes the results of an SCM process. The summary prints the process
+facts with the path the covariates took; the base, working full and
+reduced covariate models; and each round with its decision, its
+reference, and a table of its candidates showing their OFV, dOFV against
+the reference, p-value, and which candidate the round added or dropped.
 }
 \examples{
 \dontrun{

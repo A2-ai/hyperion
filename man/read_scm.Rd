@@ -7,11 +7,13 @@
 read_scm(path)
 }
 \arguments{
-\item{path}{Path to the SCM config (\verb{<stem>scm.toml}) written by \code{\link[=init_scm]{init_scm()}}.}
+\item{path}{Path to the SCM config (\verb{<stem>scm.toml}) written by
+\code{\link[=init_scm]{init_scm()}}.}
 }
 \value{
-A \code{hyperion_nonmem_scm} object: the config's keys as a list, with
-the effects as \code{ScmEffect} objects under \code{covariates$effects}.
+A \code{hyperion_nonmem_scm} S3 object: the config's keys as a list,
+with the candidate effects as \link{ScmEffect} objects under
+\code{covariates$effects}.
 }
 \description{
 Read an SCM config

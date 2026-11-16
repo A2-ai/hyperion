@@ -7,36 +7,39 @@
 get_scm_model(scm, round, candidate = NULL)
 }
 \arguments{
-\item{scm}{A \code{hyperion_nonmem_scm} object or the SCM config (\verb{<stem>scm.toml}).}
+\item{scm}{A \code{hyperion_nonmem_scm} object from \code{\link[=read_scm]{read_scm()}}, or the path
+to the SCM config (\verb{<stem>scm.toml}).}
 
-\item{round}{Which fit: a selection round by name (\code{"forward_round1"},
-\code{"backward_round2"}) or by its number (\code{2}, \code{"round 2"}), as
-\code{summary()} takes it; \code{"reference"} for the reference fit the forward or
-backward phase started from; \code{"working_full"} for the working full model's
-re-fit; or \code{"reduced_covariate"} for the reduced covariate model.}
+\item{round}{Fit to get. One of: a selection round by name
+(\code{"forward_round1"}, \code{"backward_round2"}) or by number (\code{2},
+\code{"round 2"}), as \code{summary()} accepts it; \code{"reference"} for the reference
+fit the forward or backward phase started from; \code{"working_full"} for
+the re-fit of the working full model; or \code{"reduced_covariate"} for the
+reduced covariate model.}
 
 \item{candidate}{In a selection round, the effect whose fit to get: the
-one tested in a forward round, or held out in a backward round. \code{NULL},
-the default, gives the round's winner, the model that was added or
-dropped. Ignored for \code{"reference"}, \code{"working_full"} and \code{"reduced_covariate"}.}
+effect tested in a forward round, or held out in a backward round.
+\code{NULL} (the default) returns the round's selected candidate, the model
+that was added or dropped. Ignored for \code{"reference"}, \code{"working_full"}
+and \code{"reduced_covariate"}.}
 }
 \value{
-A \code{hyperion_nonmem_model} of the attempt that counted: the retry
-that succeeded when a fit was retried.
+A \code{hyperion_nonmem_model} object for the attempt that counted. If
+the fit was retried, this is the retry that succeeded.
 }
 \description{
-Reads one of the models the SCM process fitted, by the round it belongs
-to, as a \code{hyperion_nonmem_model}: what \code{\link[=read_model]{read_model()}} gives for any run,
-so \code{summary()} and the parameter functions work on it. The model comes
-from the process record (\code{\link[=summary]{summary()}}), so a round is available as soon as
-pharos has recorded it.
+Reads one of the models fitted by an SCM process, selected by the round
+it belongs to. The result is the same \code{hyperion_nonmem_model} object
+that \code{\link[=read_model]{read_model()}} returns for any run, so \code{summary()} and the parameter
+functions work on it. The model is located from the process record (see
+\code{\link[=summary]{summary()}}), so a round is available as soon as pharos has recorded it.
 }
 \examples{
 \dontrun{
 scm <- read_scm("model/nonmem/scm/run001scm.toml")
 final <- get_scm_model(scm, "reduced_covariate")
 summary(final)
-get_scm_model(scm, "forward_round2")                   # the round's winner
+get_scm_model(scm, "forward_round2")                   # selected candidate
 get_scm_model(scm, "forward_round2", candidate = "WT_V")
 get_scm_model(scm, 2, candidate = "WT_V")              # the same
 get_scm_model(scm, "reference")

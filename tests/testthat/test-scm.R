@@ -79,7 +79,7 @@ test_that("init_scm() takes the effects as names, rows or ScmEffects and validat
 
   before <- readLines(p$config)
   bad <- function(effects) init_scm(p$model, effects = effects, overwrite = TRUE)
-  expect_error(bad(c("WT_CL", "WT_CL")), "duplicate effect")
+  expect_error(bad(c("WT_CL", "WT_CL")), "Duplicate effect")
   expect_error(bad(42), "character vector of names")
   expect_error(bad(list(42)), "name, an ScmEffect, or a list")
   expect_error(bad(list(list(type = "categorical"))), "with a `name`")
@@ -118,8 +118,8 @@ test_that("add_scm_effect() appends validated effects to the config", {
   expect_snapshot(writeLines(written[grep("^\\[covariates\\]", written):length(written)]))
 
   expect_error(add_scm_effect(p$config, "WT_CL"), "already in the config: WT_CL")
-  expect_error(add_scm_effect(p$config, c("SEX_CL", "SEX_CL")), "duplicate effect")
-  expect_error(add_scm_effect(p$config, c("SEX_CL", "SEX_V"), initial = 1), "one effect")
+  expect_error(add_scm_effect(p$config, c("SEX_CL", "SEX_CL")), "Duplicate effect")
+  expect_error(add_scm_effect(p$config, c("SEX_CL", "SEX_V"), initial = 1), "a single effect")
   expect_error(add_scm_effect(p$config, ScmEffect("SEX_CL"), initial = 1), "not both")
   expect_error(add_scm_effect(p$config, 42), "effect name or an ScmEffect")
   expect_error(add_scm_effect(scm, "SEX_CL"), "not the object")
@@ -136,13 +136,13 @@ test_that("remove_scm_effect() drops effects by name", {
   suppressMessages(remove_scm_effect(p$config, ScmEffect("WT_V")))
   expect_equal(read_scm(p$config)$covariates$effects, list(ScmEffect("WT_CL")))
 
-  expect_error(remove_scm_effect(p$config, "AGE_CL"), "no effect\\(s\\) named AGE_CL in the config; it has: WT_CL")
-  expect_error(remove_scm_effect(p$config, c("WT_CL", "AGE_CL", "SEX_V")), "named AGE_CL, SEX_V")
+  expect_error(remove_scm_effect(p$config, "AGE_CL"), "Effect\\(s\\) not found in the config: AGE_CL. Available effects: WT_CL")
+  expect_error(remove_scm_effect(p$config, c("WT_CL", "AGE_CL", "SEX_V")), "not found in the config: AGE_CL, SEX_V")
   expect_error(remove_scm_effect(p$config, character()), "one or more effect names")
   expect_error(remove_scm_effect(p$config, 1), "one or more effect names")
   suppressMessages(remove_scm_effect(p$config, "WT_CL"))
   expect_length(read_scm(p$config)$covariates$effects, 0)
-  expect_error(remove_scm_effect(p$config, "WT_CL"), "it has none")
+  expect_error(remove_scm_effect(p$config, "WT_CL"), "The config has no effects")
   expect_error(remove_scm_effect(p$scm, "WT_CL"), "not the object")
   expect_error(remove_scm_effect("not an scm", "WT_CL"), "SCM config")
 })
@@ -162,8 +162,8 @@ test_that("update_scm_effect() replaces the settings given on an effect", {
   suppressMessages(update_scm_effect(p$config, ScmEffect("WT_V", fixed = 0)))
   expect_equal(effects(), list(ScmEffect("WT_CL"), ScmEffect("WT_V", fixed = 0)))
 
-  expect_error(update_scm_effect(p$config, "AGE_CL"), "no effect named AGE_CL in the config; it has: WT_CL, WT_V")
-  expect_error(update_scm_effect(p$config, ScmEffect("AGE_CL")), "no effect named AGE_CL")
+  expect_error(update_scm_effect(p$config, "AGE_CL"), "Effect 'AGE_CL' not found in the config. Available effects: WT_CL, WT_V")
+  expect_error(update_scm_effect(p$config, ScmEffect("AGE_CL")), "Effect 'AGE_CL' not found")
   expect_error(update_scm_effect(p$config, ScmEffect("WT_V"), initial = 1), "not both")
   expect_error(update_scm_effect(p$config, c("WT_CL", "WT_V")), "effect name or an ScmEffect")
   expect_error(update_scm_effect(p$config, "WT_CL", lower = 1, upper = 0), "@lower must be below @upper")
@@ -200,7 +200,7 @@ test_that("update_scm_settings() writes the settings given and keeps the others"
   expect_identical(scm$num_rounds, 2L)
   expect_match(attr(check_scm(scm), "text"), "pause after 2")
 
-  expect_error(update_scm_settings(p$config), "at least one setting")
+  expect_error(update_scm_settings(p$config), "At least one setting")
   expect_error(update_scm_settings(p$config, direction = "sideways"), '`direction` must be "forward", "backward", or both')
   expect_error(update_scm_settings(p$config, direction = c("forward", "forward")), "`direction` must be")
   expect_error(update_scm_settings(p$config, forward_alpha = "0.05"), "`forward_alpha` must be a single number")
@@ -239,7 +239,7 @@ test_that("init_scm() reports a config that already exists and returns its path"
   expect_no_warning(suppressMessages(init_scm(p$model, effects = c("CRCL_CL", "WT_CL"))))
   expect_warning(
     suppressMessages(init_scm(p$model, effects = c("WT_CL", "WT_V"))),
-    "`effects` differ from the config's"
+    "`effects` differ from the effects in the existing config"
   )
   expect_equal(readLines(p$config), before)
 
@@ -336,7 +336,7 @@ test_that("summary() reads a planned process", {
 })
 
 test_that("stop_scm() refuses a process with no driver", {
-  expect_error(stop_scm(scm_fixture("scm", "1001scm.toml")), "no driver has been started")
+  expect_error(stop_scm(scm_fixture("scm", "1001scm.toml")), "No driver has been started")
 })
 
 test_that("summary() and get_scm_status() read a completed process", {
@@ -401,12 +401,12 @@ test_that("get_scm_model() reads a fitted model by stage, round and candidate", 
   expect_equal(stem(get_scm_model(comp, "round 2", candidate = "WT_V")), "1001_wt_v_try2")
   expect_equal(stem(get_scm_model(scm_complete_fixture("scm", "1001scm.toml"), "REDUCED_COVARIATE")), "1001_scm_reduced_covariate")
 
-  expect_error(get_scm_model(comp, "forward_round3"), "forward_round3 has no winner: no covariate candidate significant")
+  expect_error(get_scm_model(comp, "forward_round3"), "Round 'forward_round3' has no selected candidate: no covariate candidate significant")
   expect_error(
     get_scm_model(comp, "forward_round2", candidate = "AGE_CL"),
-    "no candidate named AGE_CL in forward_round2; it has: CRCL_CL, WT_V"
+    "Candidate 'AGE_CL' not found in forward_round2. Available candidates: CRCL_CL, WT_V"
   )
-  expect_error(get_scm_model(comp, "9"), "no round matching '9'; rounds so far: reference, forward_round1")
+  expect_error(get_scm_model(comp, "9"), "No round matching '9'. Rounds so far: reference, forward_round1")
   expect_error(get_scm_model(comp, c("reduced_covariate", "reference")), "`round` must be")
   expect_error(get_scm_model(comp, "reduced_covariate", candidate = 1), "`candidate` must be")
   expect_error(get_scm_model(read_scm(scm_fixture("scm", "1001scm.toml")), "reduced_covariate"), "has not started")
@@ -465,7 +465,7 @@ test_that("get_scm_status() warns from R about an unreadable driver record", {
       invokeRestart("muffleWarning")
     }
   )
-  expect_match(caught, "the driver is treated as never started")
+  expect_match(caught, "The driver is treated as never started")
   expect_no_warning(suppressWarnings(get_scm_status(p$config)))
 })
 

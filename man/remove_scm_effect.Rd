@@ -7,16 +7,18 @@
 remove_scm_effect(path, name)
 }
 \arguments{
-\item{path}{The SCM config (\verb{<stem>scm.toml}), as \code{\link[=init_scm]{init_scm()}} returns it.}
+\item{path}{Path to the SCM config (\verb{<stem>scm.toml}), as returned by
+\code{\link[=init_scm]{init_scm()}}.}
 
-\item{name}{The name(s) of the effects to remove.}
+\item{name}{Name(s) of the effects to remove.}
 }
 \value{
-The config path, invisibly.
+Invisibly returns the path to the SCM config.
 }
 \description{
-Drops effects from the config's \code{effects} by name and writes the config.
-Every edit goes to the file: \code{\link[=read_scm]{read_scm()}} reads the result back.
+Removes effects from the config's \code{effects} by name and writes the
+config. Edits are written to the file; use \code{\link[=read_scm]{read_scm()}} to read the
+updated config.
 }
 \examples{
 \dontrun{

@@ -5,7 +5,7 @@ use which::which;
 
 use nonmem::scm;
 use scheduler::{
-    DriverRecord, Liveness, ScmHints, ScmJob, ScmSubmitArgs, cancel_recorded_fits, fit_place_lookup,
+    DriverRecord, Liveness, ScmJob, ScmSubmitArgs, cancel_recorded_fits, fit_place_lookup,
 };
 
 use crate::slurm::PartitionTable;
@@ -16,39 +16,11 @@ use hyperion_nonmem::scm::{
 };
 use hyperion_nonmem::utils::load_nonmem_config;
 
-/// Hints naming the R functions a user runs after an SCM submit is refused.
-///
-/// pharos' [`ScmJob`] decides what a submit checks and refuses. Its default
-/// hints name the CLI's commands; these name hyperion's functions instead,
-/// with the project chosen through `options(hyperion.config_dir)`.
-struct RHints;
-
-impl ScmHints for RHints {
-    fn status(&self, _out_dir: &Path, scm_config: &Path) -> String {
-        format!("get_scm_status(\"{}\")", scm::shown(scm_config))
-    }
-
-    fn stop(&self, _out_dir: &Path, scm_config: &Path) -> String {
-        format!("stop_scm(\"{}\")", scm::shown(scm_config))
-    }
-
-    fn overwrite(&self) -> String {
-        "overwrite = TRUE".to_string()
-    }
-
-    fn use_project(&self, root: &Path) -> String {
-        format!(
-            "run from that project, or set options(hyperion.config_dir = \"{}\")",
-            root.display()
-        )
-    }
-}
-
 /// Resolve an SCM config to its plan.
 ///
-/// Uses the pharos version hyperion was built for, the R functions as
-/// hints, and the pharos.toml hyperion finds. Errors show paths relative to
-/// the config's project, like every other SCM message.
+/// Uses the pharos version hyperion was built for and the pharos.toml
+/// hyperion finds. Errors show paths relative to the config's project, like
+/// every other SCM message.
 fn load_job(args: &ScmSubmitArgs) -> Result<ScmJob> {
     let near = args
         .config
@@ -56,7 +28,7 @@ fn load_job(args: &ScmSubmitArgs) -> Result<ScmJob> {
         .map(Path::to_path_buf)
         .unwrap_or_default();
     let version = pharos_version()?;
-    ScmJob::load(args, &version, Box::new(RHints), || {
+    ScmJob::load(args, &version, || {
         load_nonmem_config(None).map_err(|e| anyhow::anyhow!("{e}"))
     })
     .map_scm_err(&near)
@@ -109,7 +81,7 @@ fn driver_robj(record: &DriverRecord) -> Robj {
         Liveness::Unknown(why) => format!("unknown ({why})"),
     };
     list!(
-        mode = record.mode.clone(),
+        mode = record.mode.to_string(),
         job_id = record.job_id.map(|j| j as f64),
         host = record.host.clone(),
         pid = record.pid.map(|p| p as f64),
@@ -159,7 +131,7 @@ pub fn get_scm_status_wrap(scm: Robj) -> Result<Robj> {
     }
     let driver = match &record {
         Some(r) => {
-            for line in r.status_lines(&status.summary.status, &|p: &Path| scm::shown(p)) {
+            for line in r.status_lines(&status.summary.status) {
                 text.push_str(&line);
                 text.push('\n');
             }

@@ -36,8 +36,8 @@ method follows), \code{out_dir} and \code{project_root}.
 }
 \description{
 Summarizes the results of an SCM process. The summary prints the process
-facts with the path the covariates took; the base, working full and
-reduced covariate models; and each round with its decision, its
+facts with the path the covariates took; the base, forward and
+final models; and each round with its decision, its
 reference, and a table of its candidates showing their OFV, dOFV against
 the reference, p-value, and which candidate the round added or dropped.
 }

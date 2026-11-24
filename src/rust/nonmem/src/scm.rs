@@ -8,7 +8,7 @@ use config::find_config_dir_from;
 use nonmem::scm::{self, ScmStatus, SummaryOptions};
 
 use crate::utils::{get_comment_type, path_from_robj, source_attr};
-use hyperion_core::{ResultExt, extendr_err};
+use hyperion_core::{ResultExt, extendr_err, with_r_steps};
 
 /// The S3 class of the SCM config object `read_scm()` returns.
 const SCM_CLASS: &str = "hyperion_nonmem_scm";
@@ -18,16 +18,17 @@ const SUMMARY_CLASS: &str = "hyperion_nonmem_scm_summary";
 /// Shared by the status and summary objects: both are the process record.
 pub const RECORD_CLASS: &str = "hyperion_nonmem_scm_record";
 
-/// Map a pharos SCM error to an R error the way the CLI shows it: one line,
-/// paths relative to the project `near` sits in, with a hint appended when a
-/// covariate name did not resolve under the project's comment dialect.
+/// Map a pharos SCM error to an R error the way the CLI shows it: the chain on
+/// one line, paths relative to the project `near` sits in, with a hint appended
+/// when a covariate name did not resolve under the project's comment dialect,
+/// then on a line of their own the R-worded steps of a refusal.
 pub trait ScmResultExt<T> {
     fn map_scm_err(self, near: &Path) -> Result<T>;
 }
 
 impl<T> ScmResultExt<T> for std::result::Result<T, anyhow::Error> {
     fn map_scm_err(self, near: &Path) -> Result<T> {
-        self.map_err(|e| Error::Other(dialect_hint(scm::shown_error(&e, near))))
+        self.map_err(|e| Error::Other(with_r_steps(dialect_hint(scm::shown_error(&e, near)), &e)))
     }
 }
 

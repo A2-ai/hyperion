@@ -13,8 +13,8 @@ update_scm_settings(
   retry_jitter = NULL,
   num_rounds = NULL,
   cov_step = NULL,
-  working_full_cov_step = NULL,
-  reduced_covariate_cov_step = NULL
+  forward_final_cov_step = NULL,
+  final_cov_step = NULL
 )
 }
 \arguments{
@@ -37,8 +37,8 @@ rounds.}
 
 \item{cov_step}{Whether the generated models run \verb{$COVARIANCE}.}
 
-\item{working_full_cov_step, reduced_covariate_cov_step}{Whether the
-working full model and the reduced covariate model are re-fitted with
+\item{forward_final_cov_step, final_cov_step}{Whether the
+forward model and the final model are re-fitted with
 \verb{$COVARIANCE} on.}
 }
 \value{

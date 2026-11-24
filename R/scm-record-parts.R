@@ -88,10 +88,10 @@ SCM_FACT_LABELS <- c(
   "path" = "Path",
   "removed" = "Removed",
   "retuned" = "Retuned",
-  "working full model" = "Working full model",
-  "working full fit" = "Working full fit",
-  "reduced covariate model" = "Reduced covariate model",
-  "reduced covariate fit" = "Reduced covariate fit",
+  "forward model" = "Forward model",
+  "forward fit" = "Forward fit",
+  "final model" = "Final model",
+  "final fit" = "Final fit",
   "time" = "Time",
   "selected" = "Selected",
   "changes" = "Changes",
@@ -379,8 +379,8 @@ scm_reference_round <- function(x) {
 
 #' Build the models section
 #'
-#' Lists the base (or full) model, the working full model and the reduced
-#' covariate model with their OFV and covariates.
+#' Lists the base (or full) model, the forward model and the final
+#' model with their OFV and covariates.
 #'
 #' @param x A hyperion_nonmem_scm_record object
 #' @return A section, or NULL when the record has no models yet
@@ -425,21 +425,21 @@ scm_models_section <- function(x) {
       fit$status
     )
   }
-  forward <- x$working_full
+  forward <- x$forward_final
   if (!is.null(forward)) {
     add(
-      "Working full model",
+      "Forward model",
       forward$model,
       forward$ofv,
       forward$retained,
       forward$status
     )
   }
-  if (!is.null(x$reduced_covariate_model)) {
+  if (!is.null(x$final_model)) {
     add(
-      "Reduced covariate model",
-      x$reduced_covariate_model,
-      x$reduced_covariate_ofv,
+      "Final model",
+      x$final_model,
+      x$final_ofv,
       x$retained,
       ""
     )
@@ -519,7 +519,7 @@ scm_round_details <- function(block, names) {
       next
     }
     if (!is.null(current) && grepl("^ {6}(est|CI95|df|tries) ", line)) {
-      items <- strsplit(trimws(line), " · ", fixed = TRUE)[[1]]
+      items <- strsplit(trimws(line), " \u00b7 ", fixed = TRUE)[[1]]
       label <- sub(" .*$", "", items)
       details[[current]] <- stats::setNames(
         as.list(sub("^\\S+ ", "", items)),
@@ -928,7 +928,13 @@ scm_open_round_section <- function(round, block) {
         Candidate = m[3],
         Progress = trimws(m[4])
       )
-      tone <- switch(m[2], "✓" = "green", "✗" = "red", "●" = "blue", "grey")
+      tone <- switch(
+        m[2],
+        "\u2713" = "green",
+        "\u2717" = "red",
+        "\u25cf" = "blue",
+        "grey"
+      )
       colors[[length(colors) + 1]] <- list(
         row = length(rows),
         column = " ",
@@ -987,7 +993,7 @@ build_scm_summary_parts <- function(x) {
     drop = if (is.null(models)) {
       character()
     } else {
-      c("working full model", "reduced covariate model")
+      c("forward model", "final model")
     }
   )
 
@@ -1046,7 +1052,7 @@ build_scm_status_parts <- function(x) {
     drop = if (is.null(models)) {
       character()
     } else {
-      c("working full model", "reduced covariate model")
+      c("forward model", "final model")
     }
   )
 
@@ -1144,8 +1150,8 @@ build_scm_plan_parts <- function(x) {
       "Covariance step",
       paste0(scm_on_off(o$cov_step), " in the round fits")
     ),
-    from_text("working full fit"),
-    from_text("reduced covariate fit"),
+    from_text("forward fit"),
+    from_text("final fit"),
     scm_facts(
       "Rounds",
       if (is.null(o$num_rounds)) {

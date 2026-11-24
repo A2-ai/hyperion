@@ -13,15 +13,15 @@ to the SCM config (\verb{<stem>scm.toml}).}
 \item{round}{Fit to get. One of: a selection round by name
 (\code{"forward_round1"}, \code{"backward_round2"}) or by number (\code{2},
 \code{"round 2"}), as \code{summary()} accepts it; \code{"reference"} for the reference
-fit the forward or backward phase started from; \code{"working_full"} for
-the re-fit of the working full model; or \code{"reduced_covariate"} for the
-reduced covariate model.}
+fit the forward or backward phase started from; \code{"forward_final"} for
+the re-fit of the forward model; or \code{"final"} for the
+final model.}
 
 \item{candidate}{In a selection round, the effect whose fit to get: the
 effect tested in a forward round, or held out in a backward round.
 \code{NULL} (the default) returns the round's selected candidate, the model
-that was added or dropped. Ignored for \code{"reference"}, \code{"working_full"}
-and \code{"reduced_covariate"}.}
+that was added or dropped. Ignored for \code{"reference"}, \code{"forward_final"}
+and \code{"final"}.}
 }
 \value{
 A \code{hyperion_nonmem_model} object for the attempt that counted. If
@@ -37,7 +37,7 @@ functions work on it. The model is located from the process record (see
 \examples{
 \dontrun{
 scm <- read_scm("model/nonmem/scm/run001scm.toml")
-final <- get_scm_model(scm, "reduced_covariate")
+final <- get_scm_model(scm, "final")
 summary(final)
 get_scm_model(scm, "forward_round2")                   # selected candidate
 get_scm_model(scm, "forward_round2", candidate = "WT_V")

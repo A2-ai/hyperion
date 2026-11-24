@@ -27,8 +27,8 @@ Invisible copy of x
 \description{
 Prints an SCM plan, status or summary in the same layout as a model
 summary: the process facts under a title, followed by sections with
-tables. A summary and a status show the base, working full and reduced
-covariate models, then each round with its decision and its candidates.
+tables. A summary and a status show the base, forward and final
+models, then each round with its decision and its candidates.
 The candidate a round added or dropped is shown in green and an unusable
 fit in red. A status also shows its open round fit by fit and ends with
 the state of the driver. A plan shows its candidate effects, the process

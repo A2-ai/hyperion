@@ -15,4 +15,3 @@ anyhow = { workspace = true }
 # Pharos components
 nonmem = { workspace = true }
 scheduler = { workspace = true }
-config = { workspace = true }

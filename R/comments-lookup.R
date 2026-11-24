@@ -46,25 +46,26 @@ apply_lookup_defaults <- function(comment, lookup_path) {
   lookup <- load_lookup_toml(lookup_path)
   lookup_path <- relative_path(lookup_path)
 
-  # Try to find entry by user name first, then by NONMEM name
+  # Try to find entry by user name first, then raw (pre-composition) omega
+  # name, then NONMEM name
   entry <- NULL
 
   lookup_names <- names(lookup)
   lookup_lower <- tolower(lookup_names)
 
-  if (!is.null(comment@name)) {
-    match_idx <- match(tolower(comment@name), lookup_lower)
-    if (!is.na(match_idx)) {
-      entry <- lookup[[lookup_names[match_idx]]]
+  candidates <- list(
+    comment@name,
+    if (is_omega) comment@raw_name,
+    comment@nonmem_name
+  )
+  for (candidate in candidates) {
+    if (is.null(candidate)) {
+      next
     }
-  }
-  if (
-    is.null(entry) &&
-      !is.null(comment@nonmem_name)
-  ) {
-    match_idx <- match(tolower(comment@nonmem_name), lookup_lower)
+    match_idx <- match(tolower(candidate), lookup_lower)
     if (!is.na(match_idx)) {
       entry <- lookup[[lookup_names[match_idx]]]
+      break
     }
   }
 

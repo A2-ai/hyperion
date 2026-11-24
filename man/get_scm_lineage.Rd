@@ -23,14 +23,14 @@ from the tags.
 }
 \details{
 The tree contains the base fit, the attempt that counted for each
-candidate in every round, the re-fit of the working full model, and the
-reduced covariate model. Each fit is based on the model its round tested
+candidate in every round, the re-fit of the forward model, and the
+final model. Each fit is based on the model its round tested
 against, so the dOFV and p-value in a summary are those of the round. The
-working full model and the reduced covariate model are based on the
+forward model and the final model are based on the
 reference fit.
 
 Each node is tagged \code{"scm"} and with its round (\code{"reference"},
-\code{"forward_round1"}, ..., \code{"working_full"}, \code{"reduced_covariate"}). The
+\code{"forward_round1"}, ..., \code{"forward_final"}, \code{"final"}). The
 candidate a round selected is also tagged \code{"selected"}, and a fit that
 was retried is tagged \code{"retry"}. The description of a node is the step of
 its fit, as pharos writes it to the fits' metadata: what a candidate adds

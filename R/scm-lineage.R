@@ -8,14 +8,14 @@
 #' from the tags.
 #'
 #' The tree contains the base fit, the attempt that counted for each
-#' candidate in every round, the re-fit of the working full model, and the
-#' reduced covariate model. Each fit is based on the model its round tested
+#' candidate in every round, the re-fit of the forward model, and the
+#' final model. Each fit is based on the model its round tested
 #' against, so the dOFV and p-value in a summary are those of the round. The
-#' working full model and the reduced covariate model are based on the
+#' forward model and the final model are based on the
 #' reference fit.
 #'
 #' Each node is tagged `"scm"` and with its round (`"reference"`,
-#' `"forward_round1"`, ..., `"working_full"`, `"reduced_covariate"`). The
+#' `"forward_round1"`, ..., `"forward_final"`, `"final"`). The
 #' candidate a round selected is also tagged `"selected"`, and a fit that
 #' was retried is tagged `"retry"`. The description of a node is the step of
 #' its fit, as pharos writes it to the fits' metadata: what a candidate adds
@@ -116,24 +116,24 @@ scm_lineage_nodes <- function(record) {
         scm_model_covariates(r, cnd, is_reference)
       )
     }
-    # The working full model's re-fit follows the last forward round
-    ff <- record$working_full
+    # The forward model's re-fit follows the last forward round
+    ff <- record$forward_final
     if (i == last_forward && !is.null(ff$model)) {
       nodes[[length(nodes) + 1]] <- node(
         ff$model,
         scm_reference_fit_model(record),
-        "working full model",
-        c("scm", "working_full"),
+        "forward model",
+        c("scm", "forward_final"),
         ff$retained
       )
     }
   }
-  if (!is.null(record$reduced_covariate_model)) {
+  if (!is.null(record$final_model)) {
     nodes[[length(nodes) + 1]] <- node(
-      record$reduced_covariate_model,
+      record$final_model,
       scm_reference_fit_model(record),
-      "reduced covariate model",
-      c("scm", "reduced_covariate"),
+      "final model",
+      c("scm", "final"),
       record$retained
     )
   }

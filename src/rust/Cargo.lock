@@ -99,7 +99,7 @@ dependencies = [
 [[package]]
 name = "config"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?tag=v0.7.0#b7208c0cd443fe545f97a02428ef7992206afc3f"
+source = "git+https://github.com/a2-ai/pharos?branch=rework-hints#dae68b4cb69dca25a1432a76de1ebd898860b34d"
 dependencies = [
  "anyhow",
  "fs-err",
@@ -363,8 +363,10 @@ dependencies = [
 name = "hyperion-core"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "config",
  "extendr-api",
+ "nonmem",
 ]
 
 [[package]]
@@ -388,7 +390,6 @@ name = "hyperion-scheduler"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "config",
  "extendr-api",
  "hyperion-core",
  "hyperion-nonmem",
@@ -556,7 +557,7 @@ checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
 [[package]]
 name = "nonmem"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?tag=v0.7.0#b7208c0cd443fe545f97a02428ef7992206afc3f"
+source = "git+https://github.com/a2-ai/pharos?branch=rework-hints#dae68b4cb69dca25a1432a76de1ebd898860b34d"
 dependencies = [
  "anyhow",
  "blake3",
@@ -585,7 +586,7 @@ dependencies = [
 [[package]]
 name = "nonmem-parser"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?tag=v0.7.0#b7208c0cd443fe545f97a02428ef7992206afc3f"
+source = "git+https://github.com/a2-ai/pharos?branch=rework-hints#dae68b4cb69dca25a1432a76de1ebd898860b34d"
 dependencies = [
  "anyhow",
  "distrs",
@@ -781,7 +782,7 @@ dependencies = [
 [[package]]
 name = "scheduler"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?tag=v0.7.0#b7208c0cd443fe545f97a02428ef7992206afc3f"
+source = "git+https://github.com/a2-ai/pharos?branch=rework-hints#dae68b4cb69dca25a1432a76de1ebd898860b34d"
 dependencies = [
  "anyhow",
  "config",
@@ -1020,7 +1021,7 @@ checksum = "81e544489bf3d8ef66c953931f56617f423cd4b5494be343d9b9d3dda037b9a3"
 [[package]]
 name = "utils"
 version = "0.1.0"
-source = "git+https://github.com/a2-ai/pharos?tag=v0.7.0#b7208c0cd443fe545f97a02428ef7992206afc3f"
+source = "git+https://github.com/a2-ai/pharos?branch=rework-hints#dae68b4cb69dca25a1432a76de1ebd898860b34d"
 dependencies = [
  "anyhow",
  "fs-err",

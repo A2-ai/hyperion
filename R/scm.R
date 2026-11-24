@@ -142,8 +142,8 @@ SCM_SETTING_FORMS <- c(
   retry_jitter = "a single number",
   num_rounds = "a single whole number",
   cov_step = "TRUE or FALSE",
-  working_full_cov_step = "TRUE or FALSE",
-  reduced_covariate_cov_step = "TRUE or FALSE"
+  forward_final_cov_step = "TRUE or FALSE",
+  final_cov_step = "TRUE or FALSE"
 )
 
 #' Validate a value for an SCM config setting
@@ -167,8 +167,8 @@ scm_setting <- function(key, value) {
       value >= 0 &&
       value == trunc(value),
     cov_step = ,
-    working_full_cov_step = ,
-    reduced_covariate_cov_step = one && is.logical(value),
+    forward_final_cov_step = ,
+    final_cov_step = one && is.logical(value),
     one && is.numeric(value)
   )
   if (!ok) {
@@ -196,8 +196,8 @@ scm_setting <- function(key, value) {
 #' @param num_rounds Number of rounds after which to pause. `0` runs all
 #'   rounds.
 #' @param cov_step Whether the generated models run `$COVARIANCE`.
-#' @param working_full_cov_step,reduced_covariate_cov_step Whether the
-#'   working full model and the reduced covariate model are re-fitted with
+#' @param forward_final_cov_step,final_cov_step Whether the
+#'   forward model and the final model are re-fitted with
 #'   `$COVARIANCE` on.
 #' @return Invisibly returns the path to the SCM config.
 #' @export
@@ -217,8 +217,8 @@ update_scm_settings <- function(
   retry_jitter = NULL,
   num_rounds = NULL,
   cov_step = NULL,
-  working_full_cov_step = NULL,
-  reduced_covariate_cov_step = NULL
+  forward_final_cov_step = NULL,
+  final_cov_step = NULL
 ) {
   scm <- read_scm(check_scm_edit_path(path))
   given <- list(
@@ -229,8 +229,8 @@ update_scm_settings <- function(
     retry_jitter = retry_jitter,
     num_rounds = num_rounds,
     cov_step = cov_step,
-    working_full_cov_step = working_full_cov_step,
-    reduced_covariate_cov_step = reduced_covariate_cov_step
+    forward_final_cov_step = forward_final_cov_step,
+    final_cov_step = final_cov_step
   )
   given <- given[!vapply(given, is.null, logical(1))]
   if (length(given) == 0) {
@@ -543,7 +543,7 @@ stop_scm <- function(scm) {
 #' Get the status of an SCM process
 #'
 #' Reads where an SCM process stands now: the process facts; the base,
-#' working full and reduced covariate models fitted so far; each decided
+#' forward and final models fitted so far; each decided
 #' round with its decision and a table of its candidates; the open round
 #' fit by fit (its SLURM job, how long it has run, and the latest iteration
 #' and OFV from its `.ext` file); and the state of the driver (running,

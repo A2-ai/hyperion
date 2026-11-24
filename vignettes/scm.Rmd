@@ -14,14 +14,13 @@ knitr::opts_chunk$set(
 )
 
 # A throwaway pharos project holding the package's SCM fixtures: the planned
-# process under extdata/models/scm and a completed one under
-# extdata/models/scm-complete. Their records are relative to this root.
+# process under scm and a completed one under
+# scm-complete. Their records are relative to this root.
 vignette_root <- tempfile("hyperion-scm-")
-models <- file.path(vignette_root, "extdata", "models")
-dir.create(models, recursive = TRUE)
+dir.create(vignette_root)
 file.copy(
-  system.file("extdata", "models", c("scm", "scm-complete"), package = "hyperion"),
-  models,
+  system.file(c("scm", "scm-complete"), package = "hyperion"),
+  vignette_root,
   recursive = TRUE
 )
 file.copy(system.file("pharos.toml", package = "hyperion"), vignette_root)
@@ -38,7 +37,7 @@ process starts from an **initial model** whose `$THETA` records already declare
 every covariate effect to be tested, runs forward selection (each round fits
 one model per untested candidate and adds the best significant one) and
 backward elimination (each round refits with one retained effect fixed and
-drops the least significant), and writes a reduced covariate model with exactly
+drops the least significant), and writes a final model with exactly
 the retained effects. Scoring is a likelihood-ratio test on the change in OFV.
 Every fit runs on SLURM; a one-CPU driver job submits and waits for them.
 
@@ -56,7 +55,7 @@ off, named by its comment. The name is what the project's comment dialect
 config refers to.
 
 ```{r model, results='asis'}
-mod <- read_model("extdata/models/scm/1001.mod")
+mod <- read_model("scm/1001.mod")
 mod
 ```
 
@@ -72,14 +71,14 @@ document runs and every time after; `overwrite = TRUE` replaces it.
 `read_scm()` reads the file as an object.
 
 ```{r init}
-dir.create("extdata/models/scm-demo")
+dir.create("scm-demo")
 file.copy(
-  c("extdata/models/scm/1001.mod", "extdata/models/scm/data.csv"),
-  "extdata/models/scm-demo"
+  c("scm/1001.mod", "scm/data.csv"),
+  "scm-demo"
 )
 
 config <- init_scm(
-  "extdata/models/scm-demo/1001.mod",
+  "scm-demo/1001.mod",
   effects = list(
     "WT_CL",
     list(name = "WT_V", type = "categorical", initial = 1, lower = 0, upper = 5)
@@ -106,7 +105,7 @@ read_scm(config)$covariates$effects
 ```
 
 `update_scm_settings()` writes the settings it is given, `direction` through
-`reduced_covariate_cov_step`, and leaves the others. The `[covariates]` defaults
+`final_cov_step`, and leaves the others. The `[covariates]` defaults
 (`fixed`, `continuous`, `categorical`) are edited in the file.
 
 ```{r settings}
@@ -140,8 +139,8 @@ and partitions that exist; it refuses a completed process unless
 submit_scm_to_slurm(scm, partition = "cpu")
 #> ✔ Submitted the SCM process as slurm job 4242 (scm_1001)
 #> ℹ Log: .slurm-logs/scm_1001_4242.out
-#> Follow it with `get_scm_status("extdata/models/scm-demo/scm/1001scm.toml")`;
-#> stop it with `stop_scm("extdata/models/scm-demo/scm/1001scm.toml")`.
+#> Follow it with `get_scm_status("scm-demo/scm/1001scm.toml")`;
+#> stop it with `stop_scm("scm-demo/scm/1001scm.toml")`.
 ```
 
 `get_scm_status()` reads the process off disk at the time of the call: each
@@ -167,7 +166,7 @@ The package ships a completed process as a fixture. `get_scm_status()` and
 summary prints.
 
 ```{r status-complete, results='asis'}
-done <- read_scm("extdata/models/scm-complete/scm/1001scm.toml")
+done <- read_scm("scm-complete/scm/1001scm.toml")
 get_scm_status(done)
 ```
 
@@ -183,14 +182,14 @@ summary(done, round = "forward_round1", long = TRUE)
 
 `get_scm_model()` reads one of the process's fits as a `hyperion_nonmem_model`,
 the object `read_model()` gives for any run, so `summary()` and the parameter
-functions work on it. `round` names a stage, `"reference"`, `"working_full"`
-or `"reduced_covariate"`, or a selection round as `summary()` takes it; in a round,
+functions work on it. `round` names a stage, `"reference"`, `"forward_final"`
+or `"final"`, or a selection round as `summary()` takes it; in a round,
 `candidate` picks one effect's fit, and left out gives the round's selected
 candidate.
 A fit that was retried comes back as the attempt that counted.
 
 ```{r model-final, results='asis'}
-final <- get_scm_model(done, "reduced_covariate")
+final <- get_scm_model(done, "final")
 final
 ```
 

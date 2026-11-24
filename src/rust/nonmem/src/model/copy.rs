@@ -150,7 +150,7 @@ pub fn copy_model_wrap(
     let to = Path::new(&to);
     if to.exists() && !overwrite {
         return Err(extendr_err!(
-            "Model file {} already exists and the --overwrite flag was not passed",
+            "Model file {} already exists\ncall again with `overwrite = TRUE` to replace it",
             to.display()
         ));
     }

@@ -42,8 +42,8 @@
     Message
       
       
-      -- SCM Status: extdata/models/scm/scm/1001 -------------------------------------
-      Model: extdata/models/scm/1001.mod
+      -- SCM Status: scm/scm/1001 ----------------------------------------------------
+      Model: scm/1001.mod
       Status: planned · no rounds complete
       Direction: forward -> backward
       Alphas: forward = 0.05, backward = 0.001
@@ -58,8 +58,8 @@
     Message
       
       
-      -- SCM Summary: extdata/models/scm-complete/scm/1001 ---------------------------
-      Model: extdata/models/scm-complete/1001.mod
+      -- SCM Summary: scm-complete/scm/1001 ------------------------------------------
+      Model: scm-complete/1001.mod
       Status: completed · 5 rounds complete
       Direction: forward -> backward
       Alphas: forward = 0.05, backward = 0.001
@@ -70,11 +70,11 @@
       
       -- Models --
       
-      Model                    File                                              OFV       Covariates    
-      ───────────────────────  ────────────────────────────────────────────────  ────────  ──────────────
-      Base model               base/1001_base.mod                                1000.000  none          
-      Working full model       working_full/1001_scm_working_full.mod            973.800   WT_CL, CRCL_CL
-      Reduced covariate model  reduced_covariate/1001_scm_reduced_covariate.mod  979.500   WT_CL         
+      Model          File                                      OFV       Covariates    
+      ─────────────  ────────────────────────────────────────  ────────  ──────────────
+      Base model     base/1001_base.mod                        1000.000  none          
+      Forward model  forward_final/1001_scm_forward_final.mod  973.800   WT_CL, CRCL_CL
+      Final model    final/1001_scm_final.mod                  979.500   WT_CL         
       
       
       -- Forward round 2 --
@@ -106,16 +106,16 @@
       i Models: 12
       
     Output
-      extdata/models/scm-complete/scm/1001/base/1001_base base model
-      +-extdata/models/scm-complete/scm/1001/forward_round1/1001_wt_cl add WT_CL
-      | +-extdata/models/scm-complete/scm/1001/forward_round2/1001_crcl_cl add CRCL_CL
-      | | +-extdata/models/scm-complete/scm/1001/forward_round3/1001_wt_v add WT_V
-      | | +-extdata/models/scm-complete/scm/1001/backward_round1/1001_wt_cl drop WT_CL
-      | | \-extdata/models/scm-complete/scm/1001/backward_round1/1001_crcl_cl drop CRCL_CL
-      | |   \-extdata/models/scm-complete/scm/1001/backward_round2/1001_wt_cl drop WT_CL
-      | \-extdata/models/scm-complete/scm/1001/forward_round2/1001_wt_v_try2 add WT_V
-      +-extdata/models/scm-complete/scm/1001/forward_round1/1001_crcl_cl add CRCL_CL
-      +-extdata/models/scm-complete/scm/1001/forward_round1/1001_wt_v add WT_V
-      +-extdata/models/scm-complete/scm/1001/working_full/1001_scm_working_full working full model
-      \-extdata/models/scm-complete/scm/1001/reduced_covariate/1001_scm_reduced_covariate reduced covariate model
+      scm-complete/scm/1001/base/1001_base base model
+      +-scm-complete/scm/1001/forward_round1/1001_wt_cl add WT_CL
+      | +-scm-complete/scm/1001/forward_round2/1001_crcl_cl add CRCL_CL
+      | | +-scm-complete/scm/1001/forward_round3/1001_wt_v add WT_V
+      | | +-scm-complete/scm/1001/backward_round1/1001_wt_cl drop WT_CL
+      | | \-scm-complete/scm/1001/backward_round1/1001_crcl_cl drop CRCL_CL
+      | |   \-scm-complete/scm/1001/backward_round2/1001_wt_cl drop WT_CL
+      | \-scm-complete/scm/1001/forward_round2/1001_wt_v_try2 add WT_V
+      +-scm-complete/scm/1001/forward_round1/1001_crcl_cl add CRCL_CL
+      +-scm-complete/scm/1001/forward_round1/1001_wt_v add WT_V
+      +-scm-complete/scm/1001/forward_final/1001_scm_forward_final forward model
+      \-scm-complete/scm/1001/final/1001_scm_final final model
 

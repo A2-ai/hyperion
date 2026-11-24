@@ -1,6 +1,11 @@
 use extendr_api::Result;
 use extendr_api::prelude::*;
+use std::any::Any;
+use std::fmt::Debug;
 use std::path::PathBuf;
+
+mod refusal;
+pub use refusal::with_r_steps;
 
 //pharos config crate
 use config::{CONFIG_FILENAME, find_config_dir as pharos_find_config_dir};
@@ -11,9 +16,18 @@ pub trait ResultExt<T> {
     fn map_to_extendr_err(self, message: impl Into<String>) -> Result<T>;
 }
 
-impl<T, E: std::fmt::Debug> ResultExt<T> for std::result::Result<T, E> {
+impl<T, E: Debug + 'static> ResultExt<T> for std::result::Result<T, E> {
     fn map_to_extendr_err(self, message: impl Into<String>) -> Result<T> {
-        self.map_err(|x| extendr_api::Error::Other(format!("{}: {x:?}", message.into())))
+        self.map_err(|x| {
+            let text = format!("{}: {x:?}", message.into());
+            // An anyhow::Error may carry a pharos refusal, whose steps are
+            // worded as R calls; any other error is its Debug text alone.
+            let text = match (&x as &dyn Any).downcast_ref::<anyhow::Error>() {
+                Some(e) => with_r_steps(text, e),
+                None => text,
+            };
+            extendr_api::Error::Other(text)
+        })
     }
 }
 
@@ -78,4 +92,45 @@ extendr_module! {
 
     fn silence_panic_output;
     fn find_pharos_config_file;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nonmem::{Refusal, Step};
+
+    fn message(e: extendr_api::Error) -> String {
+        match e {
+            extendr_api::Error::Other(text) => text,
+            other => panic!("unexpected error {other:?}"),
+        }
+    }
+
+    #[test]
+    fn a_refusal_gets_r_steps() {
+        let r: std::result::Result<(), anyhow::Error> = Err(anyhow::Error::new(Refusal {
+            problem: "it exists".to_string(),
+            steps: vec![Step::Overwrite],
+        }));
+        let text = message(r.map_to_extendr_err("Failed").unwrap_err());
+        assert!(text.starts_with("Failed: it exists"), "{text}");
+        assert!(
+            text.ends_with("\ncall again with `overwrite = TRUE` to replace it"),
+            "{text}"
+        );
+    }
+
+    #[test]
+    fn other_errors_print_the_message_then_their_debug_text() {
+        let r: std::result::Result<(), anyhow::Error> = Err(anyhow::anyhow!("plain"));
+        assert_eq!(
+            message(r.map_to_extendr_err("Failed").unwrap_err()),
+            "Failed: plain"
+        );
+        let r: std::result::Result<(), String> = Err("plain".to_string());
+        assert_eq!(
+            message(r.map_to_extendr_err("Failed").unwrap_err()),
+            "Failed: \"plain\""
+        );
+    }
 }

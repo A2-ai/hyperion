@@ -1,9 +1,9 @@
 scm_fixture <- function(...) {
-  system.file("extdata", "models", "scm", ..., package = "hyperion")
+  system.file("scm", ..., package = "hyperion")
 }
 
 scm_complete_fixture <- function(...) {
-  system.file("extdata", "models", "scm-complete", ..., package = "hyperion")
+  system.file("scm-complete", ..., package = "hyperion")
 }
 
 # A temp pharos project holding the SCM fixture model, for tests that write.

@@ -6,13 +6,13 @@
       
       
       -- SCM: 1001 -------------------------------------------------------------------
-      Model: extdata/models/scm/1001.mod
-      Config: extdata/models/scm/scm/1001scm.toml
+      Model: scm/1001.mod
+      Config: scm/scm/1001scm.toml
       Direction: forward -> backward
       Alphas: forward = 0.05, backward = 0.001
       Retries: 3 per failed fit, jittered 5%
-      Covariance step: off in the round fits, on in the working full model's re-fit,
-      on in the reduced covariate model's re-fit
+      Covariance step: off in the round fits, on in the forward model's re-fit, on in
+      the final model's re-fit
       Rounds: all
     Output
        
@@ -36,13 +36,13 @@
       
       
       -- SCM: 1001 -------------------------------------------------------------------
-      Model: extdata/models/scm/1001.mod
-      Config: extdata/models/scm/scm/1001scm.toml
+      Model: scm/1001.mod
+      Config: scm/scm/1001scm.toml
       Direction: forward -> backward
       Alphas: forward = 0.05, backward = 0.001
       Retries: 3 per failed fit, jittered 5%
-      Covariance step: off in the round fits, on in the working full model's re-fit,
-      on in the reduced covariate model's re-fit
+      Covariance step: off in the round fits, on in the forward model's re-fit, on in
+      the final model's re-fit
       Rounds: all
       ! No effects yet: pass `effects` to `init_scm()` or add them with `add_scm_effect()`.
 
@@ -64,8 +64,8 @@
     Message
       
       
-      -- SCM Summary: extdata/models/scm-complete/scm/1001 ---------------------------
-      Model: extdata/models/scm-complete/1001.mod
+      -- SCM Summary: scm-complete/scm/1001 ------------------------------------------
+      Model: scm-complete/1001.mod
       Status: completed · 5 rounds complete
       Direction: forward -> backward
       Alphas: forward = 0.05, backward = 0.001
@@ -76,11 +76,11 @@
       
       -- Models --
       
-      Model                    File                                              OFV       Covariates    
-      ───────────────────────  ────────────────────────────────────────────────  ────────  ──────────────
-      Base model               base/1001_base.mod                                1000.000  none          
-      Working full model       working_full/1001_scm_working_full.mod            973.800   WT_CL, CRCL_CL
-      Reduced covariate model  reduced_covariate/1001_scm_reduced_covariate.mod  979.500   WT_CL         
+      Model          File                                      OFV       Covariates    
+      ─────────────  ────────────────────────────────────────  ────────  ──────────────
+      Base model     base/1001_base.mod                        1000.000  none          
+      Forward model  forward_final/1001_scm_forward_final.mod  973.800   WT_CL, CRCL_CL
+      Final model    final/1001_scm_final.mod                  979.500   WT_CL         
       
       
       -- Forward round 1 --
@@ -150,8 +150,8 @@
     Message
       
       
-      -- SCM Status: extdata/models/scm-complete/scm/1001 ----------------------------
-      Model: extdata/models/scm-complete/1001.mod
+      -- SCM Status: scm-complete/scm/1001 -------------------------------------------
+      Model: scm-complete/1001.mod
       Status: completed · 5 rounds complete
       Direction: forward -> backward
       Alphas: forward = 0.05, backward = 0.001
@@ -160,11 +160,11 @@
       
       -- Models --
       
-      Model                    File                                              OFV       Covariates    
-      ───────────────────────  ────────────────────────────────────────────────  ────────  ──────────────
-      Base model               base/1001_base.mod                                1000.000  none          
-      Working full model       working_full/1001_scm_working_full.mod            973.800   WT_CL, CRCL_CL
-      Reduced covariate model  reduced_covariate/1001_scm_reduced_covariate.mod  979.500   WT_CL         
+      Model          File                                      OFV       Covariates    
+      ─────────────  ────────────────────────────────────────  ────────  ──────────────
+      Base model     base/1001_base.mod                        1000.000  none          
+      Forward model  forward_final/1001_scm_forward_final.mod  973.800   WT_CL, CRCL_CL
+      Final model    final/1001_scm_final.mod                  979.500   WT_CL         
       
       
       -- Forward round 1 --
@@ -232,14 +232,14 @@
     Message
       
       
-      -- SCM Plan: extdata/models/scm-complete/scm/1001 ------------------------------
-      Model: extdata/models/scm-complete/1001.mod
+      -- SCM Plan: scm-complete/scm/1001 ---------------------------------------------
+      Model: scm-complete/1001.mod
       Direction: forward -> backward
       Alphas: forward = 0.05, backward = 0.001
       Retries: 3 per failed fit, jittered 5%
       Covariance step: off in the round fits
-      Working full fit: re-fit the working full model with the cov step on
-      Reduced covariate fit: re-fit the reduced covariate model with the cov step on
+      Forward fit: re-fit the forward model with the cov step on
+      Final fit: re-fit the final model with the cov step on
       Rounds: all
       Max models: 13 (incl. reference fit, excl. retries)
       
@@ -255,11 +255,11 @@
       
       Progress: completed — 5 rounds complete (updated [TIMESTAMP])
       Selected: WT_CL
-      Reduced covariate model: reduced_covariate/1001_scm_reduced_covariate.mod
+      Final model: final/1001_scm_final.mod
       Changes: none — identical to the config the SCM process was submitted under
       
       ! cov_step is off: the initial model's $COVARIANCE record will be removed from the round models
-      x The SCM process in 'extdata/models/scm-complete/scm/1001' cannot resume under this plan; submit with `overwrite = TRUE` to discard it.
+      x The SCM process in 'scm-complete/scm/1001' cannot resume under this plan; submit with `overwrite = TRUE` to discard it.
 
 # a summary prints the view it was asked for
 
@@ -268,8 +268,8 @@
     Message
       
       
-      -- SCM Summary: extdata/models/scm-complete/scm/1001 ---------------------------
-      Model: extdata/models/scm-complete/1001.mod
+      -- SCM Summary: scm-complete/scm/1001 ------------------------------------------
+      Model: scm-complete/1001.mod
       Status: completed · 5 rounds complete
       Direction: forward -> backward
       Alphas: forward = 0.05, backward = 0.001
@@ -281,11 +281,11 @@
       
       -- Models --
       
-      Model                    File                                              OFV       Covariates    
-      ───────────────────────  ────────────────────────────────────────────────  ────────  ──────────────
-      Base model               base/1001_base.mod                                1000.000  none          
-      Working full model       working_full/1001_scm_working_full.mod            973.800   WT_CL, CRCL_CL
-      Reduced covariate model  reduced_covariate/1001_scm_reduced_covariate.mod  979.500   WT_CL         
+      Model          File                                      OFV       Covariates    
+      ─────────────  ────────────────────────────────────────  ────────  ──────────────
+      Base model     base/1001_base.mod                        1000.000  none          
+      Forward model  forward_final/1001_scm_forward_final.mod  973.800   WT_CL, CRCL_CL
+      Final model    final/1001_scm_final.mod                  979.500   WT_CL         
       
       
       -- Forward round 2 --
@@ -320,8 +320,8 @@
     Message
       
       
-      -- SCM Status: extdata/models/scm-complete/scm/1001 ----------------------------
-      Model: extdata/models/scm-complete/1001.mod
+      -- SCM Status: scm-complete/scm/1001 -------------------------------------------
+      Model: scm-complete/1001.mod
       Status: running · 5 rounds complete
       Direction: forward -> backward
       Alphas: forward = 0.05, backward = 0.001
@@ -330,10 +330,10 @@
       
       -- Models --
       
-      Model               File                                    OFV       Covariates    
-      ──────────────────  ──────────────────────────────────────  ────────  ──────────────
-      Base model          base/1001_base.mod                      1000.000  none          
-      Working full model  working_full/1001_scm_working_full.mod  973.800   WT_CL, CRCL_CL
+      Model          File                                      OFV       Covariates    
+      ─────────────  ────────────────────────────────────────  ────────  ──────────────
+      Base model     base/1001_base.mod                        1000.000  none          
+      Forward model  forward_final/1001_scm_forward_final.mod  973.800   WT_CL, CRCL_CL
       
       
       -- Forward round 1 --

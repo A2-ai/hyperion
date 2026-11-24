@@ -9,3 +9,7 @@ extendr-api = { workspace = true }
 
 # Pharos crates
 config = { workspace = true }
+nonmem = { workspace = true }
+
+# Core utilities
+anyhow = { workspace = true }

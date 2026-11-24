@@ -2,16 +2,6 @@
 
 ## Breaking changes
 
-- The SCM forward and final models are renamed to the working full model
-  and the reduced covariate model, following pharos. `get_scm_model()` takes
-  `"working_full"` and `"reduced_covariate"` in place of `"forward_final"`
-  and `"final"`, and `get_scm_lineage()` tags those fits the same way.
-  `update_scm_settings()` takes `working_full_cov_step` and
-  `reduced_covariate_cov_step` in place of `forward_final_cov_step` and
-  `final_cov_step`; a config with the old keys is an error. The process
-  record has `working_full`, `reduced_covariate_model` and
-  `reduced_covariate_ofv`. An SCM process run before this change cannot be
-  resumed and must be run again.
 - `init_scm()` returns the path to the config instead of the
   `hyperion_nonmem_scm` object. A config that already exists is reported
   and its path returned instead of raising an error (`overwrite = TRUE`
@@ -30,8 +20,8 @@
   unchanged, with pharos' rendering still in their `text` attribute.
 - Printing an SCM config shows where the covariance step runs.
 - `get_scm_model()` reads a model fitted by an SCM process, by round and
-  candidate or by stage (`"reference"`, `"working_full"`,
-  `"reduced_covariate"`), as a `hyperion_nonmem_model`.
+  candidate or by stage (`"reference"`, `"forward_final"`,
+  `"final"`), as a `hyperion_nonmem_model`.
 - `get_scm_lineage()` builds the lineage tree of an SCM process's fits from
   its process record, for a run summary table with
   `hyperion.tables::apply_summary_spec()`. Each node carries the covariates

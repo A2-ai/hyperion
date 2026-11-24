@@ -22,7 +22,7 @@ treated as never started.
 }
 \description{
 Reads where an SCM process stands now: the process facts; the base,
-working full and reduced covariate models fitted so far; each decided
+forward and final models fitted so far; each decided
 round with its decision and a table of its candidates; the open round
 fit by fit (its SLURM job, how long it has run, and the latest iteration
 and OFV from its \code{.ext} file); and the state of the driver (running,

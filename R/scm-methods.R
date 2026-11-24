@@ -50,10 +50,10 @@ build_scm_display_parts <- function(x) {
     cov = paste0(
       on_off(x$cov_step),
       " in the round fits, ",
-      on_off(x$working_full_cov_step %||% TRUE),
-      " in the working full model's re-fit, ",
-      on_off(x$reduced_covariate_cov_step %||% TRUE),
-      " in the reduced covariate model's re-fit"
+      on_off(x$forward_final_cov_step %||% TRUE),
+      " in the forward model's re-fit, ",
+      on_off(x$final_cov_step %||% TRUE),
+      " in the final model's re-fit"
     ),
     rounds = if (rounds > 0) paste0("pause after ", rounds) else "all",
     effects = effects_df
@@ -198,8 +198,8 @@ print_scm_alert <- function(alert) {
 #'
 #' Prints an SCM plan, status or summary in the same layout as a model
 #' summary: the process facts under a title, followed by sections with
-#' tables. A summary and a status show the base, working full and reduced
-#' covariate models, then each round with its decision and its candidates.
+#' tables. A summary and a status show the base, forward and final
+#' models, then each round with its decision and its candidates.
 #' The candidate a round added or dropped is shown in green and an unusable
 #' fit in red. A status also shows its open round fit by fit and ends with
 #' the state of the driver. A plan shows its candidate effects, the process
@@ -368,8 +368,8 @@ str.hyperion_nonmem_scm_record <- function(object, ...) {
 #' Summary method for hyperion_nonmem_scm objects
 #'
 #' Summarizes the results of an SCM process. The summary prints the process
-#' facts with the path the covariates took; the base, working full and
-#' reduced covariate models; and each round with its decision, its
+#' facts with the path the covariates took; the base, forward and
+#' final models; and each round with its decision, its
 #' reference, and a table of its candidates showing their OFV, dOFV against
 #' the reference, p-value, and which candidate the round added or dropped.
 #'

@@ -229,12 +229,14 @@ scm_on_off <- function(flag) {
 #'
 #' Converts the rows to a data frame of text cells, drops the columns that
 #' are empty in every row, and attaches the cell colors (see
-#' `display_cell_colors()`).
+#' `display_cell_colors()`). The table opts out of the shared red rules,
+#' which are written for parameter tables.
 #'
 #' @param rows List of named lists, one per row
 #' @param colors List of cells to color, each with row, column and color
 #' @param numeric Names of the numeric columns
-#' @return Data frame with cell_colors and numeric_cols attributes
+#' @return Data frame with cell_colors, numeric_cols and skip_style_rules
+#'   attributes
 #' @keywords internal
 #' @noRd
 scm_display_table <- function(rows, colors = NULL, numeric = character()) {
@@ -255,6 +257,7 @@ scm_display_table <- function(rows, colors = NULL, numeric = character()) {
   rownames(df) <- NULL
   attr(df, "cell_colors") <- color_matrix[, keep, drop = FALSE]
   attr(df, "numeric_cols") <- intersect(numeric, names(df))
+  attr(df, "skip_style_rules") <- TRUE
   df
 }
 

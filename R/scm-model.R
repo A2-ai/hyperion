@@ -121,7 +121,7 @@ scm_model_in_record <- function(record, round, candidate = NULL) {
     }
   }
   path <- cands[[i]]$model
-  if (is.null(path)) {
+  if (is.null(path) || !nzchar(path)) {
     rlang::abort(paste0(
       "Candidate '",
       names[i],

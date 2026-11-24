@@ -27,6 +27,8 @@ build_scm_display_parts <- function(x) {
       stringsAsFactors = FALSE
     )
     effects_df <- format_display_data(effects_df)
+    # `Fixed` holds a value here, not the flag the shared red rule reads
+    attr(effects_df, "skip_style_rules") <- TRUE
   }
   on_off <- function(flag) if (isTRUE(flag)) "on" else "off"
   rounds <- x$num_rounds %||% 0
@@ -317,6 +319,7 @@ knit_scm_table <- function(data) {
   escaped[] <- lapply(data, html_escape)
   attr(escaped, "cell_colors") <- attr(data, "cell_colors")
   attr(escaped, "numeric_cols") <- attr(data, "numeric_cols")
+  attr(escaped, "skip_style_rules") <- attr(data, "skip_style_rules")
   escaped
 }
 

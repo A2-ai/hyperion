@@ -264,6 +264,11 @@ build_display_table_model <- function(formatted_data, title) {
     }
   }
 
+  # A table that opts out of the shared rules keeps only its own colors
+  if (isTRUE(attr(formatted_data, "skip_style_rules"))) {
+    red_flags[] <- FALSE
+  }
+
   list(
     title = title,
     data = display_data,
@@ -277,7 +282,8 @@ build_display_table_model <- function(formatted_data, title) {
 #' A display table may carry a `cell_colors` attribute: a character matrix
 #' the shape of the table, naming a color ("green", "red", "yellow", "blue"
 #' or "grey") for the cells to color and `NA` for the rest. The threshold
-#' rules that turn a cell red still win over it.
+#' rules that turn a cell red still win over it, unless the table also
+#' carries `skip_style_rules = TRUE`.
 #'
 #' @param formatted_data Data frame handed to a table printer
 #' @return The matrix, or NULL when the table carries none of its shape

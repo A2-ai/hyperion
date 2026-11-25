@@ -31,7 +31,7 @@
 
 ## Breaking changes
 
-- Requires pharos CLI 0.7.0. The SCM driver job runs the `pharos` found on
+- Requires pharos CLI 0.8.0. The SCM driver job runs the `pharos` found on
   `PATH`, and `submit_scm_to_slurm()` refuses a version that differs from
   the one hyperion was built for.
 

@@ -383,7 +383,8 @@ scm_reference_round <- function(x) {
 #' Build the models section
 #'
 #' Lists the base (or full) model, the forward model and the final
-#' model with their OFV and covariates.
+#' model with their OFV and covariates, and the status of a fit
+#' that is not a finished fit of its own.
 #'
 #' @param x A hyperion_nonmem_scm_record object
 #' @return A section, or NULL when the record has no models yet
@@ -392,12 +393,13 @@ scm_reference_round <- function(x) {
 scm_models_section <- function(x) {
   rows <- list()
   colors <- list()
-  add <- function(label, file, ofv, covariates, status) {
+  add <- function(label, file, ofv, covariates, status, reused = "") {
     status <- status %||% ""
     shown <- switch(
       status,
       succeeded = "",
-      reused = "cov step already on",
+      reused = reused,
+      unfitted = "not fitted",
       status
     )
     rows[[length(rows) + 1]] <<- list(
@@ -435,7 +437,8 @@ scm_models_section <- function(x) {
       forward$model,
       forward$ofv,
       forward$retained,
-      forward$status
+      forward$status,
+      reused = "cov step already on"
     )
   }
   if (!is.null(x$final_model)) {
@@ -444,7 +447,8 @@ scm_models_section <- function(x) {
       x$final_model,
       x$final_ofv,
       x$retained,
-      ""
+      x$final_fit$status,
+      reused = "copied fit"
     )
   }
   if (length(rows) == 0) {

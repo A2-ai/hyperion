@@ -88,6 +88,7 @@ fn driver_robj(record: &DriverRecord) -> Robj {
         allocation = record.allocation.map(|a| a as f64),
         log = record.log.as_ref().map(|l| scm::shown(l)),
         started = record.started.clone(),
+        ended = record.ended.clone(),
         liveness = liveness
     )
     .into_robj()
